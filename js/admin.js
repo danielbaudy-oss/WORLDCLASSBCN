@@ -569,6 +569,12 @@ async function loadStatsGrid(teacherData, adminData) {
       cachedHolidays = hRes.data || [];
     }
 
+    // Load paid hours
+    if (!cachedPaidHours) {
+      var phRes = await db.from('paid_hours').select('*');
+      cachedPaidHours = phRes.data || [];
+    }
+
     // Compute stats
     var allProfiles = teachers.concat(admins);
     var totalProgress = 0;
