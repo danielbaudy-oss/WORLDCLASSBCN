@@ -275,3 +275,6 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; }
 .legend-dot { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
 .legend-dot.punches { background: var(--accent); }
 .legend-dot.school-holiday { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #f59e0b; }
+
+/* Holiday type button description */
+.holiday-type-desc { font-size: 11px; color: var(--gray-400); margin-top: 2px; }

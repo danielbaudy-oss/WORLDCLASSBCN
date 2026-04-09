@@ -413,15 +413,39 @@ async function loadHolidaySummary() {
     else if (h.type === 'Permiso' && h.status === 'Approved') summary.permisoUsed += days;
   });
 
-  const annualRemaining = currentProfile.annual_days - summary.annualUsed - summary.annualPending;
-  const personalRemaining = currentProfile.personal_days - summary.personalUsed - summary.personalPending;
+  const annualTotal = currentProfile.annual_days || DEFAULTS.ANNUAL_DAYS;
+  const personalTotal = currentProfile.personal_days || DEFAULTS.PERSONAL_DAYS;
+  const schoolTotal = currentProfile.school_days || DEFAULTS.SCHOOL_DAYS;
+  const medApptTotal = currentProfile.med_appt_hours || DEFAULTS.MEDICAL_APPT_HOURS;
 
+  const annualRemaining = annualTotal - summary.annualUsed - summary.annualPending;
+  const personalRemaining = personalTotal - summary.personalUsed - summary.personalPending;
+  const medApptRemaining = Math.round((medApptTotal - summary.medApptUsed - summary.medApptPending) * 100) / 100;
+
+  // Summary stats
   document.getElementById('annualUsed').textContent = summary.annualUsed;
-  document.getElementById('annualTotal').textContent = '/' + currentProfile.annual_days;
+  document.getElementById('annualTotal').textContent = '/' + annualTotal;
   document.getElementById('personalUsed').textContent = summary.personalUsed;
-  document.getElementById('personalTotal').textContent = '/' + currentProfile.personal_days;
-  document.getElementById('medicalUsed').textContent = summary.medicalUsed;
+  document.getElementById('personalTotal').textContent = '/' + personalTotal;
   document.getElementById('schoolUsed').textContent = summary.schoolUsed;
+  document.getElementById('schoolTotal').textContent = '/' + schoolTotal;
+  document.getElementById('medApptUsed').textContent = Math.round(summary.medApptUsed * 100) / 100;
+  document.getElementById('medApptTotal').textContent = '/' + medApptTotal + 'h';
+
+  // Remaining in type buttons
+  var annualRem = document.getElementById('annualRemaining');
+  if (annualRem) annualRem.textContent = annualRemaining + ' días';
+  var personalRem = document.getElementById('personalRemaining');
+  if (personalRem) personalRem.textContent = personalRemaining + ' días';
+  var medApptRem = document.getElementById('medApptRemaining');
+  if (medApptRem) medApptRem.textContent = medApptRemaining + 'h';
+
+  // Puente days from config
+  try {
+    const puenteVal = await getConfigValue('PuenteDays');
+    var puenteEl = document.getElementById('puenteDays');
+    if (puenteEl && puenteVal) puenteEl.textContent = puenteVal;
+  } catch (e) {}
 
   // Render requests list
   renderHolidayRequests(holidays || []);
