@@ -566,6 +566,9 @@ async function loadStatsGrid(teacherData, adminData) {
     var totalProgress = 0;
     var onTrackCount = 0;
     var totalPeriodHours = 0;
+    var teacherProgressCount = 0;
+    var teacherProgressSum = 0;
+    var teacherOnTrackCount = 0;
 
     allProfiles.forEach(function(profile) {
       var userPunches = cachedPunches.filter(function(p) { return p.user_id === profile.id; });
@@ -657,9 +660,16 @@ async function loadStatsGrid(teacherData, adminData) {
 
       totalProgress += percent;
       if (percent >= 98) onTrackCount++;
+
+      // Track teacher-only stats for on-track display (matches old app)
+      if (!isAdmin) {
+        teacherProgressCount++;
+        teacherProgressSum += percent;
+        if (percent >= 98) teacherOnTrackCount++;
+      }
     });
 
-    var avgProgress = allProfiles.length > 0 ? Math.round(totalProgress / allProfiles.length) : 0;
+    var avgProgress = teacherProgressCount > 0 ? Math.round(teacherProgressSum / teacherProgressCount) : 0;
 
     // Working days stats — year-level (passed/total for the year)
     var passedWorkingDays = precomputed.passedCount;
@@ -668,10 +678,10 @@ async function loadStatsGrid(teacherData, adminData) {
     // Render stats
     document.getElementById('statTeachers').textContent = teachers.length;
     document.getElementById('statAdmins').textContent = admins.length;
-    document.getElementById('statOnTrack').textContent = onTrackCount + '/' + allProfiles.length;
-    document.getElementById('statAvgProgress').textContent = 'Progreso medio: ' + avgProgress + '%';
+    document.getElementById('statOnTrack').textContent = teacherOnTrackCount + '/' + teachers.length;
+    document.getElementById('statAvgProgress').textContent = 'Progreso promedio: ' + avgProgress + '%';
     document.getElementById('statWorkingDays').textContent = passedWorkingDays + '/' + totalWorkingDaysYear;
-    document.getElementById('statSchoolHolidays').textContent = cachedSchoolHolidays.length + ' festivos excluidos';
+    document.getElementById('statSchoolHolidays').textContent = schoolHolidayDates.size + ' festivos configurados';
     document.getElementById('statPeriodHours').textContent = totalPeriodHours.toFixed(1) + 'h';
 
     // Update period label
@@ -1968,8 +1978,9 @@ async function loadHolidayData() {
     // Approved requests
     var approved = allRequests.filter(function(r) { return r.status === 'Approved'; });
 
-    // Annual usage
-    var totalAnnualDays = profiles.reduce(function(s, p) { return s + (p.annual_days || DEFAULTS.ANNUAL_DAYS); }, 0);
+    // Annual usage — teachers only (matches old app)
+    var teacherProfiles = profiles.filter(function(p) { return p.role === 'teacher'; });
+    var totalAnnualDays = teacherProfiles.reduce(function(s, p) { return s + (p.annual_days || DEFAULTS.ANNUAL_DAYS); }, 0);
     var usedAnnualDays = approved.filter(function(r) { return r.type === 'Annual'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
     var annualPercent = totalAnnualDays > 0 ? Math.round((usedAnnualDays / totalAnnualDays) * 100) : 0;
     document.getElementById('statAnnualUsage').textContent = annualPercent + '%';
@@ -1977,8 +1988,8 @@ async function loadHolidayData() {
     var annualBar = document.getElementById('statAnnualBar');
     if (annualBar) annualBar.style.width = Math.min(annualPercent, 100) + '%';
 
-    // Personal usage
-    var totalPersonalDays = profiles.reduce(function(s, p) { return s + (p.personal_days || DEFAULTS.PERSONAL_DAYS); }, 0);
+    // Personal usage — teachers only
+    var totalPersonalDays = teacherProfiles.reduce(function(s, p) { return s + (p.personal_days || DEFAULTS.PERSONAL_DAYS); }, 0);
     var usedPersonalDays = approved.filter(function(r) { return r.type === 'Personal'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
     var personalPercent = totalPersonalDays > 0 ? Math.round((usedPersonalDays / totalPersonalDays) * 100) : 0;
     document.getElementById('statPersonalUsage').textContent = personalPercent + '%';
@@ -1986,8 +1997,8 @@ async function loadHolidayData() {
     var personalBar = document.getElementById('statPersonalBar');
     if (personalBar) personalBar.style.width = Math.min(personalPercent, 100) + '%';
 
-    // School usage
-    var totalSchoolDays = profiles.reduce(function(s, p) { return s + (p.school_days || DEFAULTS.SCHOOL_DAYS); }, 0);
+    // School usage — teachers only
+    var totalSchoolDays = teacherProfiles.reduce(function(s, p) { return s + (p.school_days || DEFAULTS.SCHOOL_DAYS); }, 0);
     var usedSchoolDays = approved.filter(function(r) { return r.type === 'School'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
     var schoolPercent = totalSchoolDays > 0 ? Math.round((usedSchoolDays / totalSchoolDays) * 100) : 0;
     document.getElementById('statSchoolUsage').textContent = schoolPercent + '%';
