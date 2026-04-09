@@ -432,14 +432,6 @@ async function loadHolidaySummary() {
   document.getElementById('medApptUsed').textContent = Math.round(summary.medApptUsed * 100) / 100;
   document.getElementById('medApptTotal').textContent = '/' + medApptTotal + 'h';
 
-  // Remaining in type buttons
-  var annualRem = document.getElementById('annualRemaining');
-  if (annualRem) annualRem.textContent = annualRemaining + ' días';
-  var personalRem = document.getElementById('personalRemaining');
-  if (personalRem) personalRem.textContent = personalRemaining + ' días';
-  var medApptRem = document.getElementById('medApptRemaining');
-  if (medApptRem) medApptRem.textContent = medApptRemaining + 'h';
-
   // Puente days from config
   try {
     const puenteVal = await getConfigValue('PuenteDays');
@@ -639,10 +631,11 @@ async function loadProgress() {
   const progressHours = document.getElementById('progressHours');
   const progressExpected = document.getElementById('progressExpected');
 
-  const status = percent >= 98 ? 'on-track' : percent >= 80 ? 'warning' : 'behind';
-  progressBar.style.width = Math.min(percent, 100) + '%';
+  var roundedPercent = Math.round(percent);
+  const status = roundedPercent >= 98 ? 'on-track' : roundedPercent >= 80 ? 'warning' : 'behind';
+  progressBar.style.width = Math.min(roundedPercent, 100) + '%';
   progressBar.className = 'progress-bar ' + status;
-  progressPercent.textContent = Math.round(percent) + '%';
+  progressPercent.textContent = roundedPercent + '%';
   progressPercent.className = 'progress-percent ' + status;
   progressHours.textContent = adjustedTotal.toFixed(1) + 'h / ' + expectedYearly + 'h';
   if (progressExpected) progressExpected.textContent = Math.round(expectedToDate) + 'h esperadas';
