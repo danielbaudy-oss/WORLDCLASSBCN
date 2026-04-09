@@ -439,10 +439,11 @@ function buildSchoolHolidayDateSet(schoolHolidays) {
 
 // Pre-compute working days for the year (weekdays minus school holidays)
 // Matches Code.js precomputeWorkingDays() exactly
-function precomputeWorkingDaysForYear(schoolHolidayDates) {
-  var now = new Date();
+// asOfDate: optional cutoff date for "passed" working days (defaults to today)
+function precomputeWorkingDaysForYear(schoolHolidayDates, asOfDate) {
+  var now = asOfDate ? new Date(asOfDate + 'T23:59:59') : new Date();
   now.setHours(0, 0, 0, 0);
-  var year = now.getFullYear();
+  var year = new Date().getFullYear();
   var yearStart = new Date(year, 0, 1);
   var yearEnd = new Date(year, 11, 31);
   var allWorkingDays = new Set();
@@ -557,9 +558,10 @@ async function loadStatsGrid(teacherData, adminData) {
 
     // Period range
     var periodRange = viewMode === 'monthly' ? getMonthRange() : getWeekRange();
+    var cutoffDate = periodRange.end < today ? periodRange.end : today;
 
-    // Pre-compute working days for the year (matches Code.js)
-    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates);
+    // Pre-compute working days for the year using cutoff date
+    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
 
     // Load holiday requests for progress calculation
     if (!cachedHolidays) {
@@ -578,7 +580,7 @@ async function loadStatsGrid(teacherData, adminData) {
 
     allProfiles.forEach(function(profile) {
       var userPunches = cachedPunches.filter(function(p) { return p.user_id === profile.id; });
-      var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, today);
+      var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, cutoffDate);
       var periodHours = calculateHoursFromPunches(userPunches, periodRange.start, periodRange.end);
 
       var isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
@@ -638,18 +640,22 @@ async function loadStatsGrid(teacherData, adminData) {
         totalPeriodHours += adjustedPeriodHours;
       }
 
-      // Progress: use yearly totals
+      // Progress: use yearly totals (capped at cutoff date)
       var yearlyMedicalHours = 0;
       userMedical.forEach(function(h) {
-        var days = countWorkingDays(h.start_date, h.end_date, schoolHolidayDates);
-        yearlyMedicalHours += days * hoursPerWorkingDay;
+        var medStart = h.start_date > yearStart ? h.start_date : yearStart;
+        var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
+        if (medStart <= medEnd) {
+          var days = countWorkingDays(medStart, medEnd, schoolHolidayDates);
+          yearlyMedicalHours += days * hoursPerWorkingDay;
+        }
       });
       var yearlyMedApptHours = 0;
       cachedHolidays.filter(function(h) {
         return h.user_id === profile.id && h.type === 'MedAppt';
       }).forEach(function(h) {
         var hDate = h.start_date || '';
-        if (hDate >= yearStart && hDate <= today) {
+        if (hDate >= yearStart && hDate <= cutoffDate) {
           yearlyMedApptHours += parseFloat(h.total_days) || 0;
         }
       });
@@ -743,6 +749,10 @@ async function loadTeachersTable() {
     var today = formatDate(new Date());
     var periodRange = viewMode === 'monthly' ? getMonthRange() : getWeekRange();
 
+    // Cutoff date: for current period use today, for past periods use end of period
+    // This matches Code.js: progressDate = isCurrentMonth ? now : new Date(year, month, 0)
+    var cutoffDate = periodRange.end < today ? periodRange.end : today;
+
     // Load all punches for the year (IN/OUT + PREP)
     var pRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
       .gte('date', yearStart).lte('date', today).limit(10000);
@@ -761,8 +771,8 @@ async function loadTeachersTable() {
       cachedPaidHours = phRes.data || [];
     }
 
-    // Pre-compute working days for the year (matches Code.js)
-    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates);
+    // Pre-compute working days for the year using cutoff date
+    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
 
     if (!teachers.length) {
       tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay profesores activos</td></tr>';
@@ -776,8 +786,8 @@ async function loadTeachersTable() {
       // Period hours (monthly or weekly)
       var periodHours = calculateHoursFromPunches(userPunches, periodRange.start, periodRange.end);
 
-      // Yearly hours (Jan 1 to today)
-      var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, today);
+      // Yearly hours (Jan 1 to cutoff date — end of period for past, today for current)
+      var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, cutoffDate);
 
       // Paid hours (yearly)
       var userPaidHours = cachedPaidHours.filter(function(ph) { return ph.user_id === t.id; });
@@ -805,8 +815,13 @@ async function loadTeachersTable() {
         : 0;
       var medicalHours = 0;
       userMedical.forEach(function(h) {
-        var days = countWorkingDays(h.start_date, h.end_date, schoolHolidayDates);
-        medicalHours += days * hoursPerWorkingDay;
+        // Cap medical range at cutoff date
+        var medStart = h.start_date > yearStart ? h.start_date : yearStart;
+        var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
+        if (medStart <= medEnd) {
+          var days = countWorkingDays(medStart, medEnd, schoolHolidayDates);
+          medicalHours += days * hoursPerWorkingDay;
+        }
       });
       medicalHours = Math.round(medicalHours * 100) / 100;
 
@@ -817,7 +832,7 @@ async function loadTeachersTable() {
       var medApptHours = 0;
       userMedAppt.forEach(function(h) {
         var hDate = h.start_date || '';
-        if (hDate >= yearStart && hDate <= today) {
+        if (hDate >= yearStart && hDate <= cutoffDate) {
           medApptHours += parseFloat(h.total_days) || 0;
         }
       });
@@ -939,6 +954,7 @@ async function loadAdminWorkersTable() {
     var yearStart = year + '-01-01';
     var today = formatDate(new Date());
     var periodRange = viewMode === 'monthly' ? getMonthRange() : getWeekRange();
+    var cutoffDate = periodRange.end < today ? periodRange.end : today;
 
     // Load punches
     if (!cachedPunches) {
@@ -960,8 +976,8 @@ async function loadAdminWorkersTable() {
       cachedPaidHours = phRes.data || [];
     }
 
-    // Pre-compute working days for the year (matches Code.js)
-    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates);
+    // Pre-compute working days for the year using cutoff date
+    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
 
     if (!admins.length) {
       tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay administradores activos</td></tr>';
@@ -974,8 +990,8 @@ async function loadAdminWorkersTable() {
       // Period hours
       var periodHours = calculateHoursFromPunches(userPunches, periodRange.start, periodRange.end);
 
-      // Yearly hours
-      var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, today);
+      // Yearly hours (up to cutoff)
+      var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, cutoffDate);
 
       // Paid hours
       var userPaidHours = cachedPaidHours.filter(function(ph) { return ph.user_id === a.id; });
@@ -1000,8 +1016,12 @@ async function loadAdminWorkersTable() {
       var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
       var medicalHours = 0;
       userMedical.forEach(function(h) {
-        var days = countWorkingDays(h.start_date, h.end_date, schoolHolidayDates);
-        medicalHours += days * hoursPerWorkingDay;
+        var medStart = h.start_date > yearStart ? h.start_date : yearStart;
+        var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
+        if (medStart <= medEnd) {
+          var days = countWorkingDays(medStart, medEnd, schoolHolidayDates);
+          medicalHours += days * hoursPerWorkingDay;
+        }
       });
       medicalHours = Math.round(medicalHours * 100) / 100;
 
@@ -1012,7 +1032,7 @@ async function loadAdminWorkersTable() {
       var medApptHours = 0;
       userMedAppt.forEach(function(h) {
         var hDate = h.start_date || '';
-        if (hDate >= yearStart && hDate <= today) {
+        if (hDate >= yearStart && hDate <= cutoffDate) {
           medApptHours += parseFloat(h.total_days) || 0;
         }
       });
@@ -2873,26 +2893,87 @@ async function confirmArchive(year) {
 // ========================================
 
 function exportCSV() {
+  if (!cachedTeachers && !cachedAdmins) {
+    showToast('No hay datos para exportar. Carga la tabla primero.', 'error');
+    return;
+  }
+
   var teachers = cachedTeachers || [];
   var admins = cachedAdmins || [];
-  var allProfiles = teachers.concat(admins);
+  var allProfiles = teachers.concat(admins).sort(function(a, b) {
+    if (a.role !== b.role) return a.role === 'teacher' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
 
   if (!allProfiles.length) {
     showToast('No hay datos para exportar', 'error');
     return;
   }
 
-  // Build CSV header
-  var headers = ['Nombre', 'Email', 'Rol', 'Horas Anuales Esperadas', 'Estado'];
+  var schoolHolidayDates = buildSchoolHolidayDateSet(cachedSchoolHolidays || []);
+  var year = new Date().getFullYear();
+  var yearStart = year + '-01-01';
+  var today = formatDate(new Date());
+  var periodRange = viewMode === 'monthly' ? getMonthRange() : getWeekRange();
+  var cutoffDate = periodRange.end < today ? periodRange.end : today;
+  var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
+  var punches = cachedPunches || [];
+  var holidays = cachedHolidays || [];
+  var paidHours = cachedPaidHours || [];
+
+  var headers = ['Tipo', 'Nombre', 'Email', 'Horas Periodo', 'Horas Totales', 'Pagadas', 'Médicas', 'Progreso %', 'Esperado/Año', 'H.No Lectivas'];
   var csvRows = [headers.join(',')];
 
   allProfiles.forEach(function(p) {
+    var isAdmin = p.role === 'admin' || p.role === 'super_admin';
+    var defaults = isAdmin ? ADMIN_DEFAULTS : DEFAULTS;
+    var expectedYearly = p.expected_yearly_hours || defaults.EXPECTED_YEARLY_HOURS;
+    var annualDays = p.annual_days || defaults.ANNUAL_DAYS;
+    var personalDays = p.personal_days || defaults.PERSONAL_DAYS;
+    var schoolDays = p.school_days || defaults.SCHOOL_DAYS;
+
+    var userPunches = punches.filter(function(pu) { return pu.user_id === p.id; });
+    var periodHours = calculateHoursFromPunches(userPunches, periodRange.start, periodRange.end);
+    var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, cutoffDate);
+
+    var userPaid = paidHours.filter(function(ph) { return ph.user_id === p.id; });
+    var paidTotal = userPaid.reduce(function(s, ph) { return s + (parseFloat(ph.hours) || 0); }, 0);
+
+    var teacherHolidayDates = buildTeacherHolidayDates(holidays, p.id);
+    var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
+    var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+    var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
+
+    var userMedical = holidays.filter(function(h) { return h.user_id === p.id && h.type === 'Medical'; });
+    var medicalHours = 0;
+    userMedical.forEach(function(h) {
+      var medStart = h.start_date > yearStart ? h.start_date : yearStart;
+      var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
+      if (medStart <= medEnd) {
+        medicalHours += countWorkingDays(medStart, medEnd, schoolHolidayDates) * hoursPerWorkingDay;
+      }
+    });
+
+    var totalHours = yearlyHours - paidTotal + medicalHours;
+    var expectedToDate = expectedYearly * progress.progressRatio;
+    var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+
+    var prepTotal = 0;
+    if (!isAdmin && punches) {
+      // Prep time not in cachedPunches (filtered to IN/OUT), skip for CSV
+    }
+
     var row = [
+      isAdmin ? 'Admin' : 'Profesor',
       '"' + (p.name || '').replace(/"/g, '""') + '"',
       '"' + (p.email || '').replace(/"/g, '""') + '"',
-      p.role === 'teacher' ? 'Profesor' : 'Admin',
-      p.expected_yearly_hours || '',
-      p.status || 'Active'
+      periodHours.toFixed(2),
+      totalHours.toFixed(2),
+      paidTotal.toFixed(2),
+      medicalHours.toFixed(2),
+      progressPercent.toFixed(1),
+      expectedYearly,
+      p.prep_time_yearly || 0
     ];
     csvRows.push(row.join(','));
   });
@@ -2902,8 +2983,8 @@ function exportCSV() {
   var url = URL.createObjectURL(blob);
   var link = document.createElement('a');
   link.href = url;
-  var now = new Date();
-  link.download = 'empleados_' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '.csv';
+  var monthRange = getMonthRange();
+  link.download = 'informe_horas_' + monthRange.monthName + '_' + monthRange.year + '.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
