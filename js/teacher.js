@@ -22,6 +22,7 @@ async function initTeacher() {
   }
 
   await loadDay(selectedDate);
+  await loadProgress();
   await loadHolidaySummary();
 }
 
@@ -506,6 +507,7 @@ function calculateWorkingDays(startDate, endDate) {
 // ========================================
 
 async function loadProgress() {
+  try {
   const year = new Date().getFullYear();
   const yearStart = `${year}-01-01`;
   const today = formatDate(new Date());
@@ -620,6 +622,9 @@ async function loadProgress() {
   progressPercent.className = 'progress-percent ' + status;
   progressHours.textContent = adjustedTotal.toFixed(1) + 'h / ' + expectedYearly + 'h';
   if (progressExpected) progressExpected.textContent = Math.round(expectedToDate) + 'h esperadas';
+  } catch (err) {
+    console.error('Error loading progress:', err);
+  }
 }
 
 function calculateTotalHours(punches) {
