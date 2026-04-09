@@ -9,11 +9,29 @@ async function getProfile() {
   const session = await getSession();
   if (!session) return null;
 
-  const { data, error } = await db
+  // First try matching by auth user ID
+  var { data, error } = await db
     .from('profiles')
     .select('*')
     .eq('id', session.user.id)
     .single();
+
+  if (!data && session.user.email) {
+    // No profile with this auth ID — try linking via RPC
+    try {
+      await db.rpc('link_profile_by_email', { user_email: session.user.email });
+      // Re-fetch
+      var { data: linked } = await db
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      return linked;
+    } catch (e) {
+      console.error('Profile link error:', e);
+    }
+    return null;
+  }
 
   if (error) {
     console.error('Profile fetch error:', error);
