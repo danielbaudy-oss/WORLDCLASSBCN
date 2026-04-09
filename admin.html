@@ -26,24 +26,18 @@
       </div>
     </div>
     <nav class="sidebar-nav">
-      <div class="nav-item active" onclick="showSection('dashboard')" data-section="dashboard">
-        <span class="nav-icon">📊</span> Dashboard
+      <div class="nav-item active" onclick="showSection('teachers')" id="navTeachers" data-section="teachers">
+        <span class="nav-icon">📊</span><span>Horas de Empleados</span>
       </div>
-      <div class="nav-item" onclick="showSection('teachers')" data-section="teachers">
-        <span class="nav-icon">👩‍🏫</span> Profesores
-      </div>
-      <div class="nav-item" onclick="showSection('holidays')" data-section="holidays">
-        <span class="nav-icon">🏖️</span> Permisos
+      <div class="nav-item" onclick="showSection('holidays')" id="navHolidays" data-section="holidays">
+        <span class="nav-icon">🏖️</span><span>Vacaciones y Permisos</span>
         <span class="nav-badge" id="pendingBadge" style="display:none">0</span>
       </div>
-      <div class="nav-item" onclick="showSection('calendar')" data-section="calendar">
-        <span class="nav-icon">📅</span> Calendario
+      <div class="nav-item" onclick="showSection('archive')" id="navArchive" data-section="archive">
+        <span class="nav-icon">📦</span><span>Archivo Anual</span>
       </div>
-      <div class="nav-item" onclick="showSection('school-holidays')" data-section="school-holidays">
-        <span class="nav-icon">🏢</span> Festivos
-      </div>
-      <div class="nav-item" onclick="showSection('settings')" data-section="settings">
-        <span class="nav-icon">⚙️</span> Configuración
+      <div class="nav-item" onclick="showSection('settings')" id="navSettings" data-section="settings">
+        <span class="nav-icon">⚙️</span><span>Configuración</span>
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -58,14 +52,23 @@
 
   <!-- Main Content -->
   <div class="main-content">
-    <!-- Dashboard Section -->
-    <div class="content-section active" id="section-dashboard">
+
+    <!-- ============================================ -->
+    <!-- SECTION 1: Horas de Empleados (default active) -->
+    <!-- ============================================ -->
+    <div id="section-teachers" class="content-section active">
       <div class="page-header">
         <div>
-          <div class="page-title">Dashboard</div>
-          <div class="page-subtitle" id="dashboardSubtitle">Resumen general</div>
+          <div class="page-title">Horas de Empleados</div>
+          <div class="page-subtitle">Gestiona horas trabajadas de profesores y administración</div>
+        </div>
+        <div class="card-actions">
+          <button class="action-btn secondary" onclick="exportCSV()">📥 Exportar</button>
+          <button class="action-btn primary" id="refreshBtn" onclick="loadData(true)">🔄 Actualizar</button>
         </div>
       </div>
+
+      <!-- Stats Grid -->
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card">
           <div class="stat-icon">👩‍🏫</div>
@@ -73,141 +76,571 @@
           <div class="stat-label">Profesores Activos</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">⏱️</div>
-          <div class="stat-value" id="statAvgProgress">--%</div>
-          <div class="stat-label">Progreso Medio</div>
+          <div class="stat-icon">👔</div>
+          <div class="stat-value" id="statAdmins">--</div>
+          <div class="stat-label">Admins Activos</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">✅</div>
+          <div class="stat-icon">🎯</div>
           <div class="stat-value" id="statOnTrack">--</div>
           <div class="stat-label">En Objetivo</div>
+          <div class="stat-subtext" id="statAvgProgress">Progreso medio: --%</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">⚠️</div>
-          <div class="stat-value" id="statBehind">--</div>
-          <div class="stat-label">Por Debajo</div>
+          <div class="stat-icon">📅</div>
+          <div class="stat-value" id="statWorkingDays">--</div>
+          <div class="stat-label">Días Laborables</div>
+          <div class="stat-subtext" id="statSchoolHolidays">-- festivos excluidos</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">📋</div>
-          <div class="stat-value" id="statPending">--</div>
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-value" id="statPeriodHours">--</div>
+          <div class="stat-label" id="statPeriodLabel">Horas del Periodo</div>
+        </div>
+      </div>
+
+      <!-- Tabs Bar -->
+      <div class="tabs" id="teachersTabs">
+        <button class="tab active" data-tab="teachersListTab" onclick="switchTab(this, 'teachersListTab')">👩‍🏫 Profesores</button>
+        <button class="tab" data-tab="adminsListTab" onclick="switchTab(this, 'adminsListTab')">👔 Administración</button>
+        <button class="tab" data-tab="paidHoursTab" onclick="switchTab(this, 'paidHoursTab')">💰 Horas Pagadas</button>
+        <button class="tab" data-tab="freezeTab" id="freezeTabBtn" style="display:none" onclick="switchTab(this, 'freezeTab')">🔒 Congelar Fichajes</button>
+      </div>
+
+      <!-- Profesores Tab Content -->
+      <div id="teachersListTab" class="tab-content active">
+        <div class="card">
+          <div class="card-header">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <h3 class="card-title" style="margin:0">👥 Todos los Profesores</h3>
+              <button class="action-btn add" onclick="openAddTeacherModal()" style="padding:8px 16px;font-size:13px">➕ Añadir Profesor</button>
+            </div>
+            <div class="card-actions">
+              <input type="text" class="search-input" id="teacherSearch" placeholder="🔍 Buscar profesores..." oninput="filterTeachers(this.value)">
+              <div class="view-toggle" id="viewToggle">
+                <button class="toggle-btn active" data-mode="monthly" onclick="setHoursViewMode('monthly')">📅 Mensual</button>
+                <button class="toggle-btn" data-mode="weekly" onclick="setHoursViewMode('weekly')">📆 Semanal</button>
+              </div>
+              <div class="month-selector" id="monthSelector">
+                <button class="month-nav-btn" onclick="changeMonth(-1)">‹</button>
+                <div class="month-display" id="monthDisplay">Cargando...</div>
+                <button class="month-nav-btn" id="nextMonthBtn" onclick="changeMonth(1)">›</button>
+              </div>
+              <div class="month-selector" id="weekSelector" style="display:none">
+                <button class="month-nav-btn" onclick="changeWeek(-1)">‹</button>
+                <div class="month-display" id="weekDisplay">Esta Semana</div>
+                <button class="month-nav-btn" id="nextWeekBtn" onclick="changeWeek(1)">›</button>
+              </div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Profesor</th>
+                  <th id="teacherPeriodHeader">Horas Mes</th>
+                  <th>Horas Totales</th>
+                  <th>Pagadas</th>
+                  <th>Médicas</th>
+                  <th>Progreso Anual</th>
+                  <th>H.No Lectivas</th>
+                  <th>Esperado/Año</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="teachersTableBody">
+                <tr><td colspan="9" class="loading"><div class="spinner"></div>Cargando profesores...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Administración Tab Content -->
+      <div id="adminsListTab" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <h3 class="card-title" style="margin:0">👔 Personal de Administración</h3>
+              <button class="action-btn add" onclick="openAddAdminModal()" style="padding:8px 16px;font-size:13px">➕ Añadir Admin</button>
+            </div>
+            <div class="card-actions">
+              <input type="text" class="search-input" id="adminSearchInput" placeholder="🔍 Buscar..." oninput="filterAdmins(this.value)">
+              <div class="view-toggle">
+                <button class="toggle-btn active" data-mode="monthly" onclick="setHoursViewMode('monthly')">📅 Mensual</button>
+                <button class="toggle-btn" data-mode="weekly" onclick="setHoursViewMode('weekly')">📆 Semanal</button>
+              </div>
+              <div class="month-selector" id="adminMonthSelector">
+                <button class="month-nav-btn" onclick="changeMonth(-1)">‹</button>
+                <div class="month-display" id="adminMonthDisplay">Cargando...</div>
+                <button class="month-nav-btn" id="adminNextMonthBtn" onclick="changeMonth(1)">›</button>
+              </div>
+              <div class="month-selector" id="adminWeekSelector" style="display:none">
+                <button class="month-nav-btn" onclick="changeWeek(-1)">‹</button>
+                <div class="month-display" id="adminWeekDisplay">Esta Semana</div>
+                <button class="month-nav-btn" id="adminNextWeekBtn" onclick="changeWeek(1)">›</button>
+              </div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th id="adminPeriodHeader">Horas Mes</th>
+                  <th>Horas Totales</th>
+                  <th>Pagadas</th>
+                  <th>Médicas</th>
+                  <th>Progreso Anual</th>
+                  <th>Esperado/Año</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="adminTableBody">
+                <tr><td colspan="8" class="loading"><div class="spinner"></div>Cargando administración...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horas Pagadas Tab Content -->
+      <div id="paidHoursTab" class="tab-content">
+        <div class="holiday-grid">
+          <!-- Left: Registration Form -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">💰 Registrar Horas Pagadas</h3>
+            </div>
+            <div style="padding:20px">
+              <div class="info-box" style="margin-bottom:20px">
+                <div class="info-box-text">💡 Las horas pagadas se descuentan del total de horas trabajadas del profesor. Úsalo para compensaciones, formaciones pagadas, etc.</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Profesor</label>
+                <select class="form-select" id="paidHoursTeacher">
+                  <option value="">Seleccionar profesor...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Horas</label>
+                <input type="number" class="form-input large" id="paidHoursAmount" min="0.5" step="0.5" placeholder="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha</label>
+                <input type="date" class="form-input" id="paidHoursDate">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notas (opcional)</label>
+                <input type="text" class="form-input" id="paidHoursNotes" placeholder="Motivo o descripción...">
+              </div>
+              <button class="submit-btn" onclick="submitPaidHours()">💰 Registrar Horas Pagadas</button>
+            </div>
+          </div>
+          <!-- Right: History -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">📋 Historial</h3>
+              <div class="card-actions">
+                <input type="text" class="search-input" id="paidHoursSearch" placeholder="🔍 Buscar..." oninput="filterPaidHours()">
+                <select class="form-select" id="paidHoursMonthFilter" onchange="filterPaidHours()" style="width:auto">
+                  <option value="">Todos los meses</option>
+                </select>
+              </div>
+            </div>
+            <div style="padding:20px;max-height:500px;overflow-y:auto" id="paidHoursList">
+              <div class="loading"><div class="spinner"></div>Cargando...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Congelar Fichajes Tab Content -->
+      <div id="freezeTab" class="tab-content">
+        <div class="holiday-grid">
+          <!-- Left: Freeze Control -->
+          <div class="card">
+            <div style="padding:20px">
+              <div class="freeze-card" id="freezeCard">
+                <div class="freeze-card-header">
+                  <div class="freeze-card-icon" id="freezeIcon">🔓</div>
+                  <div>
+                    <div class="freeze-card-title" id="freezeTitle">Estado de Congelación</div>
+                    <div class="freeze-card-subtitle">Gestiona la congelación de fichajes</div>
+                  </div>
+                </div>
+                <div class="freeze-status">
+                  <div class="freeze-status-label">Estado Actual</div>
+                  <div class="freeze-status-value" id="freezeStatusValue">Cargando...</div>
+                </div>
+                <div class="freeze-actions" id="freezeActions">
+                  <!-- Buttons rendered by JS -->
+                </div>
+                <div class="freeze-info">
+                  ℹ️ Los fichajes congelados no pueden ser editados por los profesores. Los administradores pueden seguir editándolos. Se recomienda congelar semanalmente.
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Right: Info -->
+          <div class="card">
+            <div style="padding:20px">
+              <div class="info-box">
+                <div class="info-box-text">
+                  <strong>¿Qué es la congelación?</strong><br><br>
+                  Cuando congelas los fichajes hasta una fecha, los profesores no pueden modificar sus fichajes anteriores a esa fecha. Esto asegura la integridad de los datos históricos.<br><br>
+                  <strong>Recomendación:</strong> Congela los fichajes cada semana para mantener los registros seguros.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end section-teachers -->
+
+    <!-- ============================================ -->
+    <!-- SECTION 2: Vacaciones y Permisos -->
+    <!-- ============================================ -->
+    <div id="section-holidays" class="content-section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Vacaciones y Permisos</div>
+          <div class="page-subtitle">Gestiona solicitudes de vacaciones y días de descanso</div>
+        </div>
+        <button class="action-btn primary" id="refreshHolidaysBtn" onclick="loadHolidayData()">🔄 Actualizar</button>
+      </div>
+
+      <!-- Holiday Stats Grid -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)" id="holidayStatsGrid">
+        <div class="stat-card">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value" id="statPendingRequests">--</div>
           <div class="stat-label">Solicitudes Pendientes</div>
         </div>
-      </div>
-
-      <!-- Teachers Table -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Empleados</span>
-          <input type="text" class="search-input" placeholder="🔍 Buscar..." id="teacherSearch" oninput="filterTeachers()">
+        <div class="stat-card">
+          <div class="stat-icon">🏖️</div>
+          <div class="stat-value" id="statAnnualUsage">--%</div>
+          <div class="stat-label">Uso Vacaciones</div>
+          <div class="stat-subtext" id="statAnnualDays">-- de -- días</div>
+          <div class="stat-progress"><div class="stat-progress-bar" id="statAnnualBar" style="width:0%;background:var(--accent)"></div></div>
         </div>
-        <div style="overflow-x:auto">
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Horas Mes</th>
-                <th>Horas Año</th>
-                <th>Progreso</th>
-              </tr>
-            </thead>
-            <tbody id="teachersTableBody">
-              <tr><td colspan="4" class="loading"><div class="spinner"></div>Cargando...</td></tr>
-            </tbody>
-          </table>
+        <div class="stat-card">
+          <div class="stat-icon">👤</div>
+          <div class="stat-value" id="statPersonalUsage">--%</div>
+          <div class="stat-label">Uso D.R. Empleado</div>
+          <div class="stat-subtext" id="statPersonalDays">-- de -- días</div>
+          <div class="stat-progress"><div class="stat-progress-bar" id="statPersonalBar" style="width:0%;background:var(--purple)"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏢</div>
+          <div class="stat-value" id="statSchoolUsage">--%</div>
+          <div class="stat-label">Uso D.R. Empresa</div>
+          <div class="stat-subtext" id="statSchoolDays">-- de -- días</div>
+          <div class="stat-progress"><div class="stat-progress-bar" id="statSchoolBar" style="width:0%;background:var(--success)"></div></div>
         </div>
       </div>
-    </div>
 
-    <!-- Teachers Section -->
-    <div class="content-section" id="section-teachers">
+      <!-- Sub-tabs (pill style) -->
+      <div class="sub-tabs" id="holidaySubTabs">
+        <button class="sub-tab active" data-subtab="solicitudesContent" onclick="switchSubTab(this, 'solicitudesContent')">📋 Solicitudes <span class="sub-badge" id="solicitudesBadge" style="display:none">0</span></button>
+        <button class="sub-tab" data-subtab="resumenContent" onclick="switchSubTab(this, 'resumenContent')">📊 Resumen</button>
+        <button class="sub-tab" data-subtab="calendarViewContent" onclick="switchSubTab(this, 'calendarViewContent')">📅 Vista Calendario</button>
+        <button class="sub-tab" data-subtab="drEmpresaContent" onclick="switchSubTab(this, 'drEmpresaContent')">🏢 D.R. Empresa</button>
+        <button class="sub-tab" data-subtab="festivosContent" onclick="switchSubTab(this, 'festivosContent')">🗓️ Festivos/Puentes</button>
+      </div>
+
+      <!-- Solicitudes Sub-tab Content -->
+      <div id="solicitudesContent" class="sub-tab-content active">
+        <!-- Inner Tabs: Pendientes / Aprobadas -->
+        <div class="tabs" id="solicitudesInnerTabs" style="margin-top:0">
+          <button class="tab active" data-innertab="pendientesContent" onclick="switchInnerTab(this, 'pendientesContent')">⏳ Pendientes <span class="tab-badge" id="pendientesBadge" style="display:none">0</span></button>
+          <button class="tab" data-innertab="aprobadasContent" onclick="switchInnerTab(this, 'aprobadasContent')">✅ Aprobadas</button>
+        </div>
+
+        <!-- Pendientes Inner Tab -->
+        <div id="pendientesContent" class="inner-tab-content active">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">⏳ Solicitudes Pendientes</h3>
+              <span id="pendingCountLabel" style="color:var(--gray-500);font-size:14px">0 solicitudes</span>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="request-table">
+                <thead>
+                  <tr>
+                    <th>Profesor</th>
+                    <th>Tipo</th>
+                    <th>Fechas</th>
+                    <th>Días</th>
+                    <th>Motivo</th>
+                    <th>Solicitado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="pendingRequestsTable">
+                  <tr><td colspan="7" class="loading"><div class="spinner"></div>Cargando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aprobadas Inner Tab -->
+        <div id="aprobadasContent" class="inner-tab-content">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">✅ Solicitudes Aprobadas</h3>
+              <div class="card-actions">
+                <input type="text" class="search-input" id="approvedSearch" placeholder="🔍 Buscar por profesor..." oninput="filterApprovedRequests()">
+                <select class="form-select" id="approvedTypeFilter" onchange="filterApprovedRequests()" style="width:auto">
+                  <option value="">Todos los Tipos</option>
+                  <option value="Annual">🏖️ Vacaciones</option>
+                  <option value="Personal">👤 D.R. Empleado</option>
+                  <option value="Medical">🏥 Médico</option>
+                  <option value="Permiso">📋 Permiso</option>
+                </select>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="request-table">
+                <thead>
+                  <tr>
+                    <th>Profesor</th>
+                    <th>Tipo</th>
+                    <th>Fechas</th>
+                    <th>Días</th>
+                    <th>Motivo</th>
+                    <th>Aprobado Por</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="approvedRequestsTable">
+                  <tr><td colspan="7" class="loading"><div class="spinner"></div>Cargando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="warning-box" style="margin:20px">
+              <div class="warning-box-title">⚠️ Nota Importante</div>
+              <div class="warning-box-text">Eliminar una solicitud aprobada restaurará los días al saldo del profesor.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen Sub-tab Content -->
+      <div id="resumenContent" class="sub-tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">📊 Resumen de Permisos</h3>
+            <input type="text" class="search-input" id="overviewSearch" placeholder="🔍 Buscar empleados..." oninput="filterHolidayOverview()">
+          </div>
+          <div style="overflow-x:auto">
+            <table class="holiday-status-table">
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th>Tipo</th>
+                  <th>Vacaciones</th>
+                  <th>D.R. Empleado</th>
+                  <th>D.R. Empresa</th>
+                  <th>Médico</th>
+                  <th>Visita Méd.</th>
+                  <th>Permiso</th>
+                  <th>Pendiente</th>
+                </tr>
+              </thead>
+              <tbody id="holidayOverviewTable">
+                <tr><td colspan="9" class="loading"><div class="spinner"></div>Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista Calendario Sub-tab Content -->
+      <div id="calendarViewContent" class="sub-tab-content">
+        <div class="card" style="padding:20px">
+          <div class="calendar-nav">
+            <button class="calendar-nav-btn" onclick="changeCalendarMonth(-1)">‹</button>
+            <div class="calendar-month-title" id="calendarMonthTitle">Cargando...</div>
+            <button class="calendar-nav-btn" id="calendarNextBtn" onclick="changeCalendarMonth(1)">›</button>
+          </div>
+          <div class="calendar-view-container">
+            <div class="calendar-view-grid" id="holidayCalendarGrid">
+              <!-- Calendar rendered by JS -->
+              <div class="loading" style="grid-column:span 7"><div class="spinner"></div>Cargando calendario...</div>
+            </div>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:15px;flex-wrap:wrap;font-size:12px">
+            <span>🟡 Festivo/Puente</span>
+            <span>🔵 Vacaciones</span>
+            <span>🟣 D.R. Empleado</span>
+            <span>🔴 Médico</span>
+            <span>🟢 D.R. Empresa</span>
+            <span style="color:var(--teal)">🟦 Permiso</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- D.R. Empresa Sub-tab Content -->
+      <div id="drEmpresaContent" class="sub-tab-content">
+        <div class="holiday-grid">
+          <!-- Left: Assignment Form -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">🏢 Asignar D.R. Empresa</h3>
+            </div>
+            <div style="padding:20px">
+              <div class="form-group">
+                <label class="form-label">Empleado</label>
+                <select class="form-select" id="drEmpresaEmployee">
+                  <option value="">Seleccionar empleado...</option>
+                  <optgroup label="👩‍🏫 Profesores" id="drEmpresaTeachers"></optgroup>
+                  <optgroup label="👔 Administración" id="drEmpresaAdmins"></optgroup>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha</label>
+                <input type="date" class="form-input" id="drEmpresaDate">
+              </div>
+              <button class="submit-btn" onclick="assignDREmpresa()">✅ Asignar D.R. Empresa</button>
+            </div>
+          </div>
+          <!-- Right: Info -->
+          <div class="card">
+            <div style="padding:20px">
+              <div class="info-box">
+                <div class="info-box-text">
+                  <strong>ℹ️ D.R. Empresa (Descanso Retribuido Empresa)</strong><br><br>
+                  Los D.R. Empresa son días asignados por la empresa. Se aprueban automáticamente y cada empleado tiene 4 días/año (configurable).<br><br>
+                  Los días de puente se configuran en la pestaña "Festivos/Puentes" y se aplican a todos los empleados.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Assigned Days List -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">📋 Días Asignados</h3>
+            <input type="text" class="search-input" id="drEmpresaSearch" placeholder="🔍 Buscar..." oninput="filterDREmpresa()">
+          </div>
+          <div style="padding:20px" id="drEmpresaList">
+            <div class="loading"><div class="spinner"></div>Cargando...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Festivos/Puentes Sub-tab Content -->
+      <div id="festivosContent" class="sub-tab-content">
+        <div class="puente-info-banner">
+          <div class="banner-icon">📅</div>
+          <div class="banner-content">
+            <div class="banner-title">Festivos y Puentes</div>
+            <div class="banner-text">Los festivos y puentes se aplican a todos los empleados y se excluyen automáticamente de las solicitudes de vacaciones y del cálculo de días laborables.</div>
+          </div>
+        </div>
+        <div class="holiday-grid">
+          <!-- Left: Add Form -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">➕ Añadir Festivo/Puente</h3>
+            </div>
+            <div style="padding:20px">
+              <div class="form-group">
+                <label class="form-label">Nombre</label>
+                <input type="text" class="form-input" id="schoolHolidayName" placeholder="Ej: Navidad, Semana Santa...">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha Inicio</label>
+                <input type="date" class="form-input" id="schoolHolidayStart">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha Fin</label>
+                <input type="date" class="form-input" id="schoolHolidayEnd">
+              </div>
+              <button class="submit-btn" onclick="addSchoolHoliday()">➕ Añadir Festivo/Puente</button>
+            </div>
+          </div>
+          <!-- Right: List -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">📋 Festivos Configurados</h3>
+            </div>
+            <div style="padding:20px" id="schoolHolidaysList">
+              <div class="loading"><div class="spinner"></div>Cargando...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end section-holidays -->
+
+    <!-- ============================================ -->
+    <!-- SECTION 3: Archivo Anual -->
+    <!-- ============================================ -->
+    <div id="section-archive" class="content-section">
       <div class="page-header">
-        <div class="page-title">Gestión de Profesores</div>
-        <button class="action-btn add" onclick="openAddTeacherModal()">➕ Añadir Profesor</button>
+        <div>
+          <div class="page-title">Archivo de Fin de Año</div>
+          <div class="page-subtitle">Archiva datos de años anteriores para mantener el rendimiento</div>
+        </div>
       </div>
-      <div class="card">
-        <div style="overflow-x:auto">
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Email</th>
-                <th>Rol</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="teacherManageBody">
-              <tr><td colspan="5" class="loading"><div class="spinner"></div>Cargando...</td></tr>
-            </tbody>
-          </table>
+      <div class="archive-container">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">🗄️ Archivar Datos</h3>
+          </div>
+          <div style="padding:20px">
+            <div class="info-box">
+              <div class="info-box-text">
+                <strong>¿Qué hace el archivo?</strong><br>
+                Mueve fichajes y solicitudes de vacaciones del año seleccionado a tablas separadas, mejorando el rendimiento del sistema.
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:20px">
+              <label class="form-label">Año a Archivar</label>
+              <select id="archiveYearSelect" class="form-select">
+                <option value="">Seleccionar año...</option>
+              </select>
+              <div class="form-hint">Solo años anteriores al actual</div>
+            </div>
+            <div class="warning-box" style="margin-top:20px">
+              <div class="warning-box-title">⚠️ Antes de archivar</div>
+              <div class="warning-box-text">Asegúrate de tener una copia de seguridad. Los datos se moverán a tablas de archivo.</div>
+            </div>
+            <button class="submit-btn" onclick="performArchive()" id="archiveBtn" style="margin-top:20px">📦 Archivar Año</button>
+            <div id="archiveResult" style="margin-top:20px"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Holidays Section -->
-    <div class="content-section" id="section-holidays">
-      <div class="page-header">
-        <div class="page-title">Gestión de Permisos</div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Solicitudes Pendientes</span>
-        </div>
-        <div id="pendingRequestsList">
-          <div class="loading"><div class="spinner"></div>Cargando...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Calendar Section -->
-    <div class="content-section" id="section-calendar">
-      <div class="page-header">
-        <div class="page-title">Calendario de Permisos</div>
-      </div>
-      <div class="card" style="padding:20px">
-        <div id="calendarContainer">
-          <div class="loading"><div class="spinner"></div>Cargando...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- School Holidays Section -->
-    <div class="content-section" id="section-school-holidays">
-      <div class="page-header">
-        <div class="page-title">Festivos y Puentes</div>
-        <button class="action-btn add" onclick="openAddSchoolHolidayModal()">➕ Añadir Festivo</button>
-      </div>
-      <div class="card">
-        <div id="schoolHolidaysList">
-          <div class="loading"><div class="spinner"></div>Cargando...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Settings Section -->
-    <div class="content-section" id="section-settings">
+    <!-- ============================================ -->
+    <!-- SECTION 4: Configuración -->
+    <!-- ============================================ -->
+    <div id="section-settings" class="content-section">
       <div class="page-header">
         <div class="page-title">Configuración</div>
       </div>
       <div class="card" style="padding:20px">
-        <div class="settings-section">
-          <div class="settings-section-title">🔒 Congelación de Fichajes</div>
-          <div id="freezeStatus">
-            <p>Estado: <span id="freezeStatusText">Cargando...</span></p>
-          </div>
-          <div style="margin-top:12px;display:flex;gap:10px">
-            <button class="action-btn primary" onclick="freezePunches()">🔒 Congelar hasta ayer</button>
-            <button class="action-btn secondary" onclick="unfreezePunches()">🔓 Descongelar todo</button>
-          </div>
+        <div class="empty-state">
+          <div class="empty-state-icon">⚙️</div>
+          <div class="empty-state-text">Configuración del sistema</div>
+          <p style="color:var(--gray-400);margin-top:10px">Próximamente: ajustes generales del panel de administración.</p>
         </div>
       </div>
     </div>
-  </div>
 
+  </div><!-- end main-content -->
+
+  <!-- ============================================ -->
   <!-- Modal Overlay -->
+  <!-- ============================================ -->
   <div class="modal-overlay" id="modalOverlay">
-    <div class="modal">
-      <div class="modal-header">
+    <div class="modal" id="modalContainer">
+      <div class="modal-header" id="modalHeader">
         <h2 id="modalTitle">Modal</h2>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
@@ -215,6 +648,10 @@
     </div>
   </div>
 
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/auth.js"></script>
