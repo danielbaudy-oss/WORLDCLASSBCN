@@ -30,7 +30,7 @@ async function initAdmin() {
   if (!adminProfile) return;
 
   // Set admin info in sidebar
-  document.getElementById('adminName').textContent = adminProfile.name || 'Admin';
+  document.getElementById('adminName').textContent = (adminProfile.name || 'Admin').split(' ')[0];
   document.getElementById('adminEmail').textContent = adminProfile.email || '--';
 
   // Show freeze tab if super_admin
