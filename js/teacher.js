@@ -103,7 +103,7 @@ async function loadDay(date) {
 }
 
 async function loadPunches(dateStr, isFrozen) {
-  const { data: punches, error } = await supabase
+  const { data: punches, error } = await db
     .from('time_punches')
     .select('*')
     .eq('user_id', currentProfile.id)
@@ -248,7 +248,7 @@ async function savePunchEdit() {
     return;
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('time_punches')
     .update({ time: newTime + ':00', edited_at: new Date().toISOString() })
     .eq('id', id)
@@ -265,7 +265,7 @@ async function savePunchEdit() {
 }
 
 async function deletePunch(id) {
-  const { error } = await supabase
+  const { error } = await db
     .from('time_punches')
     .delete()
     .eq('id', id)
@@ -295,7 +295,7 @@ async function loadPrepTimeStatus(dateStr) {
   const weeklyHours = Math.round((currentProfile.prep_time_yearly / DEFAULTS.WORKING_WEEKS_PER_YEAR) * 10) / 10;
 
   // Check if already logged this week
-  const { data } = await supabase
+  const { data } = await db
     .from('time_punches')
     .select('id, notes')
     .eq('user_id', currentProfile.id)
@@ -320,7 +320,7 @@ async function togglePrepTime() {
   const weeklyHours = Math.round((currentProfile.prep_time_yearly / DEFAULTS.WORKING_WEEKS_PER_YEAR) * 10) / 10;
 
   // Check if already logged
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('time_punches')
     .select('id')
     .eq('user_id', currentProfile.id)
@@ -353,7 +353,7 @@ async function undoPrepTime() {
   const dateStr = formatDate(selectedDate);
   const weekStart = getWeekStart(dateStr);
 
-  const { error } = await supabase
+  const { error } = await db
     .from('time_punches')
     .delete()
     .eq('user_id', currentProfile.id)
@@ -383,7 +383,7 @@ function getWeekStart(dateStr) {
 // ========================================
 
 async function loadHolidaySummary() {
-  const { data: holidays, error } = await supabase
+  const { data: holidays, error } = await db
     .from('holiday_requests')
     .select('*')
     .eq('user_id', currentProfile.id);
@@ -511,7 +511,7 @@ async function loadProgress() {
   const today = formatDate(new Date());
 
   // Get all punches for the year
-  const { data: punches } = await supabase
+  const { data: punches } = await db
     .from('time_punches')
     .select('date, time, punch_type')
     .eq('user_id', currentProfile.id)
@@ -564,7 +564,7 @@ function dayOfYear(d) {
 // ========================================
 
 async function getConfigValue(key) {
-  const { data } = await supabase
+  const { data } = await db
     .from('app_config')
     .select('value')
     .eq('key', key)

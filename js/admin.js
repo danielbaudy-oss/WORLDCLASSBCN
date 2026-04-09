@@ -50,7 +50,7 @@ function toggleSidebar() {
 
 async function loadDashboard() {
   // Load all active profiles
-  const { data: profiles } = await supabase
+  const { data: profiles } = await db
     .from('profiles')
     .select('*')
     .eq('status', 'Active');
@@ -58,7 +58,7 @@ async function loadDashboard() {
   allTeachers = profiles || [];
 
   // Load pending requests count
-  const { count: pendingCount } = await supabase
+  const { count: pendingCount } = await db
     .from('holiday_requests')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'Pending');
@@ -71,7 +71,7 @@ async function loadDashboard() {
   const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0];
   const yearStart = `${year}-01-01`;
 
-  const { data: allPunches } = await supabase
+  const { data: allPunches } = await db
     .from('time_punches')
     .select('user_id, date, time, punch_type')
     .in('punch_type', ['IN', 'OUT'])
@@ -186,7 +186,7 @@ function filterTeachers() {
 // ========================================
 
 async function loadTeacherManagement() {
-  const { data: profiles } = await supabase
+  const { data: profiles } = await db
     .from('profiles')
     .select('*')
     .order('name');
@@ -212,7 +212,7 @@ async function loadTeacherManagement() {
 }
 
 async function activateUser(userId) {
-  const { error } = await supabase
+  const { error } = await db
     .from('profiles')
     .update({ status: 'Active' })
     .eq('id', userId);
@@ -223,7 +223,7 @@ async function activateUser(userId) {
 }
 
 async function editTeacher(userId) {
-  const { data: teacher } = await supabase
+  const { data: teacher } = await db
     .from('profiles')
     .select('*')
     .eq('id', userId)
@@ -279,7 +279,7 @@ async function editTeacher(userId) {
 }
 
 async function saveTeacherEdit(userId) {
-  const { error } = await supabase
+  const { error } = await db
     .from('profiles')
     .update({
       name: document.getElementById('editName').value,
@@ -313,7 +313,7 @@ function openAddTeacherModal() {
 // ========================================
 
 async function loadPendingRequests() {
-  const { data: requests } = await supabase
+  const { data: requests } = await db
     .from('holiday_requests')
     .select('*, profiles!holiday_requests_user_id_fkey(name, email)')
     .eq('status', 'Pending')
@@ -347,7 +347,7 @@ async function loadPendingRequests() {
 }
 
 async function processRequest(requestId, action) {
-  const { error } = await supabase
+  const { error } = await db
     .from('holiday_requests')
     .update({
       status: action,
@@ -367,7 +367,7 @@ async function processRequest(requestId, action) {
 // ========================================
 
 async function loadSchoolHolidays() {
-  const { data: holidays } = await supabase
+  const { data: holidays } = await db
     .from('school_holidays')
     .select('*')
     .order('start_date');
@@ -452,7 +452,7 @@ async function deleteSchoolHoliday(id) {
 // ========================================
 
 async function loadSettings() {
-  const { data } = await supabase
+  const { data } = await db
     .from('app_config')
     .select('*')
     .eq('key', 'FreezeDate')
@@ -480,7 +480,7 @@ async function freezePunches() {
   yesterday.setDate(yesterday.getDate() - 1);
   const freezeDate = yesterday.toISOString().split('T')[0];
 
-  const { error } = await supabase
+  const { error } = await db
     .from('app_config')
     .upsert({ key: 'FreezeDate', value: freezeDate });
 
@@ -490,7 +490,7 @@ async function freezePunches() {
 }
 
 async function unfreezePunches() {
-  const { error } = await supabase
+  const { error } = await db
     .from('app_config')
     .upsert({ key: 'FreezeDate', value: '' });
 
