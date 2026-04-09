@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WorldClass">
+  <meta name="theme-color" content="#092b50">
+  <link rel="apple-touch-icon" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <link rel="icon" type="image/png" href="https://i.ibb.co/93tykMkW/logo-1.png">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--primary:#092b50;--accent:#59d2ff;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--purple:#8b5cf6;--pink:#ec4899;--teal:#14b8a6;--gray-50:#f8fafc;--gray-100:#f1f5f9;--gray-200:#e2e8f0;--gray-400:#94a3b8;--gray-500:#64748b;--gray-700:#334155;--radius:12px}
+html{width:100%;min-height:100%;overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 100%);min-height:100vh;width:100%;padding:12px;margin:0}
+.container{width:100%}
+@media(min-width:700px){body{display:flex;justify-content:center;align-items:flex-start;padding:24px}.container{max-width:500px}}
+
+/* Header */
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-logo{width:48px;height:48px;border-radius:var(--radius);background:#fff;overflow:hidden}
+.header-logo img{width:100%;height:100%;object-fit:cover}
+.logo-letter{font-size:24px;font-weight:900;color:var(--primary);display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.header-title{color:#fff}
+.header-title h1{font-size:18px;font-weight:700}
+.header-title p{font-size:12px;opacity:.85}
+.header-actions{display:flex;gap:8px}
+.btn-icon{width:48px;height:48px;border-radius:var(--radius);border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.btn-icon:hover{background:rgba(255,255,255,.3);transform:translateY(-2px)}
+
+/* TABS */
+.main-tabs{display:flex;gap:8px;margin-bottom:12px;background:rgba(255,255,255,0.15);padding:6px;border-radius:16px}
+.main-tab{flex:1;padding:14px 20px;border:none;border-radius:12px;background:transparent;color:rgba(255,255,255,0.7);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.main-tab:hover{background:rgba(255,255,255,0.1);color:#fff}
+.main-tab.active{background:#fff;color:var(--primary);box-shadow:0 4px 15px rgba(0,0,0,0.1)}
+.main-tab-icon{font-size:18px}
+.tab-badge{background:var(--danger);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:4px}
+.main-tab.active .tab-badge{background:var(--danger)}
+
+/* Tab Content */
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* Frozen Day Styles */
+.frozen-banner{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#fee2e2 0%,#fecaca 100%);padding:14px 16px;border-radius:var(--radius);margin-bottom:16px;border:2px solid var(--danger)}
+.frozen-banner .frozen-icon{font-size:28px}
+.frozen-banner .frozen-text{display:flex;flex-direction:column}
+.frozen-banner .frozen-text strong{color:#991b1b;font-size:14px}
+.frozen-banner .frozen-text span{color:#b91c1c;font-size:12px}
+.punch-item.frozen{opacity:0.7;background:#fef2f2}
+.punch-item.frozen .punch-actions{display:none}
+.frozen-lock{display:flex;align-items:center;gap:6px;color:#991b1b;font-size:12px;font-weight:600}
+
+/* Cards */
+.date-card,.punch-card,.holiday-card{background:#fff;border-radius:20px;padding:20px;margin-bottom:12px}
+.punch-card{margin-bottom:0}
+.date-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.date-nav-btn{width:50px;height:50px;border-radius:var(--radius);border:none;background:var(--gray-100);font-size:24px;font-weight:700;color:var(--primary);cursor:pointer;flex-shrink:0}
+.date-nav-btn:disabled{opacity:.25}
+.date-nav-btn.hidden{opacity:0;pointer-events:none}
+.date-center{flex:1;text-align:center;cursor:pointer;min-width:0}
+.date-number{font-size:48px;font-weight:800;color:var(--primary);line-height:1}
+.date-text{font-size:14px;color:var(--gray-500);margin-top:4px}
+.date-badge{display:inline-block;background:var(--accent);color:var(--primary);padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;margin-top:8px;text-transform:uppercase}
+.date-badge.school-holiday-badge{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);color:#92400e}
+.date-hint{color:var(--accent);font-size:12px;margin-top:8px}
+
+/* Section & Input */
+.section-title{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:12px}
+.time-input-wrapper{margin-bottom:14px}
+.time-label{font-size:11px;color:var(--gray-500);margin-bottom:6px;font-weight:600;text-transform:uppercase}
+.time-input{width:100%;padding:12px;font-size:32px;font-weight:700;text-align:center;border:2px solid var(--gray-200);border-radius:14px;color:var(--primary);background:var(--gray-50);-webkit-appearance:none}
+.time-input:focus{outline:none;border-color:var(--accent)}
+.time-warning{display:none;color:var(--danger);font-size:12px;margin-top:6px;text-align:center;font-weight:600}
+.time-warning.show{display:block}
+
+/* Punch Button */
+.punch-btn{width:100%;padding:16px;font-size:16px;font-weight:700;border:none;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px}
+.punch-btn.in{background:linear-gradient(135deg,var(--success) 0%,#059669 100%);color:#fff}
+.punch-btn.out{background:linear-gradient(135deg,var(--warning) 0%,#d97706 100%);color:#fff}
+.punch-btn:disabled{opacity:.5}
+.punch-btn-icon{font-size:20px}
+.future-warning{background:#fef2f2;color:var(--danger);padding:12px;border-radius:var(--radius);text-align:center;font-size:13px;font-weight:600;margin-top:14px}
+
+/* School Holiday Notice */
+.school-holiday-notice{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);padding:14px 16px;border-radius:var(--radius);margin-bottom:16px}
+.school-holiday-notice .notice-icon{font-size:28px}
+.school-holiday-notice .notice-text{display:flex;flex-direction:column}
+.school-holiday-notice .notice-text strong{color:#92400e;font-size:14px}
+.school-holiday-notice .notice-text span{color:#b45309;font-size:12px}
+
+/* MedAppt Entry */
+.medappt-entry{display:flex;align-items:center;gap:12px;padding:14px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-radius:12px;margin-bottom:12px;border-left:4px solid #f59e0b}
+.medappt-entry .medappt-icon{font-size:24px}
+.medappt-entry .medappt-info{flex:1}
+.medappt-entry .medappt-title{font-weight:600;color:#92400e;font-size:14px}
+.medappt-entry .medappt-detail{font-size:12px;color:#b45309;margin-top:2px}
+.medappt-entry .medappt-hours{font-size:20px;font-weight:700;color:#92400e}
+
+/* Progress Bar */
+.progress-card{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.progress-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.progress-card-title{font-size:12px;font-weight:600;color:var(--gray-600)}
+.progress-card-hours{font-size:12px;font-weight:600;color:var(--gray-600)}
+.progress-container{display:flex;flex-direction:column;gap:6px}
+.progress-bar-wrapper{width:100%;height:10px;background:var(--gray-200);border-radius:5px;overflow:hidden}
+.progress-bar{height:100%;border-radius:5px;transition:width 0.5s ease}
+.progress-bar.on-track{background:linear-gradient(90deg,var(--success),#34d399)}
+.progress-bar.warning{background:linear-gradient(90deg,var(--warning),#fbbf24)}
+.progress-bar.behind{background:linear-gradient(90deg,var(--danger),#f87171)}
+.progress-text{display:flex;justify-content:space-between;font-size:13px}
+.progress-percent{font-weight:700}
+.progress-percent.on-track{color:#059669}
+.progress-percent.warning{color:#d97706}
+.progress-percent.behind{color:#dc2626}
+.progress-expected{color:var(--gray-400);font-size:12px}
+
+/* Horas No Lectivas - Compact */
+.prep-time-section{margin-top:16px;padding-top:16px;border-top:2px solid var(--gray-100)}
+.prep-time-checkbox-wrapper{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--gray-50);border:2px solid var(--gray-200);border-radius:12px;cursor:pointer;transition:all .2s}
+.prep-time-checkbox-wrapper:hover:not(.disabled):not(.checked){background:var(--gray-100);border-color:var(--gray-300)}
+.prep-time-checkbox-wrapper.disabled{opacity:0.5;cursor:not-allowed}
+.prep-time-checkbox-wrapper.checked{background:#d1fae5;border-color:var(--success);opacity:1}
+.prep-time-checkbox{width:20px;height:20px;border:2px solid var(--gray-300);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff;font-size:12px;font-weight:700;transition:all .2s}
+.prep-time-checkbox-wrapper.checked .prep-time-checkbox{background:var(--success);border-color:var(--success);color:#fff}
+.prep-time-checkbox-wrapper.disabled .prep-time-checkbox{background:var(--gray-200);border-color:var(--gray-300)}
+.prep-time-info{flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.prep-time-title{font-weight:600;color:var(--primary);font-size:14px;display:flex;align-items:center;gap:6px}
+.prep-time-badge{background:var(--gray-200);color:var(--gray-600);padding:3px 8px;border-radius:8px;font-size:11px;font-weight:600}
+.prep-time-checkbox-wrapper.checked .prep-time-badge{background:var(--success);color:#fff}
+.prep-time-checkbox-wrapper.checked .prep-time-title{color:#065f46}
+.prep-time-undo{width:28px;height:28px;border:none;background:rgba(255,255,255,0.8);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.prep-time-undo:hover{background:#fee2e2;transform:scale(1.1)}
+
+/* Punches List */
+.punches-section{margin-top:20px}
+.punches-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.punches-count{background:var(--gray-100);padding:4px 12px;border-radius:var(--radius);font-size:13px;font-weight:600;color:var(--gray-500)}
+.punch-item{display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--gray-50);border-radius:14px;margin-bottom:8px;border-left:4px solid;position:relative}
+.punch-item.in{border-left-color:var(--success)}
+.punch-item.out{border-left-color:var(--warning)}
+.punch-item.deleting{background:#fef2f2}
+.punch-item-left{display:flex;align-items:center;gap:10px}
+.punch-type-badge{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700}
+.punch-type-badge.in{background:#d1fae5;color:#065f46}
+.punch-type-badge.out{background:#fef3c7;color:#92400e}
+.punch-time{font-size:22px;font-weight:700;color:var(--primary)}
+.punch-actions{display:flex;gap:8px}
+.punch-action-btn{width:40px;height:40px;border-radius:10px;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.punch-action-btn.edit{background:#e0e7ff;color:#4f46e5}
+.punch-action-btn.delete{background:#fee2e2;color:var(--danger)}
+.delete-confirm{display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:#fff;border-radius:var(--radius);padding:6px;box-shadow:0 4px 20px rgba(0,0,0,.2);gap:6px;z-index:10}
+.delete-confirm.show{display:flex}
+.delete-confirm-btn{padding:10px 16px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer}
+.delete-confirm-btn.yes{background:var(--danger);color:#fff}
+.delete-confirm-btn.no{background:var(--gray-200);color:var(--gray-700)}
+
+/* Empty & Hours */
+.empty-state{text-align:center;padding:40px 16px}
+.empty-state-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+.empty-state-text{color:var(--gray-400);font-size:14px}
+.hours-card{background:linear-gradient(135deg,var(--primary) 0%,#1e3a5f 100%);border-radius:14px;padding:20px;margin-top:16px;color:#fff;text-align:center}
+.hours-value{font-size:44px;font-weight:800;line-height:1}
+.hours-label{font-size:12px;opacity:.8;margin-top:6px;text-transform:uppercase}
+
+/* Overlays */
+.overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(9,43,80,.9);z-index:1000;display:none;align-items:center;justify-content:center;padding:12px;overflow-y:auto}
+.overlay.active{display:flex}
+.calendar-modal,.edit-modal{background:#fff;border-radius:20px;width:100%;max-width:400px;padding:20px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-header h3{color:var(--primary);font-size:18px;font-weight:700}
+.modal-close{width:40px;height:40px;border-radius:10px;border:none;background:var(--gray-100);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* Calendar */
+.calendar-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.calendar-nav-btn{width:40px;height:40px;border:none;border-radius:10px;background:var(--gray-100);cursor:pointer;font-weight:700;font-size:18px;color:var(--primary);display:flex;align-items:center;justify-content:center}
+.calendar-nav-btn:disabled{opacity:.3}
+.calendar-month{font-size:16px;font-weight:700;color:var(--primary)}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.calendar-day-header{text-align:center;font-size:11px;font-weight:700;color:var(--gray-400);padding:8px 0}
+.calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px;color:var(--gray-700);position:relative}
+.calendar-day.empty{cursor:default}
+.calendar-day.future{opacity:.2;cursor:not-allowed}
+.calendar-day.today{border:2px solid var(--primary)}
+.calendar-day.selected{background:var(--primary);color:#fff}
+.calendar-day.has-punches{background:var(--accent);color:var(--primary)}
+.calendar-day.selected.has-punches{background:var(--primary);color:#fff}
+.calendar-day.school-holiday{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);color:#92400e;position:relative}
+.calendar-day.school-holiday::after{content:'🏢';position:absolute;bottom:1px;right:1px;font-size:8px}
+.calendar-day.selected.school-holiday{background:var(--primary);color:#fff}
+.calendar-day.selected.school-holiday::after{display:none}
+
+/* Teacher Holiday Types in Calendar */
+.calendar-day.holiday-annual{background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);color:#1e40af;border:2px solid #3b82f6}
+.calendar-day.holiday-annual::after{content:'🏖️';position:absolute;bottom:1px;right:1px;font-size:8px}
+.calendar-day.holiday-personal{background:linear-gradient(135deg,#ede9fe 0%,#ddd6fe 100%);color:#5b21b6;border:2px solid #8b5cf6}
+.calendar-day.holiday-personal::after{content:'👤';position:absolute;bottom:1px;right:1px;font-size:8px}
+.calendar-day.holiday-medical{background:linear-gradient(135deg,#fee2e2 0%,#fecaca 100%);color:#991b1b;border:2px solid #ef4444}
+.calendar-day.holiday-medical::after{content:'🏥';position:absolute;bottom:1px;right:1px;font-size:8px}
+.calendar-day.holiday-medappt{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);color:#92400e;border:2px solid #f59e0b}
+.calendar-day.holiday-medappt::after{content:'⚕️';position:absolute;bottom:1px;right:1px;font-size:8px}
+.calendar-day.holiday-school-day{background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);color:#065f46;border:2px solid #10b981}
+.calendar-day.holiday-school-day::after{content:'🏢';position:absolute;bottom:1px;right:1px;font-size:8px}
+.calendar-day.holiday-permiso{background:linear-gradient(135deg,#ccfbf1 0%,#99f6e4 100%);color:#0f766e;border:2px solid #14b8a6}
+.calendar-day.holiday-permiso::after{content:'📋';position:absolute;bottom:1px;right:1px;font-size:8px}
+
+.calendar-day.selected.holiday-annual,
+.calendar-day.selected.holiday-personal,
+.calendar-day.selected.holiday-medical,
+.calendar-day.selected.holiday-medappt,
+.calendar-day.selected.holiday-school-day,
+.calendar-day.selected.holiday-permiso{background:var(--primary);color:#fff;border-color:var(--primary)}
+.calendar-day.selected.holiday-annual::after,
+.calendar-day.selected.holiday-personal::after,
+.calendar-day.selected.holiday-medical::after,
+.calendar-day.selected.holiday-medappt::after,
+.calendar-day.selected.holiday-school-day::after,
+.calendar-day.selected.holiday-permiso::after{display:none}
+
+.calendar-legend{display:flex;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--gray-200);flex-wrap:wrap;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--gray-500)}
+.legend-dot{width:12px;height:12px;border-radius:3px}
+.legend-dot.punches{background:var(--accent)}
+.legend-dot.school-holiday{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%)}
+
+/* Edit Modal */
+.edit-modal h3{color:var(--primary);font-size:16px;font-weight:700;margin-bottom:16px}
+.edit-time-input{width:100%;padding:14px;font-size:28px;font-weight:700;text-align:center;border:2px solid var(--gray-200);border-radius:14px;color:var(--primary);margin-bottom:16px;-webkit-appearance:none}
+.edit-time-input:focus{outline:none;border-color:var(--accent)}
+.edit-actions{display:flex;gap:10px}
+.edit-btn{flex:1;padding:14px;border-radius:var(--radius);border:none;font-size:15px;font-weight:600;cursor:pointer}
+.edit-btn.cancel{background:var(--gray-100);color:var(--gray-500)}
+.edit-btn.save{background:var(--primary);color:#fff}
+
+/* ========================================
+   HOLIDAY TAB STYLES
+   ======================================== */
+
+/* Holiday Summary */
+.holiday-summary-section{background:linear-gradient(135deg,var(--pink) 0%,var(--purple) 100%);border-radius:16px;padding:16px;margin-bottom:16px;color:#fff}
+.holiday-summary-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.holiday-summary-title{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.holiday-badge{background:rgba(255,255,255,.2);padding:4px 10px;border-radius:var(--radius);font-size:11px;font-weight:600}
+.holiday-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.holiday-stat{background:rgba(255,255,255,.15);border-radius:10px;padding:10px 8px;text-align:center}
+.holiday-stat-value{font-size:18px;font-weight:700}
+.holiday-stat-label{font-size:9px;opacity:.85;margin-top:2px;line-height:1.2}
+
+/* Puente Info Banner */
+.puente-info-banner{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px}
+.puente-info-banner .banner-icon{font-size:24px;flex-shrink:0}
+.puente-info-banner .banner-content{flex:1}
+.puente-info-banner .banner-title{font-weight:700;color:#92400e;font-size:13px;margin-bottom:4px}
+.puente-info-banner .banner-text{color:#b45309;font-size:12px;line-height:1.4}
+
+/* Form styles */
+.form-group{margin-bottom:16px;width:100%}
+.form-label{display:block;font-weight:600;color:var(--primary);margin-bottom:8px;font-size:14px}
+.form-input,.form-select,.form-textarea{width:100%;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:16px;font-family:inherit;background-color:#fff;color:var(--primary);-webkit-appearance:none;appearance:none}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--accent)}
+.form-textarea{resize:vertical;min-height:80px;font-size:14px}
+input[type="date"].form-input{min-height:48px}
+input[type="date"].form-input::-webkit-calendar-picker-indicator{opacity:.6}
+
+/* Date Range */
+.date-range-group{display:flex;flex-direction:column;gap:12px;width:100%}
+.date-field{display:flex;flex-direction:column;width:100%}
+.date-field-label{font-size:12px;color:var(--gray-500);margin-bottom:6px;font-weight:600}
+@media(min-width:481px){.date-range-group{flex-direction:row}.date-field{flex:1}}
+
+/* Days Preview */
+.days-preview{background:#f0f9ff;border:2px solid var(--accent);border-radius:var(--radius);padding:14px;margin:16px 0;text-align:center}
+.days-preview-value{font-size:28px;font-weight:700;color:var(--primary)}
+.days-preview-label{font-size:12px;color:var(--gray-500);margin-top:4px}
+.days-preview-detail{font-size:11px;color:var(--gray-400);margin-top:8px}
+
+/* Holiday Type Buttons */
+.holiday-type-btn-group{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.holiday-type-btn{padding:14px 10px;border:2px solid var(--gray-200);border-radius:var(--radius);background:#fff;cursor:pointer;text-align:center;transition:all .2s}
+.holiday-type-btn:hover{border-color:var(--accent);background:var(--gray-50)}
+.holiday-type-btn.selected{border-color:var(--primary);background:#e8f4ff}
+.holiday-type-btn.selected.annual{border-color:#3b82f6;background:#dbeafe}
+.holiday-type-btn.selected.personal{border-color:var(--purple);background:#ede9fe}
+.holiday-type-btn.selected.medical{border-color:var(--danger);background:#fee2e2}
+.holiday-type-btn.selected.medappt{border-color:#f59e0b;background:#fef3c7}
+.holiday-type-btn.selected.permiso{border-color:var(--teal);background:#ccfbf1}
+.holiday-type-icon{font-size:24px;margin-bottom:6px}
+.holiday-type-name{font-size:11px;font-weight:600;color:var(--primary);line-height:1.2}
+.holiday-type-desc{font-size:10px;color:var(--gray-500);margin-top:2px}
+
+/* Hours Input for MedAppt */
+.hours-input-group{display:flex;align-items:center;gap:12px;margin-top:8px}
+.hours-input{width:120px;padding:12px;font-size:24px;font-weight:700;text-align:center;border:2px solid var(--gray-200);border-radius:var(--radius);color:var(--primary);-webkit-appearance:none}
+.hours-input:focus{outline:none;border-color:var(--accent)}
+.hours-unit{font-size:16px;font-weight:600;color:var(--gray-500)}
+
+/* Submit & Info */
+.submit-btn{width:100%;padding:16px;background:linear-gradient(135deg,var(--primary) 0%,#1e3a5f 100%);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:700;cursor:pointer;transition:all .3s}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(9,43,80,.3)}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.info-box{background:#e0f2fe;border-left:4px solid #0284c7;padding:12px 14px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:16px}
+.info-box-title{font-weight:700;color:#0369a1;margin-bottom:4px;font-size:12px}
+.info-box-text{color:#0369a1;font-size:12px}
+
+/* Reason Required Notice */
+.reason-required-notice{background:#fef3c7;border-left:4px solid var(--warning);padding:12px 14px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:16px;display:none}
+.reason-required-notice.show{display:block}
+.reason-required-notice-text{color:#92400e;font-size:12px;font-weight:600}
+
+/* Success Banner */
+.success-banner{background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);border:2px solid var(--success);border-radius:var(--radius);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;animation:slideIn .3s ease}
+.success-banner-icon{font-size:32px;flex-shrink:0}
+.success-banner-text{flex:1}
+.success-banner-title{font-weight:700;color:#065f46;font-size:14px}
+.success-banner-desc{color:#047857;font-size:12px;margin-top:2px}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Request List */
+.requests-section{margin-top:20px;padding-top:16px;border-top:2px solid var(--gray-100)}
+.request-item{background:var(--gray-50);border-radius:var(--radius);padding:14px;margin-bottom:10px;border-left:4px solid;position:relative;transition:all .3s}
+.request-item.pending{border-left-color:var(--warning)}
+.request-item.approved{border-left-color:var(--success)}
+.request-item.new{animation:highlight 2s ease}
+@keyframes highlight{0%{background:#d1fae5}100%{background:var(--gray-50)}}
+.request-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.request-type{font-weight:700;color:var(--primary);font-size:14px}
+.request-status{padding:4px 10px;border-radius:10px;font-size:11px;font-weight:600}
+.request-status.pending{background:#fef3c7;color:#92400e}
+.request-status.approved{background:#d1fae5;color:#065f46}
+.request-dates{font-size:13px;color:var(--gray-500)}
+.request-days{font-size:12px;color:var(--gray-400);margin-top:4px}
+
+/* Loading & Toast */
+.loading{text-align:center;padding:60px 16px;color:var(--gray-500)}
+.spinner{width:44px;height:44px;border:3px solid var(--gray-200);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--primary);color:#fff;padding:14px 28px;border-radius:14px;font-weight:600;font-size:14px;z-index:2000;opacity:0;transition:all .3s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--danger)}
+
+/* Mobile */
+@media(max-width:480px){
+  .main-tabs{padding:4px}
+  .main-tab{padding:12px 10px;font-size:13px}
+  .main-tab-icon{font-size:16px}
+  .holiday-summary-section{padding:12px}
+  .holiday-summary-title{font-size:14px}
+  .holiday-stats{grid-template-columns:repeat(2,1fr);gap:6px}
+  .holiday-stat{padding:8px 6px}
+  .holiday-stat-value{font-size:16px}
+  .holiday-stat-label{font-size:8px}
+  .holiday-type-btn-group{grid-template-columns:1fr 1fr;gap:8px}
+  .holiday-type-btn{padding:12px 8px}
+  .holiday-type-icon{font-size:22px;margin-bottom:4px}
+  .holiday-type-name{font-size:10px}
+  .holiday-type-desc{font-size:9px}
+  .form-group{margin-bottom:14px}
+  .form-label{font-size:13px;margin-bottom:6px}
+  .submit-btn{padding:14px;font-size:15px}
+  .request-item{padding:12px}
+  .request-type{font-size:13px}
+  .request-dates{font-size:12px}
+  .request-days{font-size:11px}
+  .success-banner{padding:12px;gap:10px}
+  .success-banner-icon{font-size:28px}
+  .success-banner-title{font-size:13px}
+  .success-banner-desc{font-size:11px}
+  .calendar-day{font-size:12px}
+  .calendar-day.school-holiday::after,
+  .calendar-day.holiday-annual::after,
+  .calendar-day.holiday-personal::after,
+  .calendar-day.holiday-medical::after,
+  .calendar-day.holiday-medappt::after,
+  .calendar-day.holiday-school-day::after,
+  .calendar-day.holiday-permiso::after{font-size:6px}
+  .puente-info-banner{padding:12px}
+  .puente-info-banner .banner-icon{font-size:20px}
+  .puente-info-banner .banner-title{font-size:12px}
+  .puente-info-banner .banner-text{font-size:11px}
+  .prep-time-checkbox-wrapper{padding:12px;gap:10px}
+  .prep-time-checkbox{width:20px;height:20px;font-size:12px}
+  .prep-time-title{font-size:13px}
+  .calendar-legend{gap:6px}
+  .legend-item{font-size:8px}
+  .legend-dot{width:10px;height:10px}
+  .hours-input{width:100px;font-size:20px;padding:10px}
+  .hours-unit{font-size:14px}
+}
+@media(max-width:360px){
+  .holiday-summary-section{padding:10px}
+  .holiday-summary-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .holiday-summary-title{font-size:13px}
+  .holiday-stats{gap:4px}
+  .holiday-stat{padding:6px 4px}
+  .holiday-stat-value{font-size:14px}
+  .holiday-stat-label{font-size:7px}
+  .holiday-type-btn-group{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="header-logo">
+          <img src="https://i0.wp.com/worldclassbcn.com/wp-content/uploads/2025/05/worldclass_logo.png?fit=368%2C396&ssl=1" alt="WorldClass" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <span class="logo-letter" style="display:none">W</span>
+        </div>
+        <div class="header-title"><h1><?= teacherName ?></h1><p>Control de Fichaje</p></div>
+      </div>
+      <div class="header-actions">
+        <? if (hasAdminRole) { ?><button class="btn-icon" onclick="nav('admin')" title="Panel de Administración">📊</button><? } ?>
+        <button class="btn-icon" onclick="nav('logout')" title="Cerrar Sesión">🚪</button>
+      </div>
+    </div>
+    
+    <!-- MAIN TABS -->
+    <div class="main-tabs">
+      <button class="main-tab active" onclick="switchTab('hours')" id="tabHours">
+        <span class="main-tab-icon">⏱️</span>
+        <span>Fichaje</span>
+      </button>
+      <button class="main-tab" onclick="switchTab('holidays')" id="tabHolidays">
+        <span class="main-tab-icon">🏖️</span>
+        <span>Permisos</span>
+        <span class="tab-badge" id="holidayPendingBadge" style="display:none">0</span>
+      </button>
+    </div>
+    
+    <!-- HOURS TAB CONTENT -->
+    <div id="hoursTab" class="tab-content active">
+      <div id="content"><div class="loading"><div class="spinner"></div><p>Cargando...</p></div></div>
+    </div>
+    
+    <!-- HOLIDAYS TAB CONTENT -->
+    <div id="holidaysTab" class="tab-content">
+      <div id="holidayContent"><div class="loading"><div class="spinner"></div><p>Cargando...</p></div></div>
+    </div>
+  </div>
+  
+  <!-- Calendar Overlay -->
+  <div class="overlay" id="calendarOverlay" onclick="closeOverlay(event,'calendar')">
+    <div class="calendar-modal" onclick="event.stopPropagation()">
+      <div class="modal-header"><h3>📅 Elige un Día</h3><button class="modal-close" onclick="closeOverlay(null,'calendar')">✕</button></div>
+      <div class="calendar-nav">
+        <button class="calendar-nav-btn" onclick="changeMonth(-1)">‹</button>
+        <span class="calendar-month" id="calendarMonth"></span>
+        <button class="calendar-nav-btn" id="nextMonthBtn" onclick="changeMonth(1)">›</button>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+      <div class="calendar-legend">
+        <div class="legend-item"><div class="legend-dot punches"></div> Fichajes</div>
+        <div class="legend-item"><div class="legend-dot school-holiday"></div> Festivo</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1px solid #3b82f6"></div> Vacaciones</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);border:1px solid #8b5cf6"></div> D.R. Emp.</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#fee2e2,#fecaca);border:1px solid #ef4444"></div> Médico</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b"></div> Visita Méd.</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);border:1px solid #10b981"></div> D.R. Empr.</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Edit Punch Overlay -->
+  <div class="overlay" id="editOverlay" onclick="closeOverlay(event,'edit')">
+    <div class="edit-modal" onclick="event.stopPropagation()">
+      <h3>✏️ Editar Fichaje</h3>
+      <input type="time" class="edit-time-input" id="editTimeInput">
+      <div class="edit-actions">
+        <button class="edit-btn cancel" onclick="closeOverlay(null,'edit')">Cancelar</button>
+        <button class="edit-btn save" onclick="saveEdit()">Guardar</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="toast" id="toast"></div>
+  
+<script>
+const EMAIL='<?= teacherEmail ?>',NAME='<?= teacherName ?>',URL='<?= deploymentUrl ?>';
+const IS_ADMIN_WORKER = '<?= isAdminWorker || false ?>' === 'true';
+const $=id=>document.getElementById(id),$$=sel=>document.querySelectorAll(sel);
+
+const HOLIDAY_TYPES = {
+  Annual: { name: 'Vacaciones', shortName: 'Vacaciones', emoji: '🏖️', color: 'annual', hasLimit: true },
+  Personal: { name: 'D.R. Empleado', shortName: 'D.R. Empleado', emoji: '👤', color: 'personal', hasLimit: true },
+  School: { name: 'D.R. Empresa', shortName: 'D.R. Empresa', emoji: '🏢', color: 'school', hasLimit: true },
+  Medical: { name: 'Baja Médica', shortName: 'Médico', emoji: '🏥', color: 'medical', hasLimit: false },
+  MedAppt: { name: 'Visita Médica', shortName: 'Visita Méd.', emoji: '⚕️', color: 'medappt', hasLimit: true, isHoursBased: true },
+  Permiso: { name: 'Permiso Retribuido', shortName: 'Permiso', emoji: '📋', color: 'permiso', hasLimit: false, requiresReason: true }
+};
+
+// State
+const S={
+  currentDate:new Date(),
+  calendarDate:new Date(),
+  punchedDays:{},
+  schoolHolidays:{},
+  teacherHolidays:{},
+  holidaySummary:null,
+  editingPunchId:null,
+  deletingPunchId:null,
+  selectedHolidayType:null,
+  lastSubmittedRequestId:null,
+  prepTimeStatus:null,
+  freezeStatus:null,
+  progressData:null,
+  medApptForDay:null,
+  isPunching:false,
+  isPrepTimePunching:false,
+  currentTab:'hours',
+  holidayDataLoaded:false,
+  cache:{punch:{},calendar:{}}
+};
+
+// Utilities
+const U={
+  formatDate:d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+  formatTime:t=>{const m=t?.match(/(\d{1,2}):(\d{2})/);return m?`${m[1].padStart(2,'0')}:${m[2]}`:t||''},
+  getCurrentTime:()=>{const n=new Date();return`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`},
+  isToday:d=>{const t=new Date();return d.getFullYear()===t.getFullYear()&&d.getMonth()===t.getMonth()&&d.getDate()===t.getDate()},
+  isFuture:d=>{const t=new Date();t.setHours(0,0,0,0);const c=new Date(d);c.setHours(0,0,0,0);return c>t},
+  isTimeFuture:t=>{if(!U.isToday(S.currentDate))return false;const n=new Date(),cm=n.getHours()*60+n.getMinutes(),[h,m]=t.split(':').map(Number);return h*60+m>cm},
+  escapeHtml:t=>{if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML},
+  typeEmoji:t=>HOLIDAY_TYPES[t]?.emoji||'📅',
+  typeName:t=>HOLIDAY_TYPES[t]?.shortName||t,
+  typeFullName:t=>HOLIDAY_TYPES[t]?.name||t,
+  calcHours:punches=>{if(!punches?.length)return 0;let m=0;const s=[...punches].filter(p=>p.punchType!=='PREP').sort((a,b)=>U.formatTime(a.time).localeCompare(U.formatTime(b.time)));for(let i=0;i<s.length-1;i+=2)if(s[i].punchType?.toUpperCase()==='IN'&&s[i+1]?.punchType?.toUpperCase()==='OUT'){const[ih,im]=U.formatTime(s[i].time).split(':').map(Number),[oh,om]=U.formatTime(s[i+1].time).split(':').map(Number);const d=(oh*60+om)-(ih*60+im);if(d>0)m+=d}return m/60},
+  cacheKey:(t,d)=>`${t}_${EMAIL}_${d}`,
+  getCache:(k,max)=>{try{const c=localStorage.getItem(k);if(!c)return null;const d=JSON.parse(c);return Date.now()-d.ts<max?d.v:null}catch(e){return null}},
+  setCache:(k,v)=>{try{localStorage.setItem(k,JSON.stringify({v,ts:Date.now()}))}catch(e){}}
+};
+
+function getHolidayTypeName(type){
+  return HOLIDAY_TYPES[type]?.shortName || type;
+}
+
+// Toast
+const showToast=(msg,type='')=>{const t=$('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000)};
+const handleError=e=>showToast(`Error: ${e.message}`,'error');
+
+// ========================================
+// TAB SWITCHING
+// ========================================
+function switchTab(tab) {
+  S.currentTab = tab;
+  $('tabHours').classList.toggle('active', tab === 'hours');
+  $('tabHolidays').classList.toggle('active', tab === 'holidays');
+  $('hoursTab').classList.toggle('active', tab === 'hours');
+  $('holidaysTab').classList.toggle('active', tab === 'holidays');
+  if (tab === 'holidays' && !S.holidayDataLoaded) loadHolidayData();
+}
+
+// ========================================
+// OVERLAY MANAGEMENT
+// ========================================
+const openOverlay = type => {
+  $(`${type}Overlay`).classList.add('active');
+  if (type === 'calendar') { S.calendarDate = new Date(S.currentDate); loadCalendarMonth(); }
+};
+const closeOverlay = (e, type) => {
+  if (e && e.target !== e.currentTarget) return;
+  $(`${type}Overlay`).classList.remove('active');
+  if (type === 'edit') S.editingPunchId = null;
+};
+
+// Navigation
+const nav=type=>{
+  if(type==='admin') window.top.location.href=`${URL}?role=admin`;
+  else if(type==='logout') window.top.location.href='https://accounts.google.com/AccountChooser?continue='+encodeURIComponent(URL);
+  else window.top.location.href=URL;
+};
+
+// ========================================
+// HORAS NO LECTIVAS FUNCTIONS
+// ========================================
+function updatePrepTimeUI(){
+  const container=$('prepTimeContainer');
+  if(!container)return;
+  const status=S.prepTimeStatus||{logged:false,weeklyHours:1.5};
+  const isF=U.isFuture(S.currentDate);
+  const isLogged=status.logged;
+  const disabled=isF&&!isLogged;
+  container.innerHTML=`
+    <div class="prep-time-checkbox-wrapper ${disabled?'disabled':''} ${isLogged?'checked':''}" 
+         onclick="${isLogged||isF?'':'togglePrepTime()'}">
+      <div class="prep-time-checkbox">${isLogged?'✓':''}</div>
+      <div class="prep-time-info">
+        <span class="prep-time-title">📚 Horas No Lectivas</span>
+        <span class="prep-time-badge">${status.weeklyHours||1.5}h</span>
+      </div>
+      ${isLogged?`<button class="prep-time-undo" onclick="event.stopPropagation();undoPrepTime()" title="Deshacer">↩️</button>`:''}
+    </div>`;
+}
+
+function togglePrepTime(){
+  if(S.isPrepTimePunching) return;
+  if(S.prepTimeStatus?.logged||U.isFuture(S.currentDate))return;
+  S.isPrepTimePunching = true;
+  const ds=U.formatDate(S.currentDate);
+  const wrapper=document.querySelector('.prep-time-checkbox-wrapper');
+  if(wrapper){wrapper.classList.add('disabled');const cb=wrapper.querySelector('.prep-time-checkbox');if(cb)cb.textContent='⏳';}
+  google.script.run.withSuccessHandler(r=>{
+    S.isPrepTimePunching = false;
+    if(r.success){showToast(r.message,'success');S.prepTimeStatus={logged:true,weeklyHours:S.prepTimeStatus?.weeklyHours||1.5};localStorage.removeItem(U.cacheKey('daydata',ds));}
+    else showToast(r.message,'error');
+    updatePrepTimeUI();
+  }).withFailureHandler(e=>{S.isPrepTimePunching=false;showToast(`Error: ${e.message}`,'error');updatePrepTimeUI();}).addPrepTimePunch(EMAIL,NAME,ds,'');
+}
+
+function undoPrepTime(){
+  if(!S.prepTimeStatus?.logged)return;
+  const ds=U.formatDate(S.currentDate);
+  const wrapper=document.querySelector('.prep-time-checkbox-wrapper');
+  if(wrapper){wrapper.classList.add('disabled');const cb=wrapper.querySelector('.prep-time-checkbox');if(cb)cb.textContent='⏳';}
+  google.script.run.withSuccessHandler(r=>{
+    if(r.success){showToast('Horas No Lectivas eliminadas','success');S.prepTimeStatus={logged:false,weeklyHours:S.prepTimeStatus?.weeklyHours||1.5};localStorage.removeItem(U.cacheKey('daydata',ds));}
+    else showToast(r.message,'error');
+    updatePrepTimeUI();
+  }).withFailureHandler(e=>{showToast(`Error: ${e.message}`,'error');updatePrepTimeUI();}).deletePrepTimePunch(EMAIL,ds);
+}
+
+// ========================================
+// INITIALIZE
+// ========================================
+window.onload=()=>{
+  google.script.run.withSuccessHandler(h=>S.schoolHolidays=h||{}).withFailureHandler(()=>S.schoolHolidays={}).getPunchSchoolHolidays();
+  google.script.run.withSuccessHandler(s=>{S.holidaySummary=s;updateHolidayBadge();}).withFailureHandler(()=>{}).getPunchTeacherHolidaySummary(EMAIL);
+  loadProgressData();
+  loadDayData();
+};
+
+function updateHolidayBadge() {
+  const s = S.holidaySummary;
+  if (!s) return;
+  const pending = (s.annualPending||0) + (s.personalPending||0) + (s.medicalPending||0) + (s.medApptPending||0) + (s.permisoPending||0);
+  const badge = $('holidayPendingBadge');
+  if (pending > 0) { badge.textContent = pending; badge.style.display = 'inline'; }
+  else badge.style.display = 'none';
+}
+
+// ========================================
+// LOAD DAY DATA (COMBINED CALL)
+// ========================================
+function loadDayData(force){
+  const ds=U.formatDate(S.currentDate),ck=U.cacheKey('daydata',ds);
+  if(!force){
+    const cached=U.getCache(ck,60000);
+    if(cached){
+      S.cache.punch[ds]=cached.punches;
+      S.prepTimeStatus=cached.prepTime;
+      S.medApptForDay=cached.medAppt||null;
+      displayDayLoading();
+      google.script.run.withSuccessHandler(r=>{
+        if(r.success){S.freezeStatus=r.freeze||{frozen:false,canEdit:true};U.setCache(ck,{punches:cached.punches,prepTime:cached.prepTime,freeze:r.freeze,medAppt:cached.medAppt});}
+        else S.freezeStatus={frozen:false,canEdit:true};
+        displayDay(cached.punches);updateProgressUI();updatePrepTimeUI();
+      }).withFailureHandler(()=>{S.freezeStatus={frozen:false,canEdit:true};displayDay(cached.punches);updateProgressUI();updatePrepTimeUI();}).getDayDataCombined(EMAIL,ds);
+      return;
+    }
+  }
+  displayDayLoading();
+  google.script.run.withSuccessHandler(r=>{
+    if(r.success){
+      S.cache.punch[ds]=r.punches;
+      S.prepTimeStatus=r.prepTime;
+      S.freezeStatus=r.freeze||{frozen:false,canEdit:true};
+      S.medApptForDay=r.medAppt||null;
+      U.setCache(ck,{punches:r.punches,prepTime:r.prepTime,freeze:r.freeze,medAppt:r.medAppt});
+      displayDay(r.punches);updateProgressUI();updatePrepTimeUI();
+    }else{
+      displayDay([]);S.prepTimeStatus={logged:false,weeklyHours:1.5};S.freezeStatus={frozen:false,canEdit:true};S.medApptForDay=null;
+      updateProgressUI();updatePrepTimeUI();
+    }
+  }).withFailureHandler(e=>{handleError(e);displayDay([]);S.prepTimeStatus={logged:false,weeklyHours:1.5};S.freezeStatus={frozen:false,canEdit:true};S.medApptForDay=null;updatePrepTimeUI();}).getDayDataCombined(EMAIL,ds);
+}
+
+function displayDayLoading(){
+  const isT=U.isToday(S.currentDate),wd=S.currentDate.toLocaleDateString('es-ES',{weekday:'long'}),md=S.currentDate.toLocaleDateString('es-ES',{month:'short',day:'numeric'});
+  $('content').innerHTML=`<div class="date-card"><div class="date-nav"><button class="date-nav-btn" onclick="changeDay(-1)">‹</button><div class="date-center" onclick="openOverlay('calendar')"><div class="date-number">${S.currentDate.getDate()}</div><div class="date-text">${wd}, ${md}</div>${isT?'<div class="date-badge">HOY</div>':'<div class="date-hint">📅 Toca para elegir fecha</div>'}</div><button class="date-nav-btn ${isT?'hidden':''}" onclick="changeDay(1)" ${isT?'disabled':''}>›</button></div></div><div class="punch-card"><div class="loading"><div class="spinner"></div><p>Cargando...</p></div></div>`;
+}
+
+function displayDay(punches){
+  const isT=U.isToday(S.currentDate),isF=U.isFuture(S.currentDate),nextType=punches.length%2===0?'IN':'OUT';
+  const punchedHrs=U.calcHours(punches);
+  const medApptHrs=S.medApptForDay?.hours||0;
+  const hrs=punchedHrs+medApptHrs;
+  const wd=S.currentDate.toLocaleDateString('es-ES',{weekday:'long'}),md=S.currentDate.toLocaleDateString('es-ES',{month:'short',day:'numeric'});
+  const ds=U.formatDate(S.currentDate),isH=S.schoolHolidays[ds];
+  const isFrozen=S.freezeStatus?.frozen&&!S.freezeStatus?.canEdit;
+  
+  let badge=isT?'<div class="date-badge">HOY</div>':isH?`<div class="date-badge school-holiday-badge">🏢 ${U.escapeHtml(isH)}</div>`:'<div class="date-hint">📅 Toca para elegir fecha</div>';
+  
+  let html=`<div class="date-card"><div class="date-nav"><button class="date-nav-btn" onclick="changeDay(-1)">‹</button><div class="date-center" onclick="openOverlay('calendar')"><div class="date-number">${S.currentDate.getDate()}</div><div class="date-text">${wd}, ${md}</div>${badge}</div><button class="date-nav-btn ${isT?'hidden':''}" onclick="changeDay(1)" ${isT?'disabled':''}>›</button></div></div><div id="progressContainer"></div><div class="punch-card">`;
+
+  if(isFrozen){
+    html+=`<div class="frozen-banner"><div class="frozen-icon">🔒</div><div class="frozen-text"><strong>Día Congelado</strong><span>Los fichajes de este día no pueden ser editados</span></div></div>`;
+  }
+  
+  if(isH)html+=`<div class="school-holiday-notice"><div class="notice-icon">🏢</div><div class="notice-text"><strong>Festivo / Puente</strong><span>${U.escapeHtml(isH)}</span></div></div>`;
+  
+  // Show MedAppt for this day
+  if(S.medApptForDay){
+    const tr=S.medApptForDay.timeRange;
+    const timeDisplay=tr?tr.replace('-',' → '):'';
+    html+=`<div class="medappt-entry">
+      <div class="medappt-icon">⚕️</div>
+      <div class="medappt-info">
+        <div class="medappt-title">Visita Médica</div>
+        <div class="medappt-detail">${timeDisplay}${S.medApptForDay.reason?' • '+U.escapeHtml(S.medApptForDay.reason):''}</div>
+      </div>
+      <div class="medappt-hours">${S.medApptForDay.hours}h</div>
+    </div>`;
+  }
+  
+  const canAddPunch=!isF&&!isFrozen;
+  const punchLabel=nextType==='IN'?'ENTRADA':'SALIDA';
+  
+  html+=`<div class="section-title">⏱️ Registrar Hora</div><div class="time-input-wrapper"><div class="time-label">Seleccionar Hora ${isT?'(hasta ahora)':''}</div><input type="time" class="time-input" id="punchTime" value="${U.getCurrentTime()}" onchange="validateTime(this)" ${!canAddPunch?'disabled':''}><div class="time-warning" id="timeWarning">⚠️ No puedes seleccionar una hora futura</div></div><button class="punch-btn ${nextType.toLowerCase()}" onclick="doPunch()" ${!canAddPunch?'disabled':''}><span class="punch-btn-icon">${nextType==='IN'?'🟢':'🟠'}</span> Fichar ${punchLabel}</button>`;
+  
+  if(isF)html+='<div class="future-warning">⚠️ No puedes fichar en fechas futuras</div>';
+  if(isFrozen&&!isF)html+='<div class="future-warning" style="background:#fee2e2;color:#991b1b">🔒 Este día está congelado - contacta al administrador</div>';
+  
+  // Horas No Lectivas Section - Only for teachers, not admin workers
+  if (!IS_ADMIN_WORKER) {
+    html+=`<div class="prep-time-section" id="prepTimeContainer"></div>`;
+  }
+  
+  html+=`<div class="punches-section"><div class="punches-header"><div class="section-title" style="margin-bottom:0">📋 Fichajes</div><div class="punches-count">${punches.length}</div></div>`;
+  
+  if(!punches.length)html+='<div class="empty-state"><div class="empty-state-icon">🕐</div><div class="empty-state-text">Sin fichajes aún</div></div>';
+  else punches.forEach(p=>{
+    const t=U.formatTime(p.time);
+    const typeLabel=p.punchType==='IN'?'ENTRADA':'SALIDA';
+    
+    if(isFrozen){
+      html+=`<div class="punch-item ${p.punchType.toLowerCase()} frozen" id="punch-${p.punchId}"><div class="punch-item-left"><span class="punch-type-badge ${p.punchType.toLowerCase()}">${typeLabel}</span><span class="punch-time">${t}</span></div><div class="frozen-lock">🔒 Congelado</div></div>`;
+    }else{
+      html+=`<div class="punch-item ${p.punchType.toLowerCase()}" id="punch-${p.punchId}"><div class="punch-item-left"><span class="punch-type-badge ${p.punchType.toLowerCase()}">${typeLabel}</span><span class="punch-time">${t}</span></div><div class="punch-actions" id="actions-${p.punchId}"><button class="punch-action-btn edit" onclick="openEdit('${p.punchId}','${t}')">✏️</button><button class="punch-action-btn delete" onclick="showDelete('${p.punchId}')">🗑️</button></div><div class="delete-confirm" id="confirm-${p.punchId}"><button class="delete-confirm-btn yes" onclick="confirmDelete('${p.punchId}')">Eliminar</button><button class="delete-confirm-btn no" onclick="cancelDelete('${p.punchId}')">Cancelar</button></div></div>`;
+    }
+  });
+  
+  html+=`</div><div class="hours-card"><div class="hours-value">${hrs.toFixed(2)}h</div><div class="hours-label">Horas Totales${medApptHrs>0?' (incl. '+medApptHrs+'h visita méd.)':''}</div></div></div>`;
+  $('content').innerHTML=html;
+  
+  if (!IS_ADMIN_WORKER) updatePrepTimeUI();
+}
+
+// Day Navigation
+function changeDay(dir){
+  if(dir>0&&U.isToday(S.currentDate))return;
+  S.currentDate.setDate(S.currentDate.getDate()+dir);
+  loadDayData();
+}
+
+// Punch Actions
+function validateTime(input){
+  const btn=document.querySelector('.punch-btn'),warn=$('timeWarning'),future=U.isTimeFuture(input.value);
+  input.style.borderColor=future?'#ef4444':'#e2e8f0';
+  if(btn)btn.disabled=future;
+  if(warn)warn.classList.toggle('show',future);
+}
+
+function doPunch(){
+  if(S.isPunching)return;
+  S.isPunching=true;
+  const time=$('punchTime').value,ds=U.formatDate(S.currentDate);
+  if(!time){S.isPunching=false;return showToast('Por favor selecciona una hora','error');}
+  if(U.isFuture(S.currentDate)){S.isPunching=false;return showToast('No puedes fichar en fechas futuras','error');}
+  if(U.isTimeFuture(time)){S.isPunching=false;return showToast('No puedes fichar en una hora futura','error');}
+  
+  const btn=document.querySelector('.punch-btn');
+  btn.disabled=true;btn.innerHTML='<span class="punch-btn-icon">⏳</span> Guardando...';
+  
+  google.script.run.withSuccessHandler(r=>{
+    S.isPunching=false;
+    if(r.success){
+      const msg=r.punch.punchType==='IN'?'Entrada registrada a las '+time:'Salida registrada a las '+time;
+      showToast(msg,'success');clearCache(ds);loadDayData(true);loadProgressData();
+    }else{
+      showToast(r.message,'error');
+      if(r.frozen)loadDayData(true);else btn.disabled=false;
+    }
+  }).withFailureHandler(e=>{S.isPunching=false;showToast(`Error: ${e.message}`,'error');btn.disabled=false;}).addPunch(EMAIL,NAME,ds,time,'');
+}
+
+function clearCache(ds){
+  delete S.cache.punch[ds];
+  localStorage.removeItem(U.cacheKey('daydata',ds));
+  const d=new Date(ds),mk=`${d.getFullYear()}-${d.getMonth()+1}`;
+  delete S.cache.calendar[mk];
+  localStorage.removeItem(U.cacheKey('calendar',mk));
+}
+
+// Delete Punch
+function showDelete(id){
+  $$('.delete-confirm.show').forEach(e=>e.classList.remove('show'));
+  $$('.punch-item.deleting').forEach(e=>e.classList.remove('deleting'));
+  $$('.punch-actions').forEach(e=>e.style.display='flex');
+  $(`confirm-${id}`).classList.add('show');
+  $(`actions-${id}`).style.display='none';
+  $(`punch-${id}`).classList.add('deleting');
+  S.deletingPunchId=id;
+}
+
+function cancelDelete(id){
+  $(`confirm-${id}`).classList.remove('show');
+  $(`actions-${id}`).style.display='flex';
+  $(`punch-${id}`).classList.remove('deleting');
+  S.deletingPunchId=null;
+}
+
+function confirmDelete(id){
+  const el=$(`punch-${id}`),ds=U.formatDate(S.currentDate);
+  if(el)el.style.opacity='0.5';
+  google.script.run.withSuccessHandler(r=>{
+    if(r.success){showToast('Fichaje eliminado','success');clearCache(ds);loadDayData(true);}
+    else{showToast(r.message,'error');if(el)el.style.opacity='1';cancelDelete(id);if(r.frozen)loadDayData(true);}
+  }).withFailureHandler(e=>{showToast(`Error: ${e.message}`,'error');if(el)el.style.opacity='1';cancelDelete(id);}).deletePunch(id,EMAIL);
+}
+
+// Edit Punch
+function openEdit(id,time){S.editingPunchId=id;$('editTimeInput').value=time;openOverlay('edit')}
+
+function saveEdit(){
+  const time=$('editTimeInput').value,ds=U.formatDate(S.currentDate);
+  if(!time)return showToast('Por favor selecciona una hora','error');
+  if(U.isTimeFuture(time))return showToast('No puedes establecer una hora futura','error');
+  google.script.run.withSuccessHandler(r=>{
+    if(r.success){showToast('Fichaje actualizado','success');closeOverlay(null,'edit');clearCache(ds);loadDayData(true);}
+    else{showToast(r.message,'error');if(r.frozen)loadDayData(true);}
+  }).withFailureHandler(handleError).editPunch(S.editingPunchId,time,'',EMAIL);
+}
+
+// ========================================
+// CALENDAR FUNCTIONS
+// ========================================
+function loadCalendarMonth(){
+  const y=S.calendarDate.getFullYear(),m=S.calendarDate.getMonth()+1,ck=U.cacheKey('calendar',`${y}-${m}`);
+  $('calendarMonth').textContent=S.calendarDate.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const next=new Date(y,m,1),today=new Date();
+  $('nextMonthBtn').disabled=next>new Date(today.getFullYear(),today.getMonth()+1,0);
+  
+  if(S.cache.calendar[`${y}-${m}`]){
+    S.punchedDays=S.cache.calendar[`${y}-${m}`].punched||S.cache.calendar[`${y}-${m}`];
+    S.teacherHolidays=S.cache.calendar[`${y}-${m}`].holidays||{};
+    return renderCalendar();
+  }
+  
+  const c=U.getCache(ck,600000);
+  if(c&&c.punched){
+    S.cache.calendar[`${y}-${m}`]=c;S.punchedDays=c.punched;S.teacherHolidays=c.holidays||{};
+    return renderCalendar();
+  }
+  
+  $('calendarGrid').innerHTML='<div style="grid-column:span 7;text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 10px;width:30px;height:30px"></div><p style="color:var(--gray-500);font-size:13px">Cargando...</p></div>';
+  
+  let punchedData=null,holidayData=null,loadedCount=0;
+  const checkAndRender=()=>{
+    loadedCount++;
+    if(loadedCount===2){
+      const cacheData={punched:punchedData,holidays:holidayData};
+      S.cache.calendar[`${y}-${m}`]=cacheData;U.setCache(ck,cacheData);
+      S.punchedDays=punchedData;S.teacherHolidays=holidayData;renderCalendar();
+    }
+  };
+  
+  google.script.run.withSuccessHandler(d=>{punchedData=d||{};checkAndRender();}).withFailureHandler(()=>{punchedData={};checkAndRender();}).getTeacherPunchedDays(EMAIL,y,m);
+  google.script.run.withSuccessHandler(d=>{holidayData=d?.teacher||{};checkAndRender();}).withFailureHandler(()=>{holidayData={};checkAndRender();}).getPunchTeacherHolidaysForCalendar(EMAIL);
+}
+
+function renderCalendar(){
+  const y=S.calendarDate.getFullYear(),m=S.calendarDate.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),start=first.getDay();
+  const todayStr=U.formatDate(new Date()),selStr=U.formatDate(S.currentDate);
+  
+  let html='';
+  ['D','L','M','X','J','V','S'].forEach(n=>html+=`<div class="calendar-day-header">${n}</div>`);
+  for(let i=0;i<start;i++)html+='<div class="calendar-day empty"></div>';
+  
+  for(let d=1;d<=last.getDate();d++){
+    const date=new Date(y,m,d),ds=U.formatDate(date),isF=U.isFuture(date);
+    const isSchoolHol=S.schoolHolidays[ds];
+    const teacherHolType=S.teacherHolidays[ds];
+    const hasP=S.punchedDays[ds]?.count>0;
+    
+    let cls=['calendar-day'],tip='';
+    
+    if(ds===todayStr)cls.push('today');
+    if(ds===selStr)cls.push('selected');
+    if(isF)cls.push('future');
+    
+    if(teacherHolType){
+      const holClass = teacherHolType === 'School' ? 'holiday-school-day' : `holiday-${teacherHolType.toLowerCase()}`;
+      cls.push(holClass);
+      tip=` title="${getHolidayTypeName(teacherHolType)}"`;
+    }
+    else if(isSchoolHol && !hasP){
+      cls.push('school-holiday');
+      tip=` title="${U.escapeHtml(isSchoolHol)}"`;
+    }
+    else if(hasP){
+      cls.push('has-punches');
+    }
+    
+    html+=`<div class="${cls.join(' ')}"${isF?'':`onclick="selectDate(${y},${m},${d})"`}${tip}>${d}</div>`;
+  }
+  $('calendarGrid').innerHTML=html;
+}
+
+function selectDate(y,m,d){S.currentDate=new Date(y,m,d);closeOverlay(null,'calendar');loadDayData()}
+function changeMonth(dir){
+  if(dir>0){const next=new Date(S.calendarDate.getFullYear(),S.calendarDate.getMonth()+1,1),today=new Date();if(next>new Date(today.getFullYear(),today.getMonth()+1,0))return}
+  S.calendarDate.setMonth(S.calendarDate.getMonth()+dir);loadCalendarMonth();
+}
+
+// ========================================
+// HOLIDAY TAB
+// ========================================
+function loadHolidayData(){
+  $('holidayContent').innerHTML='<div class="loading"><div class="spinner"></div><p>Cargando...</p></div>';
+  google.script.run.withSuccessHandler(s=>{
+    S.holidaySummary=s;S.holidayDataLoaded=true;displayHolidayTab();updateHolidayBadge();
+  }).withFailureHandler(()=>{S.holidayDataLoaded=true;displayHolidayTab();}).getPunchTeacherHolidaySummary(EMAIL);
+}
+
+function displayHolidayTab(showSuccess){
+  const s=S.holidaySummary||{
+    annualTotal:31,annualUsed:0,annualPending:0,annualRemaining:31,
+    personalTotal:3,personalUsed:0,personalPending:0,personalRemaining:3,
+    schoolTotal:4,schoolUsed:0,
+    medicalUsed:0,medicalPending:0,
+    medApptTotal:20,medApptUsed:0,medApptPending:0,medApptRemaining:20,
+    permisoUsed:0,permisoPending:0,puenteDays:9,requests:[]
+  };
+  const today=new Date().toISOString().split('T')[0];
+  const pending=(s.annualPending||0)+(s.personalPending||0)+(s.medicalPending||0)+(s.medApptPending||0)+(s.permisoPending||0);
+  const puenteDays=s.puenteDays||9;
+  
+  let html='';
+  
+  if(showSuccess){
+    html+=`<div class="success-banner">
+      <div class="success-banner-icon">✅</div>
+      <div class="success-banner-text">
+        <div class="success-banner-title">¡Solicitud Enviada!</div>
+        <div class="success-banner-desc">Tu solicitud está pendiente de aprobación</div>
+      </div>
+    </div>`;
+  }
+  
+  // Summary Card
+  html+=`<div class="holiday-card">
+    <div class="holiday-summary-section">
+      <div class="holiday-summary-header">
+        <div class="holiday-summary-title">📊 Tu Saldo${pending?`<span class="holiday-badge">${pending} PENDIENTE${pending!==1?'S':''}</span>`:''}</div>
+      </div>
+      <div class="holiday-stats">
+        <div class="holiday-stat"><div class="holiday-stat-value">${s.annualUsed}/${s.annualTotal}</div><div class="holiday-stat-label">Vacaciones</div></div>
+        <div class="holiday-stat"><div class="holiday-stat-value">${s.personalUsed}/${s.personalTotal}</div><div class="holiday-stat-label">D.R. Empleado</div></div>
+        <div class="holiday-stat"><div class="holiday-stat-value">${s.schoolUsed}/${s.schoolTotal||4}</div><div class="holiday-stat-label">D.R. Empresa</div></div>
+        <div class="holiday-stat"><div class="holiday-stat-value">${(s.medApptUsed||0)}h/${s.medApptTotal||20}h</div><div class="holiday-stat-label">Visita Médica</div></div>
+      </div>
+    </div>
+    
+    <div class="puente-info-banner">
+      <div class="banner-icon">🗓️</div>
+      <div class="banner-content">
+        <div class="banner-title">Días de Puente ${new Date().getFullYear()}</div>
+        <div class="banner-text">Tienes <strong>${puenteDays} días de puente</strong> ya asignados en el calendario escolar.</div>
+      </div>
+    </div>
+  </div>`;
+  
+  // Request Form Card
+  html+=`<div class="holiday-card">
+    <div class="section-title">📝 Nueva Solicitud</div>
+    
+    <div class="form-group">
+      <label class="form-label">Tipo de Permiso</label>
+      <div class="holiday-type-btn-group">
+        <div class="holiday-type-btn" onclick="selectType('Annual')" id="type-Annual"><div class="holiday-type-icon">🏖️</div><div class="holiday-type-name">Vacaciones</div><div class="holiday-type-desc">${s.annualRemaining} días</div></div>
+        <div class="holiday-type-btn" onclick="selectType('Personal')" id="type-Personal"><div class="holiday-type-icon">👤</div><div class="holiday-type-name">D.R. Empleado</div><div class="holiday-type-desc">${s.personalRemaining} días</div></div>
+        <div class="holiday-type-btn" onclick="selectType('Medical')" id="type-Medical"><div class="holiday-type-icon">🏥</div><div class="holiday-type-name">Baja Médica</div><div class="holiday-type-desc">Sin límite</div></div>
+        <div class="holiday-type-btn" onclick="selectType('MedAppt')" id="type-MedAppt"><div class="holiday-type-icon">⚕️</div><div class="holiday-type-name">Visita Médica</div><div class="holiday-type-desc">${(s.medApptRemaining||20)}h</div></div>
+        <div class="holiday-type-btn" onclick="selectType('Permiso')" id="type-Permiso"><div class="holiday-type-icon">📋</div><div class="holiday-type-name">Permiso Retribuido</div><div class="holiday-type-desc">Requiere motivo</div></div>
+      </div>
+    </div>
+    
+    <div id="dateRangeGroup">
+      <div class="form-group">
+        <label class="form-label" id="dateLabel">Fechas</label>
+        <div class="date-range-group" id="dateRangeFields">
+          <div class="date-field"><div class="date-field-label">Desde</div><input type="date" class="form-input" id="holidayStart" min="${today}" onchange="onStartChange()" required></div>
+          <div class="date-field" id="endDateField"><div class="date-field-label">Hasta</div><input type="date" class="form-input" id="holidayEnd" min="${today}" onchange="updatePreview()" required></div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="medApptHoursGroup" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Horario de la Visita</label>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="flex:1">
+            <div class="date-field-label">Desde</div>
+            <input type="time" class="form-input" id="medApptStartTime" value="09:00" onchange="updateMedApptHours()" style="font-size:20px;text-align:center;font-weight:600">
+          </div>
+          <div style="font-size:20px;color:var(--gray-400);padding-top:20px">→</div>
+          <div style="flex:1">
+            <div class="date-field-label">Hasta</div>
+            <input type="time" class="form-input" id="medApptEndTime" value="10:00" onchange="updateMedApptHours()" style="font-size:20px;text-align:center;font-weight:600">
+          </div>
+        </div>
+        <div id="medApptHoursPreview" style="margin-top:12px;text-align:center;font-size:22px;font-weight:700;color:var(--primary)">1.0h</div>
+        <div style="font-size:12px;color:var(--gray-400);margin-top:4px;text-align:center">Te quedan ${(s.medApptRemaining||20)}h</div>
+      </div>
+    </div>
+    
+    <div id="daysPreview" style="display:none"><div class="days-preview"><div class="days-preview-value" id="previewValue">0</div><div class="days-preview-label">Días a solicitar</div><div class="days-preview-detail" id="previewDetail"></div></div></div>
+    
+    <div class="reason-required-notice" id="reasonNotice"><div class="reason-required-notice-text">⚠️ El Permiso Retribuido requiere especificar un motivo obligatoriamente.</div></div>
+    
+    <div class="form-group">
+      <label class="form-label">Motivo <span id="reasonRequired" style="color:#ef4444;display:none">*</span></label>
+      <textarea class="form-textarea" id="holidayReason" placeholder="ej., Vacaciones familiares, cita médica..."></textarea>
+    </div>
+    
+    <div class="info-box"><div class="info-box-text">💡 Todos los días naturales cuentan, incluyendo fines de semana y festivos.</div></div>
+    
+    <button class="submit-btn" onclick="submitHoliday()" id="submitHolidayBtn">📤 Enviar Solicitud</button>
+  </div>`;
+  
+  // Requests History Card
+  const filteredReqs=(s.requests||[]).filter(r=>r.status==='Pending'||r.status==='Approved').sort((a,b)=>new Date(b.requestDate)-new Date(a.requestDate)).slice(0,10);
+  
+  html+=`<div class="holiday-card">
+    <div class="section-title">📋 Mis Solicitudes</div>`;
+  
+  if(filteredReqs.length>0){
+    filteredReqs.forEach((r,i)=>{
+      const isNew=S.lastSubmittedRequestId&&r.requestId===S.lastSubmittedRequestId;
+      const statusLabel=r.status==='Pending'?'Pendiente':'Aprobado';
+      const isHoursBased=r.type==='MedAppt';
+      const daysLabel=isHoursBased?r.days+'h':r.days+' día'+(r.days!==1?'s':'');
+      const timeDisplay=isHoursBased&&r.timeRange?r.timeRange.replace('-',' → ')+' • ':'';
+      
+      html+=`<div class="request-item ${r.status.toLowerCase()}${isNew?' new':''}" id="req-${i}">
+        <div class="request-header">
+          <span class="request-type">${U.typeEmoji(r.type)} ${U.typeName(r.type)}</span>
+          <span class="request-status ${r.status.toLowerCase()}">${statusLabel}</span>
+        </div>
+        <div class="request-dates">${new Date(r.startDate).toLocaleDateString('es-ES')}${!isHoursBased&&r.startDate!==r.endDate?' - '+new Date(r.endDate).toLocaleDateString('es-ES'):''}</div>
+        <div class="request-days">${timeDisplay}${daysLabel}${r.reason?' • '+U.escapeHtml(r.reason.substring(0,50))+(r.reason.length>50?'...':''):''}</div>
+      </div>`;
+    });
+  }else{
+    html+='<div class="empty-state" style="padding:20px"><div class="empty-state-icon">📝</div><div class="empty-state-text">Sin solicitudes pendientes o aprobadas</div></div>';
+  }
+  
+  html+='</div>';
+  
+  $('holidayContent').innerHTML=html;
+  S.selectedHolidayType=null;
+  
+  if(showSuccess) $('holidaysTab').scrollTop=0;
+}
+
+function selectType(type){
+  S.selectedHolidayType=type;
+  $$('.holiday-type-btn').forEach(b=>b.className='holiday-type-btn');
+  $(`type-${type}`).classList.add('selected',type.toLowerCase());
+  
+  const noticeEl=$('reasonNotice');
+  const reqEl=$('reasonRequired');
+  const endDateField=$('endDateField');
+  const medApptGroup=$('medApptHoursGroup');
+  const daysPreview=$('daysPreview');
+  const dateLabel=$('dateLabel');
+  
+  // Reset
+  if(noticeEl)noticeEl.classList.remove('show');
+  if(reqEl)reqEl.style.display='none';
+  
+  const startLabel=document.querySelector('#dateRangeFields .date-field:first-child .date-field-label');
+  if(type==='MedAppt'){
+    if(endDateField)endDateField.style.display='none';
+    if(medApptGroup)medApptGroup.style.display='block';
+    if(daysPreview)daysPreview.style.display='none';
+    if(dateLabel)dateLabel.textContent='Fecha de la Visita';
+    if(startLabel)startLabel.textContent='Fecha';
+  }else{
+    if(endDateField)endDateField.style.display='';
+    if(medApptGroup)medApptGroup.style.display='none';
+    if(dateLabel)dateLabel.textContent='Fechas';
+    if(startLabel)startLabel.textContent='Desde';
+    
+    if(type==='Permiso'){
+      if(noticeEl)noticeEl.classList.add('show');
+      if(reqEl)reqEl.style.display='inline';
+    }
+  }
+}
+
+function updateMedApptHours(){
+  const start=$('medApptStartTime').value;
+  const end=$('medApptEndTime').value;
+  const preview=$('medApptHoursPreview');
+  if(!start||!end){preview.textContent='—';preview.style.color='var(--gray-400)';return;}
+  const[sh,sm]=start.split(':').map(Number);
+  const[eh,em]=end.split(':').map(Number);
+  const diff=(eh*60+em)-(sh*60+sm);
+  if(diff<=0){preview.textContent='⚠️ La hora final debe ser posterior';preview.style.color='#ef4444';return;}
+  const hours=Math.round((diff/60)*100)/100;
+  preview.textContent=hours+'h';
+  preview.style.color='var(--primary)';
+}
+
+function onStartChange(){
+  const start=$('holidayStart').value,end=$('holidayEnd');
+  end.min=start;
+  if(end.value<start)end.value=start;
+  updatePreview();
+}
+
+function updatePreview(){
+  if(S.selectedHolidayType==='MedAppt')return;
+  const start=$('holidayStart').value,end=$('holidayEnd').value,container=$('daysPreview');
+  if(!start||!end||end<start){container.style.display='none';return}
+  const startDate=new Date(start),endDate=new Date(end);
+  const totalDays=Math.floor((endDate-startDate)/(24*60*60*1000))+1;
+  container.style.display='block';
+  $('previewValue').textContent=totalDays;
+  $('previewDetail').innerHTML='<span>Incluye fines de semana y festivos</span>';
+}
+
+function submitHoliday(){
+  if(!S.selectedHolidayType)return showToast('Por favor selecciona un tipo de permiso','error');
+  
+  const type=S.selectedHolidayType;
+  const start=$('holidayStart').value;
+  const reason=$('holidayReason').value;
+  
+  if(!start)return showToast('Por favor selecciona la fecha','error');
+  
+  // MedAppt: hour-based submission
+  if(type==='MedAppt'){
+    const startTime=$('medApptStartTime').value;
+    const endTime=$('medApptEndTime').value;
+    if(!startTime||!endTime)return showToast('Por favor selecciona el horario de la visita','error');
+    const[sh,sm]=startTime.split(':').map(Number);
+    const[eh,em]=endTime.split(':').map(Number);
+    const diff=(eh*60+em)-(sh*60+sm);
+    if(diff<=0)return showToast('La hora final debe ser posterior a la inicial','error');
+    const hours=Math.round((diff/60)*100)/100;
+    if(hours>8)return showToast('Máximo 8h por solicitud','error');
+    
+    const btn=$('submitHolidayBtn');
+    btn.disabled=true;btn.textContent='⏳ Enviando...';
+    
+    google.script.run.withSuccessHandler(r=>{
+      if(r.success){
+        S.lastSubmittedRequestId=r.requestId;
+        S.cache.calendar={};
+        const now=new Date();
+        localStorage.removeItem(U.cacheKey('calendar',`${now.getFullYear()}-${now.getMonth()+1}`));
+        localStorage.removeItem(U.cacheKey('daydata',start));
+        loadHolidayData();
+        displayHolidayTab(true);
+        showToast(`Visita Médica enviada: ${startTime} → ${endTime} (${hours}h)`,'success');
+      }else{
+        showToast(r.message,'error');
+        btn.disabled=false;btn.textContent='📤 Enviar Solicitud';
+      }
+    }).withFailureHandler(e=>{
+      showToast(`Error: ${e.message}`,'error');
+      btn.disabled=false;btn.textContent='📤 Enviar Solicitud';
+    }).submitPunchHolidayRequest(EMAIL,NAME,type,start,start,reason,null,startTime,endTime);
+    return;
+  }
+  
+  // Day-based submission
+  const end=$('holidayEnd').value;
+  if(!end)return showToast('Por favor selecciona las fechas','error');
+  if(end<start)return showToast('La fecha final debe ser posterior a la inicial','error');
+  
+  if(type==='Permiso'&&(!reason||reason.trim()==='')){
+    return showToast('El Permiso Retribuido requiere especificar un motivo','error');
+  }
+  
+  const btn=$('submitHolidayBtn');
+  btn.disabled=true;btn.textContent='⏳ Enviando...';
+  
+  google.script.run.withSuccessHandler(r=>{
+    if(r.success){
+      S.lastSubmittedRequestId=r.requestId;
+      S.cache.calendar={};
+      const now=new Date();
+      localStorage.removeItem(U.cacheKey('calendar',`${now.getFullYear()}-${now.getMonth()+1}`));
+      loadHolidayData();
+      displayHolidayTab(true);
+      showToast(`Solicitud de ${U.typeName(S.selectedHolidayType)} enviada (${r.totalDays} día${r.totalDays!==1?'s':''})`,'success');
+    }else{
+      showToast(r.message,'error');
+      btn.disabled=false;btn.textContent='📤 Enviar Solicitud';
+    }
+  }).withFailureHandler(e=>{
+    showToast(`Error: ${e.message}`,'error');
+    btn.disabled=false;btn.textContent='📤 Enviar Solicitud';
+  }).submitPunchHolidayRequest(EMAIL,NAME,type,start,end,reason,null);
+}
+
+// ========================================
+// PROGRESS BAR
+// ========================================
+function loadProgressData() {
+  google.script.run.withSuccessHandler(r => {
+    S.progressData = r.success ? r : null;
+    updateProgressUI();
+  }).withFailureHandler(() => {
+    S.progressData = null;
+  }).getTeacherProgressSummary(EMAIL);
+}
+
+function updateProgressUI() {
+  const container = $('progressContainer');
+  if (!container || !S.progressData) return;
+  
+  const d = S.progressData;
+  const pc = d.progressPercent >= 98 ? 'on-track' : d.progressPercent >= 80 ? 'warning' : 'behind';
+  const pw = Math.min(d.progressPercent, 150);
+  
+  const hasMedical = (d.medicalHours || 0) > 0;
+  
+  let hoursBreakdown = `${d.totalHours.toFixed(1)}h / ${d.expectedYearlyHours}h`;
+  if (hasMedical) {
+    hoursBreakdown = `${(d.totalHoursWorked || d.totalHours).toFixed(1)}h fichadas + ${(d.medicalHours).toFixed(1)}h baja = ${d.totalHours.toFixed(1)}h`;
+  }
+  
+  let extraInfo = '';
+  if (hasMedical) extraInfo = '🏥 ' + d.medicalWorkingDays + ' días baja';
+  
+  container.innerHTML = `
+    <div class="progress-card">
+      <div class="progress-card-header">
+        <span class="progress-card-title">📊 Progreso Anual</span>
+        <span class="progress-card-hours">${hoursBreakdown}</span>
+      </div>
+      <div class="progress-container">
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar ${pc}" style="width:${pw}%"></div>
+        </div>
+        <div class="progress-text">
+          <span class="progress-percent ${pc}">${d.progressPercent.toFixed(0)}%</span>
+          <span class="progress-expected">${d.expectedHoursToDate.toFixed(0)}h esperadas${extraInfo ? ' • ' + extraInfo : ''}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Global click handler for delete cancel
+document.addEventListener('click',e=>{if(S.deletingPunchId&&!e.target.closest('.punch-item'))cancelDelete(S.deletingPunchId)});
+</script>
+</body>
+</html>

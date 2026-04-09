@@ -1,0 +1,87 @@
+// Auth module - handles login, session, and routing
+
+async function getSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}
+
+async function getProfile() {
+  const session = await getSession();
+  if (!session) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  if (error) {
+    console.error('Profile fetch error:', error);
+    return null;
+  }
+  return data;
+}
+
+async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname
+    }
+  });
+  if (error) {
+    console.error('Login error:', error);
+    showToast('Error al iniciar sesión', 'error');
+  }
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+// Route user based on role after login
+async function routeUser() {
+  const profile = await getProfile();
+  if (!profile) return null;
+
+  if (profile.status === 'Pending') return 'pending';
+  if (profile.status === 'Inactive') return 'inactive';
+
+  return profile;
+}
+
+// Check auth on page load and redirect if needed
+async function requireAuth(allowedRoles) {
+  const session = await getSession();
+  if (!session) {
+    window.location.href = 'index.html';
+    return null;
+  }
+
+  const profile = await getProfile();
+  if (!profile || profile.status !== 'Active') {
+    window.location.href = 'index.html';
+    return null;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(profile.role)) {
+    window.location.href = 'index.html';
+    return null;
+  }
+
+  return profile;
+}
+
+function showToast(message, type = 'success') {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'toast ' + type + ' show';
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WorldClassBCN">
+  <meta name="theme-color" content="#092b50">
+  <link rel="apple-touch-icon" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <link rel="icon" type="image/png" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <title>WorldClass BCN - Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <!-- Mobile Menu Button -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()">☰</button>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🏫</div>
+      <div class="sidebar-title">
+        <h1>WorldClass BCN</h1>
+        <p>Panel de Administración</p>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="showSection('dashboard')" data-section="dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showSection('teachers')" data-section="teachers">
+        <span class="nav-icon">👩‍🏫</span> Profesores
+      </div>
+      <div class="nav-item" onclick="showSection('holidays')" data-section="holidays">
+        <span class="nav-icon">🏖️</span> Permisos
+        <span class="nav-badge" id="pendingBadge" style="display:none">0</span>
+      </div>
+      <div class="nav-item" onclick="showSection('calendar')" data-section="calendar">
+        <span class="nav-icon">📅</span> Calendario
+      </div>
+      <div class="nav-item" onclick="showSection('school-holidays')" data-section="school-holidays">
+        <span class="nav-icon">🏢</span> Festivos
+      </div>
+      <div class="nav-item" onclick="showSection('settings')" data-section="settings">
+        <span class="nav-icon">⚙️</span> Configuración
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="admin-info">
+        <div class="admin-name" id="adminName">Admin</div>
+        <div class="admin-email" id="adminEmail">--</div>
+      </div>
+      <button class="logout-btn" onclick="goToTeacher()">🕐 Mi Fichaje</button>
+      <button class="logout-btn" style="margin-top:8px" onclick="signOut()">🚪 Cerrar Sesión</button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Dashboard Section -->
+    <div class="content-section active" id="section-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-subtitle" id="dashboardSubtitle">Resumen general</div>
+        </div>
+      </div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-icon">👩‍🏫</div>
+          <div class="stat-value" id="statTeachers">--</div>
+          <div class="stat-label">Profesores Activos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-value" id="statAvgProgress">--%</div>
+          <div class="stat-label">Progreso Medio</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value" id="statOnTrack">--</div>
+          <div class="stat-label">En Objetivo</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-value" id="statBehind">--</div>
+          <div class="stat-label">Por Debajo</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value" id="statPending">--</div>
+          <div class="stat-label">Solicitudes Pendientes</div>
+        </div>
+      </div>
+
+      <!-- Teachers Table -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Empleados</span>
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." id="teacherSearch" oninput="filterTeachers()">
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Horas Mes</th>
+                <th>Horas Año</th>
+                <th>Progreso</th>
+              </tr>
+            </thead>
+            <tbody id="teachersTableBody">
+              <tr><td colspan="4" class="loading"><div class="spinner"></div>Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teachers Section -->
+    <div class="content-section" id="section-teachers">
+      <div class="page-header">
+        <div class="page-title">Gestión de Profesores</div>
+        <button class="action-btn add" onclick="openAddTeacherModal()">➕ Añadir Profesor</button>
+      </div>
+      <div class="card">
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="teacherManageBody">
+              <tr><td colspan="5" class="loading"><div class="spinner"></div>Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Holidays Section -->
+    <div class="content-section" id="section-holidays">
+      <div class="page-header">
+        <div class="page-title">Gestión de Permisos</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Solicitudes Pendientes</span>
+        </div>
+        <div id="pendingRequestsList">
+          <div class="loading"><div class="spinner"></div>Cargando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar Section -->
+    <div class="content-section" id="section-calendar">
+      <div class="page-header">
+        <div class="page-title">Calendario de Permisos</div>
+      </div>
+      <div class="card" style="padding:20px">
+        <div id="calendarContainer">
+          <div class="loading"><div class="spinner"></div>Cargando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- School Holidays Section -->
+    <div class="content-section" id="section-school-holidays">
+      <div class="page-header">
+        <div class="page-title">Festivos y Puentes</div>
+        <button class="action-btn add" onclick="openAddSchoolHolidayModal()">➕ Añadir Festivo</button>
+      </div>
+      <div class="card">
+        <div id="schoolHolidaysList">
+          <div class="loading"><div class="spinner"></div>Cargando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Section -->
+    <div class="content-section" id="section-settings">
+      <div class="page-header">
+        <div class="page-title">Configuración</div>
+      </div>
+      <div class="card" style="padding:20px">
+        <div class="settings-section">
+          <div class="settings-section-title">🔒 Congelación de Fichajes</div>
+          <div id="freezeStatus">
+            <p>Estado: <span id="freezeStatusText">Cargando...</span></p>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px">
+            <button class="action-btn primary" onclick="freezePunches()">🔒 Congelar hasta ayer</button>
+            <button class="action-btn secondary" onclick="unfreezePunches()">🔓 Descongelar todo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Modal</h2>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

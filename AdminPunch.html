@@ -1,0 +1,3056 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WorldClassBCN">
+  <meta name="theme-color" content="#092b50">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/616/616616.png">
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/616/616616.png">
+  
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--primary:#092b50;--accent:#59d2ff;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--purple:#8b5cf6;--pink:#ec4899;--teal:#14b8a6;--gray-50:#f8fafc;--gray-100:#f1f5f9;--gray-200:#e2e8f0;--gray-300:#cbd5e1;--gray-400:#94a3b8;--gray-500:#64748b;--gray-700:#334155;--radius:12px;--shadow:0 2px 10px rgba(0,0,0,0.05)}
+    html{width:100%;min-height:100%;overflow-x:hidden}
+    body{font-family:'Google Sans',Arial,sans-serif;background:#f0f4f8;min-height:100vh}
+    
+    /* Sidebar */
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:280px;background:linear-gradient(180deg,var(--primary) 0%,#0a3a6b 100%);color:#fff;padding:25px;overflow-y:auto;z-index:100}
+    .sidebar-header{display:flex;align-items:center;gap:15px;margin-bottom:30px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sidebar-logo{width:50px;height:50px;border-radius:var(--radius);background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:24px}
+    .sidebar-title h1{font-size:18px;font-weight:700}
+    .sidebar-title p{font-size:12px;opacity:0.7}
+    .sidebar-nav{margin-bottom:30px}
+    .nav-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:var(--radius);cursor:pointer;transition:all 0.2s;margin-bottom:5px;color:rgba(255,255,255,0.7)}
+    .nav-item:hover{background:rgba(255,255,255,0.1);color:#fff}
+    .nav-item.active{background:var(--accent);color:var(--primary);font-weight:600}
+    .nav-icon{font-size:20px}
+    .nav-badge{margin-left:auto;background:var(--danger);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+    .sidebar-footer{position:absolute;bottom:25px;left:25px;right:25px}
+    .admin-info{background:rgba(255,255,255,0.1);border-radius:var(--radius);padding:15px;margin-bottom:15px}
+    .admin-name{font-weight:600;margin-bottom:5px}
+    .admin-email{font-size:12px;opacity:0.7;word-break:break-all}
+    .logout-btn{width:100%;padding:12px;background:rgba(255,255,255,0.1);border:none;border-radius:10px;color:#fff;cursor:pointer;font-weight:600;transition:all 0.2s}
+    .logout-btn:hover{background:rgba(255,255,255,0.2)}
+    
+    /* Prep Time in Admin */
+    .prep-time-cell{text-align:center}
+    .prep-time-badge{display:inline-block;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600}
+    .prep-time-badge.good{background:#d1fae5;color:#065f46}
+    .prep-time-badge.warning{background:#fef3c7;color:#92400e}
+    .prep-time-badge.behind{background:#fee2e2;color:#991b1b}
+    
+    /* Main Content */
+    .main-content{margin-left:280px;padding:30px;min-height:100vh;overflow-x:hidden;position:relative}
+    
+    /* Content Sections - IMPORTANT FIX */
+    .content-section{display:none;position:relative;width:100%;left:0;margin-left:0}
+    .content-section.active{display:block}
+    
+    /* Tab Content */
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+    
+    .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:20px}
+    .page-title{font-size:28px;color:var(--primary);font-weight:700}
+    .page-subtitle{color:var(--gray-500);margin-top:5px}
+    
+    /* Freeze Section Styles - BLUE VERSION */
+    .freeze-card{background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border:2px solid #3b82f6;border-radius:16px;padding:20px;margin-bottom:20px}
+    .freeze-card.active{background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%)}
+    .freeze-card-header{display:flex;align-items:center;gap:12px;margin-bottom:15px}
+    .freeze-card-icon{font-size:32px}
+    .freeze-card-title{font-size:18px;font-weight:700;color:#1e40af}
+    .freeze-card-subtitle{font-size:13px;color:#1d4ed8;margin-top:4px}
+    .freeze-status{background:#fff;border-radius:10px;padding:15px;margin-bottom:15px}
+    .freeze-status-label{font-size:12px;color:var(--gray-500);text-transform:uppercase;font-weight:600;margin-bottom:8px}
+    .freeze-status-value{font-size:16px;font-weight:700;color:var(--primary)}
+    .freeze-status-value.frozen{color:#1e40af}
+    .freeze-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .freeze-btn{flex:1;min-width:150px;padding:12px 20px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px}
+    .freeze-btn.freeze{background:#3b82f6;color:#fff}
+    .freeze-btn.freeze:hover{background:#2563eb}
+    .freeze-btn.unfreeze{background:var(--success);color:#fff}
+    .freeze-btn.unfreeze:hover{background:#059669}
+    .freeze-btn:disabled{opacity:0.5;cursor:not-allowed}
+    .freeze-info{margin-top:15px;padding:12px;background:rgba(255,255,255,0.7);border-radius:8px;font-size:12px;color:#1e40af;line-height:1.5}
+
+    /* Paid Hours Styles */
+    .paid-hours-item{background:#d1fae5;padding:14px 16px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid var(--success);transition:all 0.2s}
+    .paid-hours-item:hover{box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .paid-hours-item .paid-info{flex:1}
+    .paid-hours-item .paid-teacher{font-weight:600;color:#065f46;margin-bottom:4px}
+    .paid-hours-item .paid-details{font-size:13px;color:#047857}
+    .paid-hours-item .paid-hours-value{font-size:20px;font-weight:700;color:#065f46;margin-right:15px;min-width:60px;text-align:right}
+    .paid-hours-item .paid-actions{display:flex;gap:6px}
+    .paid-hours-badge{display:inline-block;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600;background:#d1fae5;color:#065f46}
+    .paid-hours-form{background:var(--gray-50);padding:20px;border-radius:var(--radius);max-width:500px}
+    .paid-hours-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px}
+    .paid-stat-card{background:#fff;border-radius:12px;padding:20px;text-align:center;border:2px solid #e0e7ff}
+    .paid-stat-value{font-size:28px;font-weight:700;color:var(--success)}
+    .paid-stat-label{font-size:12px;color:var(--gray-500);margin-top:5px}
+    
+    /* Month Selector & Buttons */
+    .month-selector{display:flex;align-items:center;gap:10px;background:#fff;padding:8px;border-radius:var(--radius);box-shadow:var(--shadow)}
+    .month-nav-btn,.calendar-nav-btn{width:40px;height:40px;border:none;border-radius:10px;background:var(--gray-100);cursor:pointer;font-size:18px;font-weight:700;color:var(--primary);transition:all 0.2s;display:flex;align-items:center;justify-content:center}
+    .month-nav-btn:hover:not(:disabled),.calendar-nav-btn:hover:not(:disabled){background:var(--gray-200)}
+    .month-nav-btn:disabled,.calendar-nav-btn:disabled{opacity:0.3;cursor:not-allowed}
+    .month-display{min-width:150px;text-align:center;font-weight:700;color:var(--primary);font-size:16px}
+    .month-current-badge{display:inline-block;background:var(--accent);color:var(--primary);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:8px}
+    
+    /* Action Buttons */
+    .action-btn{padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-weight:600;transition:all 0.2s;display:inline-flex;align-items:center;gap:8px}
+    .action-btn.primary{background:var(--primary);color:#fff}
+    .action-btn.primary:hover{background:#0a3a6b}
+    .action-btn.secondary{background:var(--success);color:#fff}
+    .action-btn.secondary:hover{background:#059669}
+    .action-btn.add{background:var(--accent);color:var(--primary)}
+    .action-btn.add:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(89,210,255,0.4);background:#3bc4f5}
+    .action-btn:disabled,.action-btn-small:disabled{opacity:0.6;cursor:not-allowed}
+    .action-btn-small{padding:6px 12px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;margin-right:5px}
+    .action-btn-small.approve{background:var(--success);color:#fff}
+    .action-btn-small.approve:hover{background:#059669}
+    .action-btn-small.reject{background:var(--danger);color:#fff}
+    .action-btn-small.reject:hover{background:#dc2626}
+    
+    /* Stats Grid */
+    .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-bottom:30px}
+    .stat-card{background:#fff;border-radius:16px;padding:25px;box-shadow:var(--shadow)}
+    .stat-icon{font-size:32px;margin-bottom:15px}
+    .stat-value{font-size:32px;font-weight:700;color:var(--primary)}
+    .stat-label{font-size:14px;color:var(--gray-500);margin-top:5px}
+    .stat-subtext{font-size:12px;color:var(--gray-400);margin-top:8px}
+    .stat-progress{width:100%;height:8px;background:#e2e8f0;border-radius:4px;margin-top:12px;overflow:hidden}
+    .stat-progress-bar{height:100%;border-radius:4px;transition:width 0.5s ease}
+    
+    /* Cards */
+    .card{background:#fff;border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
+    .card-header{padding:20px 25px;border-bottom:1px solid #e0e7ff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px}
+    .card-title{font-size:18px;font-weight:700;color:var(--primary)}
+    .card-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .search-input{padding:10px 16px;border:2px solid #e0e7ff;border-radius:10px;font-size:14px;width:220px;transition:all 0.2s}
+    .search-input:focus{outline:none;border-color:var(--accent)}
+    
+    /* Tables */
+    table{width:100%;border-collapse:collapse}
+    thead{background:var(--gray-50)}
+    th{padding:15px 20px;text-align:left;font-weight:600;color:var(--gray-500);font-size:13px;text-transform:uppercase}
+    td{padding:18px 20px;border-bottom:1px solid var(--gray-100);color:var(--gray-700)}
+    tbody tr{transition:all 0.2s;cursor:pointer}
+    tbody tr:hover{background:#f0f9ff}
+    tbody tr.clickable:hover{background:#e0f2fe}
+    .teacher-name{font-weight:600;color:var(--primary)}
+    .teacher-email{font-size:13px;color:var(--gray-500)}
+    .click-hint{font-size:10px;color:var(--gray-400);margin-top:2px}
+    
+    /* Progress */
+    .progress-cell{min-width:120px}
+    .progress-container{display:flex;flex-direction:column;gap:6px}
+    .progress-bar-wrapper{width:100%;height:8px;background:var(--gray-200);border-radius:4px;overflow:hidden}
+    .progress-bar{height:100%;border-radius:4px;transition:width 0.5s ease}
+    .progress-bar.on-track{background:linear-gradient(90deg,var(--success),#34d399)}
+    .progress-bar.warning{background:linear-gradient(90deg,var(--warning),#fbbf24)}
+    .progress-bar.behind{background:linear-gradient(90deg,var(--danger),#f87171)}
+    .progress-text{display:flex;justify-content:space-between;font-size:12px}
+    .progress-percent{font-weight:700}
+    .progress-percent.on-track{color:#059669}
+    .progress-percent.warning{color:#d97706}
+    .progress-percent.behind{color:#dc2626}
+    
+    /* Badges */
+    .hours-badge,.type-badge,.status-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-weight:600;font-size:14px}
+    .hours-badge.on-track{background:#d1fae5;color:#065f46}
+    .hours-badge.warning{background:#fef3c7;color:#92400e}
+    .hours-badge.behind{background:#fee2e2;color:#991b1b}
+    .type-badge{padding:4px 10px;font-size:11px}
+    .type-badge.annual{background:#dbeafe;color:#1e40af}
+    .type-badge.personal{background:#ede9fe;color:#5b21b6}
+    .type-badge.medical{background:#fee2e2;color:#991b1b}
+    .type-badge.school{background:#fef3c7;color:#92400e}
+    .type-badge.permiso{background:#ccfbf1;color:#0f766e}
+    .status-badge{padding:4px 10px;font-size:11px}
+    .status-badge.pending{background:#fef3c7;color:#92400e}
+    .status-badge.approved{background:#d1fae5;color:#065f46}
+    .status-badge.rejected{background:#fee2e2;color:#991b1b}
+    
+    .view-btn{padding:8px 16px;border:2px solid #e0e7ff;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s}
+    .view-btn:hover{background:#f0f9ff;border-color:var(--accent)}
+    
+    /* Modal */
+    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(9,43,80,0.7);display:none;align-items:center;justify-content:center;z-index:1000;overflow-y:auto;padding:20px}
+    .modal-overlay.active{display:flex}
+    .modal{background:#fff;border-radius:20px;width:90%;max-width:1000px;max-height:90vh;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,0.3)}
+    .modal-header{background:linear-gradient(135deg,var(--primary) 0%,#1e3a5f 100%);color:#fff;padding:25px 30px;display:flex;justify-content:space-between;align-items:center}
+    .modal-header h2{font-size:20px}
+    .modal-close{width:40px;height:40px;border-radius:10px;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:20px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center}
+    .modal-close:hover{background:rgba(255,255,255,0.3)}
+    .modal-body{padding:25px 30px;max-height:calc(90vh - 150px);overflow-y:auto}
+    
+    /* Tabs */
+    .tabs{display:flex;gap:5px;margin-bottom:20px;border-bottom:2px solid #e0e7ff;padding-bottom:10px;flex-wrap:wrap}
+    .tab{padding:10px 20px;cursor:pointer;border:none;background:none;font-size:14px;font-weight:500;color:#666;border-radius:8px;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+    .tab:hover{background:#f8f9ff;color:var(--primary)}
+    .tab.active{background:var(--primary);color:#fff}
+    .tab-badge{background:var(--danger);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+    .tab.active .tab-badge{background:rgba(255,255,255,0.3)}
+    
+    /* Sub-tabs */
+    .sub-tabs{display:flex;gap:8px;margin-bottom:20px;padding:4px;background:var(--gray-100);border-radius:10px;width:fit-content}
+    .sub-tab{padding:10px 20px;cursor:pointer;border:none;background:none;font-size:14px;font-weight:500;color:var(--gray-500);border-radius:8px;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+    .sub-tab:hover{color:var(--primary)}
+    .sub-tab.active{background:#fff;color:var(--primary);font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .sub-badge{background:var(--warning);color:#fff;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700}
+    .sub-tab.active .sub-badge{background:var(--danger)}
+    
+    /* Forms */
+    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+    .form-grid.single-col{grid-template-columns:1fr}
+    .form-group{margin-bottom:20px}
+    .form-group.full-width{grid-column:span 2}
+    .form-label{display:block;font-weight:600;color:var(--primary);margin-bottom:8px;font-size:14px}
+    .form-hint{font-size:12px;color:var(--gray-400);margin-top:4px}
+    .form-input,.form-select{width:100%;padding:12px;border:2px solid #e0e7ff;border-radius:10px;font-size:14px}
+    .form-input:focus,.form-select:focus{outline:none;border-color:var(--accent)}
+    .form-input:disabled{background:var(--gray-50);color:var(--gray-500)}
+    .form-input.large{font-size:24px;font-weight:700;text-align:center;padding:16px}
+    .submit-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--primary) 0%,#1e3a5f 100%);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.3s}
+    .submit-btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(9,43,80,0.3)}
+    .submit-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+    .btn-row{display:flex;gap:10px;margin-top:20px}
+    .btn-row .submit-btn,.btn-row .cancel-btn{flex:1}
+    .cancel-btn{padding:14px;background:var(--gray-200);color:var(--gray-500);border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s}
+    .cancel-btn:hover{background:var(--gray-300)}
+    
+    /* Settings */
+    .settings-section{background:var(--gray-50);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+    .settings-section-title{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:15px;display:flex;align-items:center;gap:8px}
+    .settings-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px}
+    .setting-item{background:#fff;border-radius:10px;padding:15px;border:2px solid #e0e7ff}
+    .setting-item.highlight{border-color:var(--accent);background:#f0f9ff}
+    .setting-label{font-size:12px;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;font-weight:600}
+    .setting-input{width:100%;padding:10px;border:2px solid #e0e7ff;border-radius:8px;font-size:18px;font-weight:700;text-align:center;color:var(--primary)}
+    .setting-input:focus{outline:none;border-color:var(--accent)}
+    
+    /* Calendar */
+    .calendar-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+    .calendar-month-title{font-size:20px;font-weight:700;color:var(--primary)}
+    .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+    .calendar-header-cell{text-align:center;font-weight:600;color:var(--gray-500);padding:10px;font-size:13px}
+    .calendar-cell{aspect-ratio:1.2;border:2px solid #e0e7ff;border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;background:#fff}
+    .calendar-cell:hover:not(.empty){border-color:var(--accent);background:#f0f9ff}
+    .calendar-cell.empty{border:none;cursor:default;background:transparent}
+    .calendar-cell.today{border-color:var(--accent);box-shadow:0 0 0 3px rgba(89,210,255,0.2)}
+    .calendar-cell.has-punches{background:var(--accent);border-color:var(--accent);color:var(--primary)}
+    .calendar-cell.has-punches:hover{background:#3bc4f5}
+    .calendar-day-num{font-size:18px;font-weight:700;color:var(--primary)}
+    .calendar-cell.has-punches .calendar-day-num{color:var(--primary)}
+    .calendar-punch-count{font-size:11px;color:var(--gray-500);margin-top:3px}
+    .calendar-cell.has-punches .calendar-punch-count{color:var(--primary);opacity:0.8}
+    
+    /* Day Detail */
+    .day-hours-summary{background:linear-gradient(135deg,var(--primary) 0%,#1e3a5f 100%);color:#fff;padding:20px;border-radius:var(--radius);text-align:center;margin-bottom:20px}
+    .day-hours-value{font-size:36px;font-weight:700}
+    .day-hours-label{font-size:14px;opacity:0.8;margin-top:5px}
+    .day-punch-item{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:var(--gray-50);border-radius:var(--radius);margin-bottom:10px;border-left:4px solid}
+    .day-punch-item.in{border-color:var(--success)}
+    .day-punch-item.out{border-color:var(--warning)}
+    .punch-info{display:flex;align-items:center;gap:15px}
+    .punch-type{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700}
+    .punch-type.in{background:#d1fae5;color:#065f46}
+    .punch-type.out{background:#fef3c7;color:#92400e}
+    .punch-time-display{font-size:24px;font-weight:700;color:var(--primary)}
+    
+    /* Holiday */
+    .holiday-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:30px}
+    .school-holiday-item{background:#fef3c7;padding:14px 16px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s}
+    .school-holiday-item:hover{box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .school-holiday-item .holiday-info{flex:1}
+    .school-holiday-item .holiday-name{font-weight:600;color:#92400e;margin-bottom:4px}
+    .school-holiday-item .holiday-dates{font-size:12px;color:#b45309}
+    .school-holiday-item .holiday-days{font-size:12px;color:#92400e;background:rgba(255,255,255,0.5);padding:4px 10px;border-radius:8px;margin-right:10px}
+    .school-holiday-item .holiday-actions,.assigned-day-item .holiday-actions{display:flex;gap:6px}
+    .holiday-action-btn{width:32px;height:32px;border-radius:8px;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+    .holiday-action-btn.edit{background:#e0e7ff;color:#4f46e5}
+    .holiday-action-btn.edit:hover{background:#c7d2fe}
+    .holiday-action-btn.delete{background:#fee2e2;color:var(--danger)}
+    .holiday-action-btn.delete:hover{background:#fecaca}
+    .assigned-day-item{background:#e0f2fe;padding:14px 16px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s}
+    .assigned-day-item:hover{box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .assigned-day-item .day-info{flex:1}
+    .assigned-day-item .day-teacher{font-weight:600;color:#0369a1;margin-bottom:4px}
+    .assigned-day-item .day-date{font-size:13px;color:#0284c7}
+    .assigned-day-item .day-meta{font-size:11px;color:var(--gray-500);margin-top:2px}
+    
+    /* Holiday Status Table */
+    .holiday-status-table{width:100%;border-collapse:collapse}
+    .holiday-status-table th,.holiday-status-table td{padding:12px 15px;text-align:center;border-bottom:1px solid #e0e7ff}
+    .holiday-status-table th{background:var(--gray-50);font-weight:600;color:var(--gray-500);font-size:12px;text-transform:uppercase}
+    .holiday-status-table td:first-child,.holiday-status-table th:first-child{text-align:left}
+    .holiday-cell{text-align:center;font-size:13px}
+    .holiday-used{color:var(--primary);font-weight:600}
+    .holiday-pending{color:var(--warning);font-size:11px}
+    .holiday-total{color:var(--gray-400);font-size:11px}
+    .school-day-form{background:var(--gray-50);padding:20px;border-radius:var(--radius);max-width:500px}
+    
+    /* Boxes */
+    .warning-box{background:#fef3c7;border-left:4px solid var(--warning);padding:16px;border-radius:0 var(--radius) var(--radius) 0;margin-top:20px}
+    .warning-box-title{font-weight:700;color:#92400e;margin-bottom:6px}
+    .warning-box-text{color:#92400e;font-size:14px}
+    .info-box{background:#e0f2fe;border-left:4px solid #0284c7;padding:16px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:20px}
+    .info-box-text{color:#0369a1;font-size:14px}
+    
+    /* Puente Info Banner */
+    .puente-info-banner{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:15px}
+    .puente-info-banner .banner-icon{font-size:28px;flex-shrink:0}
+    .puente-info-banner .banner-content{flex:1}
+    .puente-info-banner .banner-title{font-weight:700;color:#92400e;font-size:14px;margin-bottom:4px}
+    .puente-info-banner .banner-text{color:#b45309;font-size:13px;line-height:1.4}
+    
+    /* Calendar View */
+    .calendar-view-container{background:var(--gray-50);border-radius:var(--radius);padding:20px}
+    .calendar-view-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+    .calendar-view-header{text-align:center;font-weight:700;color:var(--gray-500);padding:12px 8px;font-size:12px;text-transform:uppercase}
+    .calendar-view-cell{min-height:100px;background:#fff;border:2px solid #e0e7ff;border-radius:10px;padding:8px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}
+    .calendar-view-cell:hover:not(.empty):not(.other-month){border-color:var(--accent);box-shadow:0 4px 12px rgba(89,210,255,0.2);transform:translateY(-2px)}
+    .calendar-view-cell.empty{background:transparent;border:none;cursor:default;min-height:auto}
+    .calendar-view-cell.other-month{background:var(--gray-100);opacity:0.5}
+    .calendar-view-cell.today{border-color:var(--accent);box-shadow:0 0 0 3px rgba(89,210,255,0.2)}
+    .calendar-view-cell.school-holiday{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-color:var(--warning)}
+    .calendar-view-cell.has-holidays{border-color:#3b82f6}
+    .calendar-view-day-num{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:6px}
+    .calendar-view-cell.school-holiday .calendar-view-day-num{color:#92400e}
+    .calendar-view-school-name{font-size:10px;color:#92400e;font-weight:600;background:rgba(255,255,255,0.7);padding:2px 6px;border-radius:4px;margin-bottom:4px;display:inline-block}
+    .calendar-view-teachers{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+    .calendar-view-teacher-badge{font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+    .calendar-view-teacher-badge.annual{background:#dbeafe;color:#1e40af}
+    .calendar-view-teacher-badge.personal{background:#ede9fe;color:#5b21b6}
+    .calendar-view-teacher-badge.medical{background:#fee2e2;color:#991b1b}
+    .calendar-view-teacher-badge.school{background:#d1fae5;color:#065f46}
+    .calendar-view-teacher-badge.permiso{background:#ccfbf1;color:#0f766e}
+    .calendar-view-more{font-size:10px;color:var(--gray-500);font-weight:600;margin-top:2px;cursor:pointer;padding:2px 6px;background:var(--gray-100);border-radius:4px;display:inline-block}
+    .calendar-view-more:hover{background:var(--gray-200);color:var(--primary)}
+    
+    /* Expandable teachers list */
+    .calendar-view-teachers.expanded{max-height:none}
+    .calendar-view-teachers.collapsed{max-height:60px;overflow:hidden}
+    .expand-toggle{font-size:10px;color:var(--accent);font-weight:600;cursor:pointer;padding:3px 8px;background:var(--primary);color:#fff;border-radius:4px;margin-top:4px;display:inline-block;transition:all 0.2s}
+    .expand-toggle:hover{background:#0a3a6b}
+    
+    /* Day Detail Modal */
+    .day-detail-section{margin-bottom:20px}
+    .day-detail-section-title{font-size:14px;font-weight:700;color:var(--gray-500);margin-bottom:12px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+    .day-detail-school-holiday{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-left:4px solid var(--warning);padding:16px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:15px}
+    .day-detail-school-holiday-name{font-weight:700;color:#92400e;font-size:16px}
+    .day-detail-teacher-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--gray-50);border-radius:10px;margin-bottom:8px;border-left:4px solid}
+    .day-detail-teacher-item.annual{border-color:#3b82f6}
+    .day-detail-teacher-item.personal{border-color:var(--purple)}
+    .day-detail-teacher-item.medical{border-color:var(--danger)}
+    .day-detail-teacher-item.school{border-color:var(--success)}
+    .day-detail-teacher-item.permiso{border-color:var(--teal)}
+    .day-detail-teacher-name{font-weight:600;color:var(--primary)}
+    .day-detail-teacher-email{font-size:12px;color:var(--gray-500)}
+    .day-detail-no-holidays{text-align:center;padding:40px;color:var(--gray-400)}
+    .day-detail-no-holidays-icon{font-size:48px;margin-bottom:15px;opacity:0.5}
+    
+    /* States */
+    .empty-state{text-align:center;padding:60px 20px;color:var(--gray-400)}
+    .empty-state-icon{font-size:64px;margin-bottom:20px;opacity:0.5}
+    .loading{text-align:center;padding:60px;color:var(--gray-500)}
+    .spinner{width:50px;height:50px;border:4px solid #e0e7ff;border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .status-message{padding:12px 20px;border-radius:10px;margin-bottom:20px;display:none;font-weight:600}
+    .status-message.success{background:#d1fae5;color:#065f46;display:block}
+    .status-message.error{background:#fee2e2;color:#991b1b;display:block}
+    .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--primary);color:#fff;padding:16px 30px;border-radius:var(--radius);font-weight:600;z-index:2000;opacity:0;transition:all 0.3s}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.success{background:var(--success)}
+    .toast.error{background:var(--danger)}
+    
+    /* Mobile */
+    .mobile-menu-btn{display:none;position:fixed;top:20px;left:20px;width:50px;height:50px;border-radius:var(--radius);border:none;background:var(--primary);color:#fff;font-size:24px;cursor:pointer;z-index:200;align-items:center;justify-content:center}
+    
+    /* Request Table */
+    .request-table{width:100%;border-collapse:collapse}
+    .request-table th,.request-table td{padding:12px 15px;text-align:left;border-bottom:1px solid #e0e7ff}
+    .request-table th{background:var(--gray-50);font-weight:600;color:var(--gray-500);font-size:12px;text-transform:uppercase}
+    
+    /* Archive Section */
+    .archive-container{max-width:600px}
+    
+    /* View Toggle Styles */
+    .view-toggle{display:flex;background:var(--gray-100);border-radius:10px;padding:4px;gap:4px}
+    .toggle-btn{padding:8px 16px;border:none;border-radius:8px;background:transparent;color:var(--gray-500);font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .toggle-btn:hover{color:var(--primary)}
+    .toggle-btn.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .week-current-badge{display:inline-block;background:var(--success);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:8px}
+
+    /* Responsive */
+    /* Responsive */
+    @media(max-width:1200px){
+      .stats-grid{grid-template-columns:repeat(3,1fr)}
+      .settings-grid{grid-template-columns:repeat(2,1fr)}
+      .holiday-grid,.form-grid{grid-template-columns:1fr}
+      .form-group.full-width{grid-column:span 1}
+    }
+    @media(max-width:768px){
+      .sidebar{transform:translateX(-100%);transition:transform 0.3s ease}
+      .sidebar.open{transform:translateX(0)}
+      .mobile-menu-btn{display:flex}
+      .main-content{margin-left:0;padding:20px;padding-top:80px}
+      .stats-grid{grid-template-columns:repeat(2,1fr)}
+      .card-header{flex-direction:column;align-items:stretch}
+      .card-actions{flex-direction:column}
+      .search-input{width:100%}
+      table{display:block;overflow-x:auto}
+      .tabs{gap:3px}
+      .tab{padding:8px 12px;font-size:12px}
+      .sub-tabs{flex-wrap:wrap;width:100%}
+      .sub-tab{flex:1;justify-content:center;padding:8px 12px;font-size:12px}
+      .calendar-view-cell{min-height:60px;padding:4px}
+      .calendar-view-day-num{font-size:12px}
+      .calendar-view-teacher-badge,.calendar-view-school-name{font-size:8px;padding:1px 4px}
+    }
+    .calendar-hours {
+  font-size: 12px;
+  font-weight: 700;
+  color: #059669;
+  background: #d1fae5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 3px;
+}
+</style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+  
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🕐</div>
+      <div class="sidebar-title"><h1>Control de Fichaje</h1><p>Panel de Administración</p></div>
+    </div>
+<nav class="sidebar-nav">
+  <div class="nav-item active" onclick="showSection('teachers')" id="navTeachers"><span class="nav-icon">📊</span><span>Horas de Empleados</span></div>
+  <div class="nav-item" onclick="showSection('holidays')" id="navHolidays"><span class="nav-icon">🏖️</span><span>Vacaciones y Permisos</span><span class="nav-badge" id="pendingBadge" style="display:none">0</span></div>
+  <div class="nav-item" onclick="showSection('archive')" id="navArchive"><span class="nav-icon">📦</span><span>Archivo Anual</span></div>
+</nav>
+    <div class="sidebar-footer">
+      <div class="admin-info"><div class="admin-name"><?= adminName ?></div><div class="admin-email"><?= adminEmail ?></div></div>
+      <button class="logout-btn" onclick="logout()">🚪 Cerrar Sesión</button>
+    </div>
+  </div>
+    <div class="main-content">
+
+<!-- TEACHERS SECTION -->
+<div id="teachersSection" class="content-section active">
+  <div class="page-header">
+    <h1 class="page-title">📊 Horas de Empleados</h1>
+<p class="page-subtitle">Gestiona horas trabajadas de profesores y administración</p>
+    <div class="card-actions">
+      <button class="action-btn secondary" onclick="exportCSV()">📥 Exportar</button>
+      <button class="action-btn primary" id="refreshBtn" onclick="loadData(true)">🔄 Actualizar</button>
+    </div>
+  </div>
+  
+  <!-- Stats - Always visible -->
+  <div id="statsContainer"></div>
+  
+  <!-- Tabs for Teachers Section -->
+<div class="tabs" id="teachersTabs">
+  <button class="tab active" data-tab="teachersListTab">👩‍🏫 Profesores</button>
+  <button class="tab" data-tab="adminsListTab">👔 Administración</button>
+  <button class="tab" data-tab="paidHoursTab">💰 Horas Pagadas</button>
+  <button class="tab" data-tab="freezeTab" id="freezeTabBtn" style="display:none">🔒 Congelar Fichajes</button>
+</div>
+  
+  <!-- Teachers List Tab -->
+  <div id="teachersListTab" class="tab-content active">
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <h3 class="card-title" style="margin:0">👥 Todos los Profesores</h3>
+          <button class="action-btn add" onclick="openModal('addTeacher')" style="padding:8px 16px;font-size:13px">➕ Añadir Profesor</button>
+        </div>
+        <div class="card-actions">
+          <input type="text" class="search-input" id="searchInput" placeholder="🔍 Buscar profesores..." oninput="filterTeachers(this.value)">
+          <div class="view-toggle" id="viewToggle">
+            <button class="toggle-btn active" data-mode="monthly" onclick="setHoursViewMode('monthly')">📅 Mensual</button>
+            <button class="toggle-btn" data-mode="weekly" onclick="setHoursViewMode('weekly')">📆 Semanal</button>
+          </div>
+          <div class="month-selector" id="monthSelector">
+            <button class="month-nav-btn" onclick="changeMonth(-1)">‹</button>
+            <div class="month-display" id="monthDisplay">Cargando...</div>
+            <button class="month-nav-btn" id="nextMonthBtn" onclick="changeMonth(1)">›</button>
+          </div>
+          <div class="month-selector" id="weekSelector" style="display:none">
+            <button class="month-nav-btn" onclick="changeWeek(-1)">‹</button>
+            <div class="month-display" id="weekDisplay">Esta Semana</div>
+            <button class="month-nav-btn" id="nextWeekBtn" onclick="changeWeek(1)">›</button>
+          </div>
+        </div>
+      </div>
+      <div id="teachersTable"><div class="loading"><div class="spinner"></div><p>Cargando profesores...</p></div></div>
+    </div>
+  </div>
+  
+<!-- Admins List Tab -->
+<div id="adminsListTab" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h3 class="card-title" style="margin:0">👔 Personal de Administración</h3>
+        <button class="action-btn add" onclick="openModal('addAdmin')" style="padding:8px 16px;font-size:13px">➕ Añadir Admin</button>
+      </div>
+      <div class="card-actions">
+        <input type="text" class="search-input" id="adminSearchInput" placeholder="🔍 Buscar..." oninput="filterAdmins(this.value)">
+<div class="view-toggle">
+  <button class="toggle-btn ${state.hoursViewMode === 'monthly' ? 'active' : ''}" data-mode="monthly" onclick="setHoursViewMode('monthly')">📅 Mensual</button>
+  <button class="toggle-btn ${state.hoursViewMode === 'weekly' ? 'active' : ''}" data-mode="weekly" onclick="setHoursViewMode('weekly')">📆 Semanal</button>
+</div>
+<div class="month-selector" id="adminMonthSelector">
+  <button class="month-nav-btn" onclick="changeMonth(-1)">‹</button>
+  <div class="month-display" id="adminMonthDisplay">Cargando...</div>
+  <button class="month-nav-btn" id="adminNextMonthBtn" onclick="changeMonth(1)">›</button>
+</div>
+<div class="month-selector" id="adminWeekSelector" style="display:none">
+  <button class="month-nav-btn" onclick="changeWeek(-1)">‹</button>
+  <div class="month-display" id="adminWeekDisplay">Esta Semana</div>
+  <button class="month-nav-btn" id="adminNextWeekBtn" onclick="changeWeek(1)">›</button>
+</div>
+      </div>
+    </div>
+    <div id="adminsTable"><div class="loading"><div class="spinner"></div><p>Cargando administración...</p></div></div>
+  </div>
+</div>
+
+  <!-- Paid Hours Tab -->
+  <div id="paidHoursTab" class="tab-content">
+    <div id="paidHoursContent">
+      <div class="loading"><div class="spinner"></div><p>Cargando...</p></div>
+    </div>
+  </div>
+  
+  <!-- Freeze Tab -->
+  <div id="freezeTab" class="tab-content">
+    <div id="freezeContent">
+      <div class="loading"><div class="spinner"></div><p>Cargando...</p></div>
+    </div>
+  </div>
+  
+</div>
+
+    <!-- HOLIDAYS SECTION -->
+    <div id="holidaysSection" class="content-section">
+      <div class="page-header">
+        <div><h1 class="page-title">🏖️ Vacaciones y Permisos</h1><p class="page-subtitle">Gestiona solicitudes de vacaciones y días de descanso</p></div>
+        <button class="action-btn primary" id="refreshHolidaysBtn" onclick="loadHolidayData()">🔄 Actualizar</button>
+      </div>
+      <div id="holidayStatusMessage" class="status-message"></div>
+      <div id="holidayStatsContainer"></div>
+      <div class="tabs">
+        <button class="tab active" data-tab="requestsTab">📋 Solicitudes <span class="tab-badge" id="requestsTabBadge" style="display:none">0</span></button>
+        <button class="tab" data-tab="overviewTab">📊 Resumen</button>
+        <button class="tab" data-tab="calendarViewTab">📅 Vista Calendario</button>
+        <button class="tab" data-tab="assignTab">🏢 D.R. Empresa</button>
+        <button class="tab" data-tab="schoolHolidaysTab">🗓️ Festivos/Puentes</button>
+      </div>
+      
+      <div id="requestsTab" class="tab-content active"></div>
+      <div id="overviewTab" class="tab-content"></div>
+      <div id="calendarViewTab" class="tab-content"></div>
+      <div id="assignTab" class="tab-content"></div>
+      <div id="schoolHolidaysTab" class="tab-content"></div>
+    </div>
+
+    <!-- ARCHIVE SECTION -->
+    <div id="archiveSection" class="content-section">
+      <div class="page-header">
+        <div><h1 class="page-title">📦 Archivo de Fin de Año</h1><p class="page-subtitle">Archiva datos de años anteriores para mantener el rendimiento</p></div>
+      </div>
+      
+      <div class="archive-container">
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">🗄️ Archivar Datos</h3></div>
+          <div style="padding:20px">
+            <div class="info-box">
+              <div class="info-box-text">
+                <strong>¿Qué hace el archivo?</strong><br>
+                Mueve fichajes y solicitudes de vacaciones del año seleccionado a hojas separadas, mejorando el rendimiento del sistema.
+              </div>
+            </div>
+            
+            <div class="form-group" style="margin-top:20px">
+              <label class="form-label">Año a Archivar</label>
+              <select id="archiveYearSelect" class="form-select">
+                <option value="">Cargando...</option>
+              </select>
+              <div class="form-hint">Solo años anteriores al actual</div>
+            </div>
+            
+            <div class="warning-box" style="margin-top:20px">
+              <div class="warning-box-title">⚠️ Antes de archivar</div>
+              <div class="warning-box-text">Haz una copia de seguridad del spreadsheet. Los datos se moverán a hojas de archivo.</div>
+            </div>
+            
+            <button class="submit-btn" onclick="performArchive()" id="archiveBtn" style="margin-top:20px">📦 Archivar Año</button>
+            
+            <div id="archiveResult" style="margin-top:20px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+  <!-- Unified Modal Container -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalContainer">
+      <div class="modal-header" id="modalHeader"><h2 id="modalTitle"></h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+  
+  <div class="toast" id="toast"></div>
+  <script>
+const ADMIN_EMAIL='<?= adminEmail ?>',DEPLOYMENT_URL='<?= deploymentUrl ?>';
+const $=id=>document.getElementById(id),$$=sel=>document.querySelectorAll(sel);
+
+// Holiday type configuration - matches backend
+const HOLIDAY_TYPES = {
+  Annual: { name: 'Vacaciones', shortName: 'Vacaciones', emoji: '🏖️', color: 'annual', hasLimit: true },
+  Personal: { name: 'D.R. Empleado', shortName: 'D.R. Empleado', emoji: '👤', color: 'personal', hasLimit: true },
+  School: { name: 'D.R. Empresa', shortName: 'D.R. Empresa', emoji: '🏢', color: 'school', hasLimit: true },
+  Medical: { name: 'Baja Médica', shortName: 'Médico', emoji: '🏥', color: 'medical', hasLimit: false },
+  Permiso: { name: 'Permiso Retribuido', shortName: 'Permiso', emoji: '📋', color: 'permiso', hasLimit: false, requiresReason: true }
+};
+
+// State
+const state={
+  teachers:[],holidayTeachers:[],assignedDays:[],schoolHolidays:[],approvedRequests:[],pendingRequests:[],
+  selectedTeacher:null,editingTeacher:null,calendarDate:new Date(),teacherPunchedDays:{},
+  viewYear:new Date().getFullYear(),viewMonth:new Date().getMonth()+1,
+  calendarViewYear:new Date().getFullYear(),calendarViewMonth:new Date().getMonth()+1,
+  deleteAction:null,cache:{},currentSection:'teachers',isLoading:false,
+  paidHoursRecords: [],
+  isSuperAdmin: false,
+  adminWorkers: [], 
+  holidayAdmins: [], 
+  requestsSubTab:'pending',
+  freezeStatus: null,
+  puenteDays: 9,
+  hoursViewMode: 'monthly',
+  weekOffset: 0,
+  weekInfo: null
+};
+
+// Utilities
+const utils={
+  formatDate:d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+  formatDateDisplay:s=>{if(!s)return'-';const p=s.split('-');if(p.length!==3)return s;return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})},
+  formatTime:t=>{if(!t)return'';const m=t.match(/(\d{1,2}):(\d{2})/);return m?`${m[1].padStart(2,'0')}:${m[2]}`:t},
+  escapeHtml:t=>{if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML},
+  getProgressClass:p=>p>=98?'on-track':p>=80?'warning':'behind',
+  calcDayHours:punches=>{let m=0;const s=[...punches].sort((a,b)=>utils.formatTime(a.time).localeCompare(utils.formatTime(b.time)));for(let i=0;i<s.length-1;i+=2)if(s[i].punchType==='IN'&&s[i+1]?.punchType==='OUT'){const[ih,im]=utils.formatTime(s[i].time).split(':').map(Number),[oh,om]=utils.formatTime(s[i+1].time).split(':').map(Number);const d=(oh*60+om)-(ih*60+im);if(d>0)m+=d}return m/60},
+  typeName:t=>HOLIDAY_TYPES[t]?.shortName||t,
+  typeFullName:t=>HOLIDAY_TYPES[t]?.name||t,
+  typeEmoji:t=>HOLIDAY_TYPES[t]?.emoji||'📅',
+  typeColor:t=>HOLIDAY_TYPES[t]?.color||'annual',
+  statusName:s=>({Pending:'Pendiente',Approved:'Aprobado',Rejected:'Rechazado'}[s]||s)
+};
+
+// Toast & Status
+const showToast=(msg,type='')=>{const t=$('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000)};
+const showStatus=(msg,type)=>{const e=$('holidayStatusMessage');e.textContent=msg;e.className=`status-message ${type}`;setTimeout(()=>e.className='status-message',5000)};
+const handleError=e=>{console.error(e);showToast(`Error: ${e.message||'Algo salió mal'}`,'error')};
+
+// Sidebar & Navigation
+const toggleSidebar=()=>$('sidebar').classList.toggle('open');
+const showSection = s => {
+  state.currentSection = s;
+  
+  // Hide all content sections
+  $$('.content-section').forEach(e => e.classList.remove('active'));
+  
+  // Remove active from all nav items
+  $$('.nav-item').forEach(e => e.classList.remove('active'));
+  
+  // Show the selected section
+  const sectionEl = $(`${s}Section`);
+  if (sectionEl) {
+    sectionEl.classList.add('active');
+  }
+  
+  // Activate the nav item
+  const navEl = $(`nav${s.charAt(0).toUpperCase() + s.slice(1)}`);
+  if (navEl) {
+    navEl.classList.add('active');
+  }
+  
+  // Close mobile sidebar
+  $('sidebar').classList.remove('open');
+  
+  // Load data and activate default tabs for each section
+  if (s === 'teachers') {
+    // Reset teachers tabs to first tab active
+    $$('#teachersTabs .tab').forEach((tab, i) => tab.classList.toggle('active', i === 0));
+    ['teachersListTab', 'paidHoursTab', 'freezeTab'].forEach((id, i) => {
+      const el = $(id);
+      if (el) el.classList.toggle('active', i === 0);
+    });
+    loadData();
+  } else if (s === 'holidays') {
+    // Reset holiday tabs to first tab active
+    $$('#holidaysSection .tabs .tab').forEach((tab, i) => tab.classList.toggle('active', i === 0));
+    ['requestsTab', 'overviewTab', 'calendarViewTab', 'assignTab', 'schoolHolidaysTab'].forEach((id, i) => {
+      const el = $(id);
+      if (el) el.classList.toggle('active', i === 0);
+    });
+    loadHolidayData();
+  } else if (s === 'archive') {
+    loadArchiveYears();
+  }
+};
+const logout=()=>{
+  try{localStorage.clear();}catch(e){}
+  window.top.location.href='https://accounts.google.com/AccountChooser?continue='+encodeURIComponent(DEPLOYMENT_URL);
+};
+
+const updateMonthDisplay = () => {
+  const d = new Date(state.viewYear, state.viewMonth - 1, 1);
+  const n = new Date();
+  const isCurrent = state.viewYear === n.getFullYear() && state.viewMonth === n.getMonth() + 1;
+  const monthText = d.toLocaleDateString('es-ES', {month: 'long', year: 'numeric'});
+  const badge = isCurrent ? '<span class="month-current-badge">ACTUAL</span>' : '';
+  
+  // Update teacher month display
+  const monthDisp = $('monthDisplay');
+  if (monthDisp) monthDisp.innerHTML = monthText + badge;
+  
+  // Update admin month display
+  const adminMonthDisp = $('adminMonthDisplay');
+  if (adminMonthDisp) adminMonthDisp.innerHTML = monthText + badge;
+  
+  // Update next buttons
+  const nextBtn = $('nextMonthBtn');
+  if (nextBtn) nextBtn.disabled = isCurrent;
+  const adminNextBtn = $('adminNextMonthBtn');
+  if (adminNextBtn) adminNextBtn.disabled = isCurrent;
+};
+const changeMonth=dir=>{if(dir>0&&$('nextMonthBtn').disabled)return;state.viewMonth+=dir;if(state.viewMonth<1){state.viewMonth=12;state.viewYear--}else if(state.viewMonth>12){state.viewMonth=1;state.viewYear++}updateMonthDisplay();loadData()};
+
+// Modal System
+const openModal=(type,data)=>{$('modalOverlay').classList.add('active');$('modalContainer').style.maxWidth=type.includes('calendar')||type==='editTeacher'?'900px':'600px';renderModal(type,data)};
+const closeModal=()=>{$('modalOverlay').classList.remove('active');state.editingTeacher=null;state.selectedTeacher=null;state.deleteAction=null};
+
+const renderModal=(type,data)=>{
+  const m=$('modalBody'),h=$('modalHeader');
+  const templates={
+    loading:'<div class="loading"><div class="spinner"></div><p>Cargando...</p></div>',
+    empty:msg=>`<div class="empty-state"><div class="empty-state-icon">📋</div><p>${msg}</p></div>`
+  };
+  
+  switch(type){
+    case'addTeacher':
+      h.style.background='linear-gradient(135deg,#8b5cf6 0%,#6366f1 100%)';
+      $('modalTitle').textContent='➕ Añadir Nuevo Profesor';
+      m.innerHTML=`<div class="info-box"><div class="info-box-text">💡 Completa los datos del profesor. Solo el nombre es obligatorio.</div></div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Nombre del Profesor *</label><input type="text" id="newTeacherName" class="form-input" placeholder="ej., MARÍA"><div class="form-hint">Se convertirá a mayúsculas</div></div>
+          <div class="form-group"><label class="form-label">Correo Electrónico</label><input type="email" id="newTeacherEmail" class="form-input" placeholder="ej., maria@escuela.com"><div class="form-hint">Opcional - para acceso al sistema</div></div>
+          <div class="form-group"><label class="form-label">Horas Anuales Esperadas</label><input type="number" id="newTeacherHours" class="form-input" value="1230" min="0" max="3000"></div>
+          <div class="form-group"><label class="form-label">Estado</label><select id="newTeacherStatus" class="form-select"><option value="Active">Activo</option><option value="Inactive">Inactivo</option></select></div>
+          <div class="form-group"><label class="form-label">Horas No Lectivas (Anual)</label><input type="number" id="newTeacherPrepTime" class="form-input" value="70" min="0" max="200"><div class="form-hint">~1.5h/semana (default: 70h)</div></div>
+        </div>
+        <div class="settings-section"><div class="settings-section-title">🏖️ Asignación de Permisos</div>
+          <div class="settings-grid">
+            <div class="setting-item"><div class="setting-label">Vacaciones</div><input type="number" class="setting-input" id="newTeacherAnnual" value="31" min="0" max="50"></div>
+            <div class="setting-item"><div class="setting-label">D.R. Empleado</div><input type="number" class="setting-input" id="newTeacherPersonal" value="3" min="0" max="20"></div>
+            <div class="setting-item"><div class="setting-label">D.R. Empresa</div><input type="number" class="setting-input" id="newTeacherSchool" value="4" min="0" max="20"></div>
+          </div>
+        </div>
+        <div class="btn-row"><button class="cancel-btn" onclick="closeModal()">Cancelar</button><button class="submit-btn" onclick="saveNewTeacher()" id="saveNewTeacherBtn">➕ Añadir Profesor</button></div>`;
+      break;
+    case 'addAdmin':
+  h.style.background = 'linear-gradient(135deg,#0369a1 0%,#0284c7 100%)';
+  $('modalTitle').textContent = '➕ Añadir Nuevo Admin';
+  m.innerHTML = `
+    <div class="info-box"><div class="info-box-text">💡 Completa los datos del personal de administración. Solo el nombre y email son obligatorios.</div></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Nombre *</label>
+        <input type="text" id="newAdminName" class="form-input" placeholder="ej., María">
+        <div class="form-hint">Se convertirá a mayúsculas</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo Electrónico *</label>
+        <input type="email" id="newAdminEmail" class="form-input" placeholder="ej., maria@worldclassbcn.com">
+        <div class="form-hint">Necesario para acceso al sistema</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Horas Anuales Esperadas</label>
+        <input type="number" id="newAdminHours" class="form-input" value="1500" min="0" max="3000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Estado</label>
+        <select id="newAdminStatus" class="form-select">
+          <option value="Active">Activo</option>
+          <option value="Inactive">Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">🏖️ Asignación de Permisos</div>
+      <div class="settings-grid">
+        <div class="setting-item"><div class="setting-label">Vacaciones</div><input type="number" class="setting-input" id="newAdminAnnual" value="31" min="0" max="50"></div>
+        <div class="setting-item"><div class="setting-label">D.R. Empleado</div><input type="number" class="setting-input" id="newAdminPersonal" value="3" min="0" max="20"></div>
+        <div class="setting-item"><div class="setting-label">D.R. Empresa</div><input type="number" class="setting-input" id="newAdminSchool" value="4" min="0" max="20"></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="cancel-btn" onclick="closeModal()">Cancelar</button>
+      <button class="submit-btn" onclick="saveNewAdmin()" id="saveNewAdminBtn">➕ Añadir Admin</button>
+    </div>
+  `;
+  break; 
+    case'editTeacher':
+      h.style.background='linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+      $('modalTitle').textContent='✏️ Editar Configuración del Profesor';
+      m.innerHTML=templates.loading;
+      state.editingTeacher=data;
+      google.script.run.withSuccessHandler(r=>r.success?renderEditTeacherForm(r.teacher):m.innerHTML=templates.empty(r.message)).withFailureHandler(e=>m.innerHTML=templates.empty(e.message)).getTeacherSettings(data);
+      break;
+
+case 'editAdmin':
+  h.style.background = 'linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+  $('modalTitle').textContent = '✏️ Editar Configuración de Administración';
+  m.innerHTML = templates.loading;
+  state.editingTeacher = data;  // Reuse this state var
+  google.script.run.withSuccessHandler(r => r.success ? renderEditAdminForm(r.admin) : m.innerHTML = templates.empty(r.message)).withFailureHandler(e => m.innerHTML = templates.empty(e.message)).getAdminWorkerSettings(data);
+  break;
+
+case 'adminCalendar':
+  h.style.background = 'linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+  $('modalTitle').textContent = `📅 Calendario de ${data.name}`;
+  state.selectedTeacher = data;  // Reuse
+  state.calendarDate = new Date(state.viewYear, state.viewMonth - 1, 1);
+  m.innerHTML = templates.loading;
+  loadTeacherCalendar();  // Same function works for both
+  break;
+
+case 'editPaidHours':
+  h.style.background = 'linear-gradient(135deg,#10b981 0%,#059669 100%)';
+  $('modalTitle').textContent = '✏️ Editar Horas Pagadas';
+  m.innerHTML = `
+    <input type="hidden" id="editPaidHoursId" value="${data.paidId}">
+    <div class="form-group">
+      <label class="form-label">Profesor</label>
+      <input type="text" class="form-input" value="${utils.escapeHtml(data.teacherName)}" disabled style="background:#f1f5f9">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Horas</label>
+      <input type="number" id="editPaidHoursAmount" class="form-input" value="${data.hours}" min="0.5" step="0.5" style="font-size:20px;text-align:center;font-weight:600">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fecha</label>
+      <input type="date" id="editPaidHoursDate" class="form-input" value="${data.date}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas (opcional)</label>
+      <input type="text" id="editPaidHoursNotes" class="form-input" value="${utils.escapeHtml(data.notes || '')}">
+    </div>
+    <div class="btn-row">
+      <button class="cancel-btn" onclick="closeModal()">Cancelar</button>
+      <button class="submit-btn" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)" onclick="saveEditPaidHours()" id="saveEditPaidHoursBtn">💾 Guardar Cambios</button>
+    </div>
+  `;
+  break; 
+
+    case'teacherCalendar':
+      h.style.background='linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+      $('modalTitle').textContent=`📅 Calendario de ${data.name}`;
+      state.selectedTeacher=data;
+      state.calendarDate=new Date(state.viewYear,state.viewMonth-1,1);
+      m.innerHTML=templates.loading;
+      loadTeacherCalendar();
+      break;
+      
+    case'dayDetail':
+      h.style.background='linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+      const dt=new Date(data.split('-'));
+      $('modalTitle').textContent=`📋 ${dt.toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}`;
+      m.innerHTML=templates.loading;
+      google.script.run.withSuccessHandler(renderDayPunches).withFailureHandler(handleError).getTeacherPunchesForDay(state.selectedTeacher.email,data);
+      break;
+      
+    case'calendarDayDetail':
+      h.style.background='linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+      const cdt=new Date(data.split('-'));
+      $('modalTitle').textContent=`📅 ${cdt.toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}`;
+      m.innerHTML=templates.loading;
+      google.script.run.withSuccessHandler(renderCalendarDayDetail).withFailureHandler(e=>m.innerHTML=templates.empty(e.message)).getHolidayDetailsForDate(data);
+      break;
+      
+    case'editSchoolHoliday':
+      h.style.background='linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+      $('modalTitle').textContent='✏️ Editar Festivo/Puente';
+      m.innerHTML=`<input type="hidden" id="editSchoolHolidayId" value="${data.holidayId}">
+        <div class="form-group"><label class="form-label">Nombre del Festivo/Puente</label><input type="text" id="editSchoolHolidayName" class="form-input" value="${utils.escapeHtml(data.name)}"></div>
+        <div class="form-group"><label class="form-label">Fecha de Inicio</label><input type="date" id="editSchoolHolidayStart" class="form-input" value="${data.startDate}"></div>
+        <div class="form-group"><label class="form-label">Fecha de Fin</label><input type="date" id="editSchoolHolidayEnd" class="form-input" value="${data.endDate}"></div>
+        <div class="btn-row"><button class="cancel-btn" onclick="closeModal()">Cancelar</button><button class="submit-btn" onclick="saveSchoolHolidayEdit()" id="saveSchoolHolidayBtn">💾 Guardar Cambios</button></div>`;
+      break;
+      
+    case'editAssignedDay':
+      h.style.background='linear-gradient(135deg,#092b50 0%,#1e3a5f 100%)';
+      $('modalTitle').textContent='✏️ Editar D.R. Empresa';
+      m.innerHTML=`<input type="hidden" id="editAssignedDayId" value="${data.requestId}">
+        <div class="form-group"><label class="form-label">Profesor</label><input type="text" id="editAssignedDayTeacher" class="form-input" value="${utils.escapeHtml(data.teacherName)}" disabled style="background:#f1f5f9"></div>
+        <div class="form-group"><label class="form-label">Fecha</label><input type="date" id="editAssignedDayDate" class="form-input" value="${data.date}"></div>
+        <div class="btn-row"><button class="cancel-btn" onclick="closeModal()">Cancelar</button><button class="submit-btn" onclick="saveAssignedDayEdit()" id="saveAssignedDayBtn">💾 Guardar Cambios</button></div>`;
+      break;
+      
+    case'deleteConfirm':
+      h.style.background='linear-gradient(135deg,#ef4444 0%,#dc2626 100%)';
+      $('modalTitle').textContent='🗑️ Confirmar Eliminación';
+      state.deleteAction=data;
+      m.innerHTML=`<div style="text-align:center"><div style="font-size:48px;margin-bottom:20px">⚠️</div>
+        <p style="font-size:16px;color:#334155;margin-bottom:20px">${data.message}</p>
+        <p style="font-size:13px;color:#94a3b8;margin-bottom:20px">Esta acción no se puede deshacer.</p>
+        <div class="btn-row"><button class="cancel-btn" onclick="closeModal()">Cancelar</button><button class="submit-btn" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)" onclick="confirmDelete()">🗑️ Eliminar</button></div></div>`;
+      break;
+  }
+};
+
+const renderEditTeacherForm=t=>{
+  $('modalTitle').textContent=`✏️ Editar: ${t.name}`;
+  $('modalBody').innerHTML=`<div class="info-box"><div class="info-box-text">💡 Ajusta el objetivo de horas anuales y la asignación de permisos de este profesor.</div></div>
+    <div class="settings-section"><div class="settings-section-title">📊 Objetivo de Horas de Trabajo</div>
+      <div class="form-group"><label class="form-label">Horas Anuales Esperadas</label><input type="number" class="form-input large" id="editExpectedHours" value="${t.expectedYearlyHours}" min="0" max="3000"><div class="form-hint">Se usa para calcular el porcentaje de progreso</div></div>
+    </div>
+    <div class="settings-section"><div class="settings-section-title">📚 Tiempo de Preparación (No Lectivo)</div>
+      <div class="form-group"><label class="form-label">Horas Anuales de Preparación</label><input type="number" class="form-input large" id="editPrepTimeYearly" value="${t.prepTimeYearly||70}" min="0" max="200" step="1"><div class="form-hint">Total anual (default: 70h). Semanal: ~${t.prepTimeWeekly||1.5}h</div></div>
+    </div>
+    <div class="settings-section"><div class="settings-section-title">🏖️ Asignación de Permisos</div>
+      <div class="settings-grid">
+        <div class="setting-item"><div class="setting-label">Vacaciones</div><input type="number" class="setting-input" id="editAnnualDays" value="${t.annualDays}" min="0" max="50"></div>
+        <div class="setting-item"><div class="setting-label">D.R. Empleado</div><input type="number" class="setting-input" id="editPersonalDays" value="${t.personalDays}" min="0" max="20"></div>
+        <div class="setting-item"><div class="setting-label">D.R. Empresa</div><input type="number" class="setting-input" id="editSchoolDays" value="${t.schoolDays}" min="0" max="20"></div>
+        <div class="setting-item"><div class="setting-label">Visita Médica</div><input type="number" class="setting-input" id="editMedApptHours" value="${t.medApptHours||20}" min="0" max="100" step="1"></div>
+      </div>
+    </div>
+    <div class="btn-row"><button class="cancel-btn" onclick="closeModal()">Cancelar</button><button class="submit-btn" onclick="saveTeacherSettings()" id="saveTeacherBtn">💾 Guardar Cambios</button></div>
+    <div style="margin-top:30px;padding-top:20px;border-top:2px solid #fee2e2">
+      <button onclick="confirmDeactivate('${utils.escapeHtml(t.email)}','${utils.escapeHtml(t.name)}')" style="width:100%;padding:12px;background:#fff;border:2px solid #ef4444;color:#ef4444;border-radius:10px;font-weight:600;cursor:pointer">🗑️ Desactivar Profesor</button>
+    </div>`;
+};
+
+const displayTeachers = r => {
+  state.teachers = r.teachers || [];
+  state.weekInfo = {
+    start: r.weekStart,
+    end: r.weekEnd,
+    number: r.weekNumber,
+    display: r.weekDisplay,
+    offset: r.weekOffset || 0
+  };
+  
+  const t = state.teachers;
+  const total = t.length;
+  const totalMonthlyHours = t.reduce((s, x) => s + (x.monthlyHours || 0), 0);
+  const totalWeeklyHours = t.reduce((s, x) => s + (x.weeklyHours || 0), 0);
+  const displayHours = state.hoursViewMode === 'weekly' ? totalWeeklyHours : totalMonthlyHours;
+  const avgHours = total ? displayHours / total : 0;
+  const monthName = new Date(state.viewYear, state.viewMonth - 1, 1).toLocaleDateString('es-ES', { month: 'long' });
+  const periodLabel = state.hoursViewMode === 'weekly' ? `Semana ${state.weekInfo?.display || ''}` : monthName;
+  
+// In displayTeachers function, update the stats:
+$('statsContainer').innerHTML = `<div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">
+  <div class="stat-card">
+    <div class="stat-icon">👩‍🏫</div>
+    <div class="stat-value">${total}</div>
+    <div class="stat-label">Profesores Activos</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👔</div>
+    <div class="stat-value">${state.adminWorkers?.length || 0}</div>
+    <div class="stat-label">Administración Activos</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-value">${r.teachersOnTrack || 0}/${total}</div>
+    <div class="stat-label">En Objetivo</div>
+    <div class="stat-subtext">Progreso promedio: ${(r.avgProgress || 0).toFixed(0)}%</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📅</div>
+    <div class="stat-value">${r.baseWorkingDaysPassed || 0}/${r.baseWorkingDaysTotal || 0}</div>
+    <div class="stat-label">Días Laborables</div>
+    <div class="stat-subtext">${r.schoolHolidaysCount || 0} festivos configurados</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">⏱️</div>
+    <div class="stat-value">${displayHours.toFixed(1)}h</div>
+    <div class="stat-label">Horas ${state.hoursViewMode === 'weekly' ? 'esta Semana' : 'en ' + monthName}</div>
+  </div>
+</div>`;
+  
+  renderTeachersTable(t);
+  updateWeekDisplay();
+};
+
+const renderTeachersTable = teachers => {
+  if (!teachers.length) return $('teachersTable').innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><p>No se encontraron profesores</p></div>';
+  
+  const isWeekly = state.hoursViewMode === 'weekly';
+  const hoursHeader = isWeekly ? 'Horas Semana' : 'Horas del Mes';
+  
+  $('teachersTable').innerHTML = `<table><thead><tr><th>Profesor</th><th>${hoursHeader}</th><th>Horas Totales</th><th>Pagadas</th><th>Médicas</th><th>Progreso Anual</th><th>Horas No Lectivas</th><th>Esperado/Año</th><th>Acciones</th></tr></thead><tbody>${
+    teachers.map(t => {
+      const pc = utils.getProgressClass(t.progressPercent || 0);
+      const pw = Math.min(t.progressPercent || 0, 150);
+      const prepPc = t.prepTimeProgress >= 80 ? 'good' : t.prepTimeProgress >= 50 ? 'warning' : 'behind';
+      const displayHours = isWeekly ? (t.weeklyHours || 0) : (t.monthlyHours || 0);
+      const expectedWeekly = t.expectedWeeklyHours || ((t.expectedYearlyHours || 1230) / 52);
+      const medicalHoursDisplay = isWeekly ? (t.medicalHoursWeek || 0) : (t.medicalHoursMonth || 0);
+      
+      let hoursBadgeClass = pc;
+      if (isWeekly) {
+        const weeklyPercent = expectedWeekly > 0 ? (t.weeklyHours / expectedWeekly) * 100 : 0;
+        hoursBadgeClass = weeklyPercent >= 100 ? 'on-track' : weeklyPercent >= 70 ? 'warning' : 'behind';
+      }
+      
+      // Medical badge
+      const medicalBadge = (t.medicalHours || 0) > 0 
+        ? `<span class="type-badge medical" style="font-size:12px">${(t.medicalHours || 0).toFixed(1)}h</span><div style="font-size:10px;color:#94a3b8;margin-top:2px">${t.medicalWorkingDays || 0} días</div>`
+        : '<span style="color:#cbd5e1">—</span>';
+      
+      return `<tr class="clickable" onclick="openModal('editTeacher','${utils.escapeHtml(t.email)}')">
+        <td><div class="teacher-name">${utils.escapeHtml(t.name)}</div><div class="teacher-email">${utils.escapeHtml(t.email) || '(sin correo)'}</div><div class="click-hint">Clic para editar configuración</div></td>
+        <td><span class="hours-badge ${hoursBadgeClass}">${displayHours.toFixed(1)}h</span>${medicalHoursDisplay > 0 ? '<div style="font-size:10px;color:#991b1b;margin-top:2px">🏥 incl. ' + medicalHoursDisplay.toFixed(1) + 'h méd.</div>' : ''}</td>
+        <td><span style="font-weight:600;color:#092b50">${(t.totalHours || 0).toFixed(1)}h</span>${(t.medicalHours || 0) > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + (t.medicalHours || 0).toFixed(1) + 'h méd.</div>' : ''}</td>
+        <td><span class="paid-hours-badge">${t.paidHours || 0}h</span></td>
+        <td style="text-align:center">${medicalBadge}</td>
+        <td class="progress-cell"><div class="progress-container"><div class="progress-bar-wrapper"><div class="progress-bar ${pc}" style="width:${pw}%"></div></div><div class="progress-text"><span class="progress-percent ${pc}">${(t.progressPercent || 0).toFixed(0)}%</span><span style="color:#94a3b8;font-size:11px">${(t.expectedHoursToDate || 0).toFixed(0)}h esp</span></div></div></td>
+        <td class="prep-time-cell"><span class="prep-time-badge ${prepPc}">${t.prepTimeTotal || 0}h / ${t.prepTimeYearly || 70}h</span><div style="font-size:10px;color:#94a3b8;margin-top:2px">${t.prepTimeWeeksLogged || 0} sem</div></td>
+        <td><span style="color:#64748b">${t.expectedYearlyHours || 1230}h</span></td>
+        <td onclick="event.stopPropagation()"><button class="view-btn" onclick="openModal('teacherCalendar',{email:'${utils.escapeHtml(t.email)}',name:'${utils.escapeHtml(t.name)}'})">📅 Calendario</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+};
+
+const filterTeachers=q=>{const f=state.teachers.filter(t=>t.name.toLowerCase().includes(q.toLowerCase())||(t.email&&t.email.toLowerCase().includes(q.toLowerCase())));renderTeachersTable(f)};
+
+const saveNewTeacher=()=>{
+  const name=$('newTeacherName').value.trim();
+  if(!name)return showToast('Por favor ingresa el nombre del profesor','error');
+  
+  const btn=$('saveNewTeacherBtn');btn.disabled=true;btn.textContent='⏳ Añadiendo...';
+  
+  google.script.run.withSuccessHandler(r=>{
+    btn.disabled=false;btn.textContent='➕ Añadir Profesor';
+    if(r.success){showToast(r.message,'success');closeModal();loadData(true);if(state.currentSection==='holidays')populateTeacherDropdown()}
+    else showToast(r.message,'error')
+  }).withFailureHandler(e=>{btn.disabled=false;btn.textContent='➕ Añadir Profesor';showToast(`Error: ${e.message}`,'error')})
+  .addNewTeacher({
+    name,
+    email:$('newTeacherEmail').value.trim(),
+    status:$('newTeacherStatus').value,
+    expectedYearlyHours:parseInt($('newTeacherHours').value)||1230,
+    annualDays:parseInt($('newTeacherAnnual').value)||31,
+    personalDays:parseInt($('newTeacherPersonal').value)||3,
+    schoolDays:parseInt($('newTeacherSchool').value)||4,
+    prepTimeYearly:parseFloat($('newTeacherPrepTime').value)||70
+  });
+};
+const saveNewAdmin = () => {
+  const name = $('newAdminName').value.trim();
+  const email = $('newAdminEmail').value.trim();
+  
+  if (!name) return showToast('Por favor ingresa el nombre', 'error');
+  if (!email) return showToast('Por favor ingresa el correo electrónico', 'error');
+  
+  const btn = $('saveNewAdminBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Añadiendo...';
+  
+  google.script.run.withSuccessHandler(r => {
+    btn.disabled = false;
+    btn.textContent = '➕ Añadir Admin';
+    if (r.success) {
+      showToast(r.message, 'success');
+      closeModal();
+      loadAdminWorkers(true);
+      loadData(true);
+    } else {
+      showToast(r.message, 'error');
+    }
+  }).withFailureHandler(e => {
+    btn.disabled = false;
+    btn.textContent = '➕ Añadir Admin';
+    showToast('Error: ' + e.message, 'error');
+  }).addNewAdmin({
+    name,
+    email,
+    status: $('newAdminStatus').value,
+    expectedYearlyHours: parseInt($('newAdminHours').value) || 1500,
+    annualDays: parseInt($('newAdminAnnual').value) || 31,
+    personalDays: parseInt($('newAdminPersonal').value) || 3,
+    schoolDays: parseInt($('newAdminSchool').value) || 4
+  });
+};
+const saveTeacherSettings=()=>{
+  const btn=$('saveTeacherBtn');btn.disabled=true;btn.textContent='⏳ Guardando...';
+  
+  google.script.run.withSuccessHandler(r=>{
+    btn.disabled=false;btn.textContent='💾 Guardar Cambios';
+    if(r.success){showToast(r.message,'success');closeModal();loadData(true)}else showToast(r.message,'error')
+  }).withFailureHandler(e=>{btn.disabled=false;btn.textContent='💾 Guardar Cambios';showToast(`Error: ${e.message}`,'error')})
+  .updateTeacherSettings(state.editingTeacher,{
+    expectedYearlyHours:parseInt($('editExpectedHours').value)||1230,
+    annualDays:parseInt($('editAnnualDays').value)||22,
+    personalDays:parseInt($('editPersonalDays').value)||3,
+    schoolDays:parseInt($('editSchoolDays').value)||4,
+    prepTimeYearly:parseFloat($('editPrepTimeYearly').value)||70,
+    medApptHours:parseFloat($('editMedApptHours').value)||20
+  });
+};
+
+const confirmDeactivate=(email,name)=>openModal('deleteConfirm',{type:'teacher',id:email,message:`¿Estás seguro de que quieres desactivar a <strong>${utils.escapeHtml(name)}</strong>?<br><br><span style="color:#64748b;font-size:13px">El profesor ya no aparecerá en las listas, pero sus datos de fichaje se conservarán.</span>`});
+
+// Teacher Calendar
+const loadTeacherCalendar=()=>{
+  const y=state.calendarDate.getFullYear(),m=state.calendarDate.getMonth()+1;
+  google.script.run.withSuccessHandler(d=>{state.teacherPunchedDays=d;renderTeacherCalendar()}).withFailureHandler(handleError).getTeacherPunchedDays(state.selectedTeacher.email,y,m);
+};
+
+const renderTeacherCalendar=()=>{
+  const y=state.calendarDate.getFullYear(),m=state.calendarDate.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),start=first.getDay(),today=utils.formatDate(new Date()),monthName=state.calendarDate.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const nextFuture=new Date(y,m+1,1)>new Date(new Date().getFullYear(),new Date().getMonth()+1,0);
+  
+  let html=`<div class="calendar-nav"><button class="calendar-nav-btn" onclick="navCalendar(-1)">← Anterior</button><span class="calendar-month-title">${monthName}</span><button class="calendar-nav-btn" onclick="navCalendar(1)" ${nextFuture?'disabled':''}>Siguiente →</button></div><div class="calendar-grid">`;
+  ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].forEach(d=>html+=`<div class="calendar-header-cell">${d}</div>`);
+  for(let i=0;i<start;i++)html+='<div class="calendar-cell empty"></div>';
+  
+  for(let d=1;d<=last.getDate();d++){
+    const ds=utils.formatDate(new Date(y,m,d)),pd=state.teacherPunchedDays[ds],cls=['calendar-cell'];
+    if(ds===today)cls.push('today');
+    if(pd?.count)cls.push('has-punches');
+    html+=`<div class="${cls.join(' ')}" onclick="openDayDetailForAdmin('${ds}')">
+  <div class="calendar-day-num">${d}</div>
+  ${pd?.count ? `
+    <div class="calendar-punch-count">${pd.count} fichaje${pd.count!==1?'s':''}</div>
+    ${pd.hours ? `<div class="calendar-hours">${pd.hours.toFixed(1)}h</div>` : ''}
+  ` : ''}
+</div>`;
+  }
+  html+='</div>';
+  $('modalBody').innerHTML=html;
+};
+
+const navCalendar=dir=>{const n=new Date();if(dir>0){const next=new Date(state.calendarDate.getFullYear(),state.calendarDate.getMonth()+1,1);if(next>new Date(n.getFullYear(),n.getMonth()+1,0))return}state.calendarDate.setMonth(state.calendarDate.getMonth()+dir);loadTeacherCalendar()};
+
+const renderDayPunches = (punches) => {
+  const hrs = punches.length ? utils.calcDayHours(punches) : 0;
+  
+  let html = `
+    <div class="day-hours-summary">
+      <div class="day-hours-value">${hrs.toFixed(2)}h</div>
+      <div class="day-hours-label">Horas Totales</div>
+    </div>
+  `;
+  
+  // Add punch button - only for Super Admins
+  if (state.isSuperAdmin) {
+    html += `
+      <div style="margin-bottom:20px">
+        <button class="action-btn add" onclick="openAddPunchForm()" style="width:100%">
+          ➕ Añadir Fichaje
+        </button>
+      </div>
+    `;
+  }
+  
+  html += `
+    <div id="addPunchFormContainer" style="display:none;margin-bottom:20px;padding:20px;background:#f0f9ff;border-radius:12px;border:2px solid var(--accent)">
+      <div class="form-group" style="margin-bottom:15px">
+        <label class="form-label">Hora</label>
+        <input type="time" id="newPunchTime" class="form-input" style="font-size:24px;text-align:center">
+      </div>
+      <div class="form-group" style="margin-bottom:15px">
+        <label class="form-label">Tipo</label>
+        <select id="newPunchType" class="form-select">
+          <option value="auto">Automático (siguiente en secuencia)</option>
+          <option value="IN">ENTRADA</option>
+          <option value="OUT">SALIDA</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="cancel-btn" onclick="closeAddPunchForm()">Cancelar</button>
+        <button class="submit-btn" onclick="saveNewPunch()" id="saveNewPunchBtn">💾 Guardar</button>
+      </div>
+    </div>
+  `;
+  
+  if (!punches.length) {
+    html += '<div class="empty-state" style="padding:30px"><div class="empty-state-icon">🕐</div><p>No hay fichajes registrados</p></div>';
+  } else {
+    html += '<div class="day-punches-list">';
+    punches.forEach(p => {
+      const typeLabel = p.punchType === 'IN' ? 'ENTRADA' : 'SALIDA';
+      const timeFormatted = utils.formatTime(p.time);
+      
+      html += '<div class="day-punch-item ' + p.punchType.toLowerCase() + '" id="admin-punch-' + p.punchId + '">';
+      html += '<div class="punch-info">';
+      html += '<span class="punch-type ' + p.punchType.toLowerCase() + '">' + typeLabel + '</span>';
+      html += '<span class="punch-time-display">' + timeFormatted + '</span>';
+      html += '</div>';
+      
+      // Only show edit/delete buttons for Super Admins
+      if (state.isSuperAdmin) {
+        html += '<div class="punch-actions" style="display:flex;gap:8px">';
+        html += '<button class="action-btn-small" style="background:#e0e7ff;color:#4f46e5" onclick="openEditPunchForm(\'' + p.punchId + '\',\'' + timeFormatted + '\')">✏️</button>';
+        html += '<button class="action-btn-small" style="background:#fee2e2;color:#ef4444" onclick="deleteAdminPunch(\'' + p.punchId + '\')">🗑️</button>';
+        html += '</div>';
+      }
+      
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  
+  // Edit form (hidden by default) - only for Super Admins
+  if (state.isSuperAdmin) {
+    html += `
+      <div id="editPunchFormContainer" style="display:none;margin-top:20px;padding:20px;background:#fef3c7;border-radius:12px;border:2px solid var(--warning)">
+        <input type="hidden" id="editPunchId">
+        <div class="form-group" style="margin-bottom:15px">
+          <label class="form-label">Nueva Hora</label>
+          <input type="time" id="editPunchTime" class="form-input" style="font-size:24px;text-align:center">
+        </div>
+        <div class="btn-row">
+          <button class="cancel-btn" onclick="closeEditPunchForm()">Cancelar</button>
+          <button class="submit-btn" onclick="saveEditPunch()" id="saveEditPunchBtn">💾 Guardar Cambios</button>
+        </div>
+      </div>
+    `;
+  }
+  
+  $('modalBody').innerHTML = html;
+};
+
+// Store selected day date
+let selectedDayDateForAdmin = null;
+
+// Update the dayDetail modal opener to store the date
+const openDayDetailForAdmin = (dateStr) => {
+  selectedDayDateForAdmin = dateStr;
+  openModal('dayDetail', dateStr);
+};
+
+// Add Punch Form functions
+const openAddPunchForm = () => {
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  $('newPunchTime').value = timeStr;
+  $('newPunchType').value = 'auto';
+  $('addPunchFormContainer').style.display = 'block';
+};
+
+const closeAddPunchForm = () => {
+  $('addPunchFormContainer').style.display = 'none';
+};
+
+const saveNewPunch = () => {
+  const time = $('newPunchTime').value;
+  if (!time) return showToast('Por favor selecciona una hora', 'error');
+  
+  const btn = $('saveNewPunchBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+  
+  google.script.run.withSuccessHandler(r => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar';
+    
+    if (r.success) {
+      showToast(r.message, 'success');
+      closeAddPunchForm();
+      // Refresh the day view
+      google.script.run.withSuccessHandler(renderDayPunches).withFailureHandler(handleError)
+        .getTeacherPunchesForDay(state.selectedTeacher.email, selectedDayDateForAdmin);
+      // Refresh calendar
+      loadTeacherCalendar();
+    } else {
+      showToast(r.message, 'error');
+    }
+  }).withFailureHandler(e => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar';
+    showToast('Error: ' + e.message, 'error');
+  }).addPunch(state.selectedTeacher.email, state.selectedTeacher.name, selectedDayDateForAdmin, time, 'Añadido por admin');
+};
+
+// Edit Punch Form functions
+const openEditPunchForm = (punchId, currentTime) => {
+  $('editPunchId').value = punchId;
+  $('editPunchTime').value = currentTime;
+  $('editPunchFormContainer').style.display = 'block';
+  $('editPunchFormContainer').scrollIntoView({ behavior: 'smooth' });
+};
+
+const closeEditPunchForm = () => {
+  $('editPunchFormContainer').style.display = 'none';
+};
+
+const saveEditPunch = () => {
+  const punchId = $('editPunchId').value;
+  const newTime = $('editPunchTime').value;
+  
+  if (!newTime) return showToast('Por favor selecciona una hora', 'error');
+  
+  const btn = $('saveEditPunchBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+  
+  google.script.run.withSuccessHandler(r => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Cambios';
+    
+    if (r.success) {
+      showToast('Fichaje actualizado', 'success');
+      closeEditPunchForm();
+      // Refresh the day view
+      google.script.run.withSuccessHandler(renderDayPunches).withFailureHandler(handleError)
+        .getTeacherPunchesForDay(state.selectedTeacher.email, selectedDayDateForAdmin);
+    } else {
+      showToast(r.message, 'error');
+    }
+  }).withFailureHandler(e => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Cambios';
+    showToast('Error: ' + e.message, 'error');
+  }).editPunch(punchId, newTime, 'Editado por admin', ADMIN_EMAIL);
+};
+
+// Delete Punch function
+const deleteAdminPunch = (punchId) => {
+  const row = $(`admin-punch-${punchId}`);
+  if (row) row.style.opacity = '0.5';
+  
+  google.script.run.withSuccessHandler(r => {
+    if (r.success) {
+      showToast('Fichaje eliminado', 'success');
+      // Refresh the day view
+      google.script.run.withSuccessHandler(renderDayPunches).withFailureHandler(handleError)
+        .getTeacherPunchesForDay(state.selectedTeacher.email, selectedDayDateForAdmin);
+      // Refresh calendar
+      loadTeacherCalendar();
+    } else {
+      showToast(r.message, 'error');
+      if (row) row.style.opacity = '1';
+    }
+  }).withFailureHandler(e => {
+    showToast('Error: ' + e.message, 'error');
+    if (row) row.style.opacity = '1';
+  }).deletePunch(punchId, ADMIN_EMAIL);
+};
+
+// Holiday Section
+const loadHolidayData=()=>{
+  const btn=$('refreshHolidaysBtn');btn.disabled=true;btn.textContent='⏳ Cargando...';
+  Promise.all([loadPendingRequests(),loadApprovedRequests(),loadTeacherHolidayOverview(),loadSchoolHolidays(),loadAssignedSchoolDays()]).then(()=>{
+    btn.disabled=false;btn.textContent='🔄 Actualizar';
+    renderRequestsTab();
+  });
+};
+
+const loadPendingRequests=()=>new Promise(res=>{
+  google.script.run.withSuccessHandler(r=>{
+    state.pendingRequests=r;
+    const tabBadge=$('requestsTabBadge');
+    if(r.length){tabBadge.style.display='inline';tabBadge.textContent=r.length}
+    else tabBadge.style.display='none';
+    const navBadge=$('pendingBadge');
+    if(r.length){navBadge.style.display='inline-block';navBadge.textContent=r.length}
+    else navBadge.style.display='none';
+    res();
+  }).withFailureHandler(e=>{handleError(e);res()}).getPendingPunchHolidayRequests();
+});
+
+const loadApprovedRequests=()=>new Promise(res=>{
+  google.script.run.withSuccessHandler(r=>{state.approvedRequests=r;res()}).withFailureHandler(e=>{handleError(e);res()}).getApprovedHolidayRequests();
+});
+
+const loadTeacherHolidayOverview = () => new Promise(res => {
+  // Load teachers
+  google.script.run.withSuccessHandler(t => {
+    state.holidayTeachers = t;
+    if (t.length > 0 && t[0].puenteDays) state.puenteDays = t[0].puenteDays;
+    
+    // Also load admins
+    google.script.run.withSuccessHandler(admins => {
+      state.holidayAdmins = admins || [];
+      renderOverviewTab();
+      renderHolidayStats();
+      populateTeacherDropdown();
+      res();
+    }).withFailureHandler(e => {
+      console.error('Error loading admin holiday status:', e);
+      state.holidayAdmins = [];
+      renderOverviewTab();
+      renderHolidayStats();
+      populateTeacherDropdown();
+      res();
+    }).getAllAdminWorkersHolidayStatus();
+    
+  }).withFailureHandler(e => {
+    handleError(e);
+    res();
+  }).getAllPunchTeachersHolidayStatus();
+});
+
+const loadSchoolHolidays=()=>new Promise(res=>{
+  google.script.run.withSuccessHandler(h=>{state.schoolHolidays=h;renderSchoolHolidaysTab();res()}).withFailureHandler(e=>{handleError(e);res()}).getAllSchoolHolidays();
+});
+
+const loadAssignedSchoolDays=()=>new Promise(res=>{
+  google.script.run.withSuccessHandler(d=>{state.assignedDays=d;renderAssignTab();res()}).withFailureHandler(e=>{handleError(e);res()}).getAllAssignedSchoolDays();
+});
+
+const renderHolidayStats = () => {
+  const t = state.holidayTeachers;
+  
+  const totals = t.reduce((acc, teacher) => {
+    acc.annualTotal += teacher.annualTotal || 22;
+    acc.annualUsed += teacher.annualUsed || 0;
+    acc.personalTotal += teacher.personalTotal || 3;
+    acc.personalUsed += teacher.personalUsed || 0;
+    acc.schoolTotal += teacher.schoolTotal || 4;
+    acc.schoolUsed += teacher.schoolUsed || 0;
+    acc.permisoUsed += teacher.permisoUsed || 0;
+    return acc;
+  }, {
+    annualTotal: 0, annualUsed: 0,
+    personalTotal: 0, personalUsed: 0,
+    schoolTotal: 0, schoolUsed: 0,
+    permisoUsed: 0
+  });
+  
+  const annualPercent = totals.annualTotal > 0 ? Math.round((totals.annualUsed / totals.annualTotal) * 100) : 0;
+  const personalPercent = totals.personalTotal > 0 ? Math.round((totals.personalUsed / totals.personalTotal) * 100) : 0;
+  const schoolPercent = totals.schoolTotal > 0 ? Math.round((totals.schoolUsed / totals.schoolTotal) * 100) : 0;
+  
+  const getBarColor = (percent) => {
+    if (percent < 50) return '#10b981';
+    if (percent < 80) return '#f59e0b';
+    return '#ef4444';
+  };
+  
+  $('holidayStatsContainer').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-value">${state.pendingRequests.length}</div>
+        <div class="stat-label">Solicitudes Pendientes</div>
+        ${state.pendingRequests.length > 0 
+          ? '<div class="stat-subtext" style="color:#f59e0b;font-weight:600">⚠️ Requiere atención</div>' 
+          : '<div class="stat-subtext" style="color:#10b981">✓ Todo al día</div>'}
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">🏖️</div>
+        <div class="stat-value">${annualPercent}%</div>
+        <div class="stat-label">Vacaciones Usadas</div>
+        <div class="stat-progress">
+          <div class="stat-progress-bar" style="width:${annualPercent}%;background:${getBarColor(annualPercent)}"></div>
+        </div>
+        <div class="stat-subtext">${totals.annualUsed} de ${totals.annualTotal} días</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">👤</div>
+        <div class="stat-value">${personalPercent}%</div>
+        <div class="stat-label">D.R. Empleado Usados</div>
+        <div class="stat-progress">
+          <div class="stat-progress-bar" style="width:${personalPercent}%;background:${getBarColor(personalPercent)}"></div>
+        </div>
+        <div class="stat-subtext">${totals.personalUsed} de ${totals.personalTotal} días</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">🏢</div>
+        <div class="stat-value">${schoolPercent}%</div>
+        <div class="stat-label">D.R. Empresa Asignados</div>
+        <div class="stat-progress">
+          <div class="stat-progress-bar" style="width:${schoolPercent}%;background:${getBarColor(schoolPercent)}"></div>
+        </div>
+        <div class="stat-subtext">${totals.schoolUsed} de ${totals.schoolTotal} días</div>
+      </div>
+    </div>
+  `;
+};
+
+// Combined Requests Tab
+const renderRequestsTab=()=>{
+  const pendingCount=state.pendingRequests.length;
+  const approvedCount=state.approvedRequests.length;
+  
+  $('requestsTab').innerHTML=`
+    <div class="sub-tabs">
+      <button class="sub-tab ${state.requestsSubTab==='pending'?'active':''}" onclick="switchRequestsSubTab('pending')">
+        ⏳ Pendientes${pendingCount?`<span class="sub-badge">${pendingCount}</span>`:''}
+      </button>
+      <button class="sub-tab ${state.requestsSubTab==='approved'?'active':''}" onclick="switchRequestsSubTab('approved')">
+        ✅ Aprobadas
+      </button>
+    </div>
+    <div id="requestsSubContent"></div>
+  `;
+  
+  renderRequestsSubContent();
+};
+
+const switchRequestsSubTab=(tab)=>{
+  state.requestsSubTab=tab;
+  renderRequestsTab();
+};
+
+const renderRequestsSubContent=()=>{
+  const container=$('requestsSubContent');
+  if(state.requestsSubTab==='pending'){
+    renderPendingContent(container);
+  }else{
+    renderApprovedContent(container);
+  }
+};
+
+const renderPendingContent=(container)=>{
+  const r=state.pendingRequests;
+  container.innerHTML=`
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">⏳ Solicitudes Pendientes</h3>
+        <span style="color:var(--gray-500);font-size:14px">${r.length} solicitud${r.length!==1?'es':''} esperando aprobación</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="request-table">
+          <thead>
+            <tr><th>Profesor</th><th>Tipo</th><th>Fechas</th><th>Días</th><th>Motivo</th><th>Solicitado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody>
+            ${r.length?r.map(x=>`
+              <tr id="request-${x.requestId}">
+                <td>
+                  <div style="font-weight:600">${utils.escapeHtml(x.teacherName)}</div>
+                  <div style="font-size:12px;color:#64748b">${utils.escapeHtml(x.teacherEmail)}</div>
+                </td>
+                <td><span class="type-badge ${utils.typeColor(x.holidayType)}">${utils.typeName(x.holidayType)}</span></td>
+                <td>
+                  <div>${utils.formatDateDisplay(x.startDate)}</div>
+                  <div style="font-size:11px;color:#94a3b8">hasta ${utils.formatDateDisplay(x.endDate)}</div>
+                </td>
+                <td style="font-weight:600">${x.days}${x.holidayType === 'MedAppt' ? 'h' : ''}</td>
+                <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${utils.escapeHtml(x.reason)||'-'}</td>
+                <td style="font-size:12px;color:#64748b">${utils.formatDateDisplay(x.requestDate)}</td>
+                <td>
+                  <button class="action-btn-small approve" onclick="processRequest('${x.requestId}','approve')">✓ Aprobar</button>
+                  <button class="action-btn-small reject" onclick="processRequest('${x.requestId}','reject')">✕ Rechazar</button>
+                </td>
+              </tr>
+            `).join(''):`
+              <tr>
+                <td colspan="7" style="text-align:center;padding:40px">
+                  <div style="font-size:48px;opacity:0.5">✅</div>
+                  <p style="color:#94a3b8;margin-top:10px">No hay solicitudes pendientes</p>
+                  <p style="color:#cbd5e1;font-size:13px;margin-top:5px">¡Todo al día!</p>
+                </td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+const renderApprovedContent=(container)=>{
+  const r=state.approvedRequests;
+  container.innerHTML=`
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">✅ Solicitudes Aprobadas</h3>
+        <div class="card-actions">
+          <input type="text" class="search-input" id="approvedSearchInput" placeholder="🔍 Buscar por profesor..." oninput="filterApproved()">
+          <select class="form-select" id="approvedTypeFilter" onchange="filterApproved()" style="width:180px;padding:10px;border:2px solid #e0e7ff;border-radius:10px">
+            <option value="all">Todos los Tipos</option>
+            <option value="Annual">Vacaciones</option>
+            <option value="Personal">D.R. Empleado</option>
+            <option value="Medical">Médico</option>
+            <option value="Permiso">Permiso</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="request-table">
+          <thead>
+            <tr><th>Profesor</th><th>Tipo</th><th>Fechas</th><th>Días</th><th>Motivo</th><th>Aprobado Por</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="approvedTableBody">
+            ${renderApprovedRows(r)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="warning-box">
+      <div class="warning-box-title">⚠️ Nota Importante</div>
+      <div class="warning-box-text">Eliminar una solicitud aprobada restaurará los días al saldo del profesor.</div>
+    </div>
+  `;
+};
+
+const renderApprovedRows=(requests)=>{
+  if(!requests.length){
+    return `<tr>
+      <td colspan="7" style="text-align:center;padding:40px">
+        <div style="font-size:48px;opacity:0.5">📋</div>
+        <p style="color:#94a3b8;margin-top:10px">No se encontraron solicitudes aprobadas</p>
+      </td>
+    </tr>`;
+  }
+  
+  return requests.map(x=>`
+    <tr id="approved-${x.requestId}">
+      <td>
+        <div style="font-weight:600">${utils.escapeHtml(x.teacherName)}</div>
+        <div style="font-size:12px;color:#64748b">${utils.escapeHtml(x.teacherEmail)}</div>
+      </td>
+      <td><span class="type-badge ${utils.typeColor(x.holidayType)}">${utils.typeName(x.holidayType)}</span></td>
+      <td>
+        <div>${utils.formatDateDisplay(x.startDate)}</div>
+        <div style="font-size:11px;color:#94a3b8">hasta ${utils.formatDateDisplay(x.endDate)}</div>
+      </td>
+      <td style="font-weight:600;text-align:center">${x.days}${x.holidayType === 'MedAppt' ? 'h' : ''}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;font-size:12px">${utils.escapeHtml(x.reason)||'-'}</td>
+      <td style="font-size:12px;color:#64748b">${utils.escapeHtml(x.approvedBy)||'-'}</td>
+      <td><button class="action-btn-small reject" onclick="confirmDeleteApprovedById('${x.requestId}')">🗑️ Eliminar</button></td>
+    </tr>
+  `).join('');
+};
+
+const filterApproved=()=>{
+  const q=($('approvedSearchInput')?.value||'').toLowerCase();
+  const type=$('approvedTypeFilter')?.value||'all';
+  let f=state.approvedRequests;
+  if(q)f=f.filter(r=>r.teacherName.toLowerCase().includes(q)||r.teacherEmail.toLowerCase().includes(q));
+  if(type!=='all')f=f.filter(r=>r.holidayType===type);
+  $('approvedTableBody').innerHTML=renderApprovedRows(f);
+};
+
+const confirmDeleteApprovedById=(requestId)=>{
+  const r=state.approvedRequests.find(x=>x.requestId===requestId);
+  if(!r)return showToast('Error: Solicitud no encontrada','error');
+  openModal('deleteConfirm',{
+    type:'approvedRequest',
+    id:requestId,
+    data:r,
+    message:`¿Estás seguro de que quieres eliminar esta solicitud aprobada?<br><br><strong>${utils.escapeHtml(r.teacherName)}</strong><br>${utils.typeName(r.holidayType)}: ${r.days} día${r.days!==1?'s':''}<br><br><span style="color:#f59e0b">Esto restaurará ${r.days} día${r.days!==1?'s':''} al saldo del profesor.</span>`
+  });
+};
+
+const confirmDeleteApproved=(i)=>{
+  const r=state.approvedRequests[i];
+  if(!r)return showToast('Error: Solicitud no encontrada','error');
+  confirmDeleteApprovedById(r.requestId);
+};
+
+const renderOverviewTab = () => {
+  const teachers = state.holidayTeachers || [];
+  const admins = state.holidayAdmins || [];
+  const allWorkers = [...teachers, ...admins].sort((a, b) => a.name.localeCompare(b.name));
+  
+  $('overviewTab').innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">📊 Estado de Permisos - Todos los Empleados</h3>
+        <input type="text" class="search-input" id="holidaySearchInput" placeholder="🔍 Buscar empleados..." oninput="filterHolidayOverview(this.value)">
+      </div>
+      <div style="overflow-x:auto">
+        <table class="holiday-status-table">
+          <thead>
+            <tr><th>Empleado</th><th>Tipo</th><th>Vacaciones</th><th>D.R. Empleado</th><th>D.R. Empresa</th><th>Médico</th><th>Visita Méd.</th><th>Permiso</th><th>Pendiente</th></tr>
+          </thead>
+          <tbody id="holidayOverviewBody">
+            ${allWorkers.length ? allWorkers.map(x => {
+              const pending = (x.annualPending || 0) + (x.personalPending || 0) + (x.medicalPending || 0) + (x.permisoPending || 0) + (x.medApptPending || 0);
+              const typeLabel = x.isAdmin ? '<span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600">ADMIN</span>' : '<span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600">PROF</span>';
+              const medApptTotal = x.medApptTotal || 20;
+              const medApptUsed = x.medApptUsed || 0;
+              const medApptPending = x.medApptPending || 0;
+              const medApptRemaining = x.medApptRemaining ?? (medApptTotal - medApptUsed - medApptPending);
+              const medApptPercent = medApptTotal > 0 ? Math.round((medApptUsed / medApptTotal) * 100) : 0;
+              const medApptColor = medApptPercent >= 80 ? '#991b1b' : medApptPercent >= 50 ? '#92400e' : '#065f46';
+              return `
+                <tr>
+                  <td>
+                    <div class="teacher-name">${utils.escapeHtml(x.name)}</div>
+                    <div class="teacher-email">${utils.escapeHtml(x.email) || '(sin correo)'}</div>
+                  </td>
+                  <td>${typeLabel}</td>
+                  <td>
+                    <span class="holiday-used">${x.annualUsed || 0}</span>
+                    <span class="holiday-total">/${x.annualTotal || 22}</span>
+                    ${x.annualPending ? `<div class="holiday-pending">+${x.annualPending} pend.</div>` : ''}
+                  </td>
+                  <td>
+                    <span class="holiday-used">${x.personalUsed || 0}</span>
+                    <span class="holiday-total">/${x.personalTotal || 3}</span>
+                    ${x.personalPending ? `<div class="holiday-pending">+${x.personalPending} pend.</div>` : ''}
+                  </td>
+                  <td>
+                    <span class="holiday-used">${x.schoolUsed || 0}</span>
+                    <span class="holiday-total">/${x.schoolTotal || 4}</span>
+                  </td>
+                  <td>
+                    <span class="holiday-used">${x.medicalUsed || 0}</span>
+                    ${x.medicalPending ? `<div class="holiday-pending">+${x.medicalPending} pend.</div>` : ''}
+                  </td>
+                  <td>
+                    <span class="holiday-used">${medApptUsed}h</span>
+                    <span class="holiday-total">/${medApptTotal}h</span>
+                    ${medApptPending ? `<div class="holiday-pending">+${medApptPending}h pend.</div>` : ''}
+                  </td>
+                  <td>
+                    <span class="holiday-used">${x.permisoUsed || 0}</span>
+                    ${x.permisoPending ? `<div class="holiday-pending">+${x.permisoPending} pend.</div>` : ''}
+                  </td>
+                  <td>${pending ? `<span class="status-badge pending">${pending}</span>` : '<span style="color:#94a3b8">-</span>'}</td>
+                </tr>
+              `;
+            }).join('') : '<tr><td colspan="9" style="text-align:center;padding:40px">No se encontraron empleados</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+const filterHolidayOverview = q => {
+  const teachers = state.holidayTeachers || [];
+  const admins = state.holidayAdmins || [];
+  const allWorkers = [...teachers, ...admins].sort((a, b) => a.name.localeCompare(b.name));
+  
+  const f = allWorkers.filter(t => 
+    t.name.toLowerCase().includes(q.toLowerCase()) || 
+    (t.email && t.email.toLowerCase().includes(q.toLowerCase()))
+  );
+  
+  $('holidayOverviewBody').innerHTML = f.map(x => {
+    const pending = (x.annualPending || 0) + (x.personalPending || 0) + (x.medicalPending || 0) + (x.permisoPending || 0) + (x.medApptPending || 0);
+    const typeLabel = x.isAdmin ? '<span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600">ADMIN</span>' : '<span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600">PROF</span>';
+    const medApptTotal = x.medApptTotal || 20;
+    const medApptUsed = x.medApptUsed || 0;
+    const medApptPending = x.medApptPending || 0;
+    const medApptRemaining = x.medApptRemaining ?? (medApptTotal - medApptUsed - medApptPending);
+    const medApptPercent = medApptTotal > 0 ? Math.round((medApptUsed / medApptTotal) * 100) : 0;
+    const medApptColor = medApptPercent >= 80 ? '#991b1b' : medApptPercent >= 50 ? '#92400e' : '#065f46';
+    return `
+      <tr>
+        <td>
+          <div class="teacher-name">${utils.escapeHtml(x.name)}</div>
+          <div class="teacher-email">${utils.escapeHtml(x.email) || '(sin correo)'}</div>
+        </td>
+        <td>${typeLabel}</td>
+        <td>
+          <span class="holiday-used">${x.annualUsed || 0}</span>
+          <span class="holiday-total">/${x.annualTotal || 22}</span>
+          ${x.annualPending ? `<div class="holiday-pending">+${x.annualPending} pend.</div>` : ''}
+        </td>
+        <td>
+          <span class="holiday-used">${x.personalUsed || 0}</span>
+          <span class="holiday-total">/${x.personalTotal || 3}</span>
+          ${x.personalPending ? `<div class="holiday-pending">+${x.personalPending} pend.</div>` : ''}
+        </td>
+        <td>
+          <span class="holiday-used">${x.schoolUsed || 0}</span>
+          <span class="holiday-total">/${x.schoolTotal || 4}</span>
+        </td>
+        <td>
+          <span class="holiday-used">${x.medicalUsed || 0}</span>
+          ${x.medicalPending ? `<div class="holiday-pending">+${x.medicalPending} pend.</div>` : ''}
+        </td>
+                  <td>
+                    <span class="holiday-used">${medApptUsed}h</span>
+                    <span class="holiday-total">/${medApptTotal}h</span>
+                    ${medApptPending ? `<div class="holiday-pending">+${medApptPending}h pend.</div>` : ''}
+                  </td>
+        <td>
+          <span class="holiday-used">${x.permisoUsed || 0}</span>
+          ${x.permisoPending ? `<div class="holiday-pending">+${x.permisoPending} pend.</div>` : ''}
+        </td>
+        <td>${pending ? `<span class="status-badge pending">${pending}</span>` : '<span style="color:#94a3b8">-</span>'}</td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:40px">No hay empleados que coincidan</td></tr>';
+};
+
+const renderAssignTab=()=>{
+  $('assignTab').innerHTML=`<div class="holiday-grid">
+    <div class="card"><div class="card-header"><h3 class="card-title">🏢 Asignar D.R. Empresa</h3></div><div style="padding:25px"><div class="school-day-form">
+      <div class="info-box" style="margin-bottom:20px"><div class="info-box-text">Los <strong>D.R. Empresa</strong> (Descanso Retribuido Empresa) son días que la empresa asigna a los profesores. Se aprueban automáticamente.</div></div>
+      <div class="form-group"><label class="form-label">Seleccionar Profesor</label><select id="schoolDayTeacher" class="form-select"><option value="">Cargando profesores...</option></select></div>
+      <div class="form-group"><label class="form-label">Seleccionar Fecha</label><input type="date" id="schoolDayDate" class="form-input"></div>
+      <button class="submit-btn" onclick="assignSchoolDay()" id="assignSchoolDayBtn">✅ Asignar D.R. Empresa</button>
+    </div></div></div>
+    <div class="card"><div class="card-header"><h3 class="card-title">ℹ️ Información</h3></div><div style="padding:25px;color:#64748b;line-height:1.8"><p><strong>D.R. Empresa</strong> = Descanso Retribuido Empresa</p><br><p>📌 Son días que la empresa decide asignar.</p><br><p>📌 Cada profesor tiene <strong>4 días</strong> por año (configurable).</p><br><p>📌 Son diferentes de las vacaciones y D.R. Empleado.</p><br><p>📌 Los días de puente (${state.puenteDays} días) se configuran en "Festivos/Puentes" y aplican a todos.</p></div></div>
+  </div>
+  <div class="card"><div class="card-header"><h3 class="card-title">🗓️ D.R. Empresa Asignados</h3><input type="text" class="search-input" id="assignedDaysSearch" placeholder="🔍 Buscar por profesor..." oninput="filterAssignedDays(this.value)"></div><div style="padding:25px"><div id="assignedDaysList">${
+    state.assignedDays.length?state.assignedDays.map((d,i)=>`<div class="assigned-day-item" id="assigned-${d.requestId}"><div class="day-info"><div class="day-teacher">${utils.escapeHtml(d.teacherName)}</div><div class="day-date">📅 ${utils.formatDateDisplay(d.date)}</div><div class="day-meta">Asignado por: ${utils.escapeHtml(d.assignedBy)||'Admin'}${d.assignedDate?' el '+utils.formatDateDisplay(d.assignedDate):''}</div></div><div class="holiday-actions"><button class="holiday-action-btn edit" onclick="openEditAssignedDay('${d.requestId}')" title="Editar">✏️</button><button class="holiday-action-btn delete" onclick="confirmDeleteAssignedDayById('${d.requestId}')" title="Eliminar">🗑️</button></div></div>`).join(''):'<p style="color:#94a3b8;text-align:center;padding:20px">No hay D.R. Empresa asignados aún</p>'
+  }</div></div></div>`;
+
+  populateTeacherDropdown();
+};
+
+const refreshAssignedDaysList = () => {
+  google.script.run.withSuccessHandler(d => {
+    state.assignedDays = d;
+    $('assignedDaysList').innerHTML = state.assignedDays.length
+      ? state.assignedDays.map(d => `
+          <div class="assigned-day-item" id="assigned-${d.requestId}">
+            <div class="day-info">
+              <div class="day-teacher">${utils.escapeHtml(d.teacherName)}</div>
+              <div class="day-date">📅 ${utils.formatDateDisplay(d.date)}</div>
+              <div class="day-meta">Asignado por: ${utils.escapeHtml(d.assignedBy) || 'Admin'}${d.assignedDate ? ' el ' + utils.formatDateDisplay(d.assignedDate) : ''}</div>
+            </div>
+            <div class="holiday-actions">
+              <button class="holiday-action-btn edit" onclick="openEditAssignedDay('${d.requestId}')" title="Editar">✏️</button>
+              <button class="holiday-action-btn delete" onclick="confirmDeleteAssignedDayById('${d.requestId}')" title="Eliminar">🗑️</button>
+            </div>
+          </div>
+        `).join('')
+      : '<p style="color:#94a3b8;text-align:center;padding:20px">No hay D.R. Empresa asignados aún</p>';
+  }).withFailureHandler(handleError).getAllAssignedSchoolDays();
+};
+
+const openEditAssignedDay=(requestId)=>{
+  const d=state.assignedDays.find(x=>x.requestId===requestId);
+  if(d)openModal('editAssignedDay',d);
+};
+
+const confirmDeleteAssignedDayById=(requestId)=>{
+  const d=state.assignedDays.find(x=>x.requestId===requestId);
+  if(!d)return;
+  openModal('deleteConfirm',{type:'assignedDay',id:requestId,message:`¿Estás seguro de que quieres eliminar el D.R. Empresa de ${utils.escapeHtml(d.teacherName)} el ${utils.formatDateDisplay(d.date)}?`});
+};
+
+const filterAssignedDays=q=>{
+  const f=state.assignedDays.filter(d=>d.teacherName.toLowerCase().includes(q.toLowerCase())||d.teacherEmail.toLowerCase().includes(q.toLowerCase()));
+  $('assignedDaysList').innerHTML=f.length?f.map(d=>`<div class="assigned-day-item" id="assigned-${d.requestId}"><div class="day-info"><div class="day-teacher">${utils.escapeHtml(d.teacherName)}</div><div class="day-date">📅 ${utils.formatDateDisplay(d.date)}</div><div class="day-meta">Asignado por: ${utils.escapeHtml(d.assignedBy)||'Admin'}${d.assignedDate?' el '+utils.formatDateDisplay(d.assignedDate):''}</div></div><div class="holiday-actions"><button class="holiday-action-btn edit" onclick="openEditAssignedDay('${d.requestId}')" title="Editar">✏️</button><button class="holiday-action-btn delete" onclick="confirmDeleteAssignedDayById('${d.requestId}')" title="Eliminar">🗑️</button></div></div>`).join(''):'<p style="color:#94a3b8;text-align:center;padding:20px">No hay D.R. Empresa que coincidan</p>';
+};
+
+const renderSchoolHolidaysTab=()=>{
+  $('schoolHolidaysTab').innerHTML=`
+  <div class="puente-info-banner">
+    <div class="banner-icon">🗓️</div>
+    <div class="banner-content">
+      <div class="banner-title">Festivos y Días de Puente</div>
+      <div class="banner-text">Aquí se configuran los <strong>festivos y días de puente</strong> que aplican a todos los profesores. Estos días se excluyen automáticamente cuando los profesores solicitan vacaciones.</div>
+    </div>
+  </div>
+  <div class="holiday-grid">
+    <div class="card"><div class="card-header"><h3 class="card-title">➕ Añadir Festivo/Puente</h3></div><div style="padding:25px"><div class="school-day-form">
+      <div class="form-group"><label class="form-label">Nombre</label><input type="text" id="schoolHolidayName" class="form-input" placeholder="ej., Puente de diciembre"></div>
+      <div class="form-group"><label class="form-label">Fecha de Inicio</label><input type="date" id="schoolHolidayStart" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Fecha de Fin</label><input type="date" id="schoolHolidayEnd" class="form-input"></div>
+      <button class="submit-btn" onclick="addSchoolHoliday()" id="addSchoolHolidayBtn">➕ Añadir Festivo/Puente</button>
+    </div></div></div>
+    <div class="card"><div class="card-header"><h3 class="card-title">📅 Festivos/Puentes Configurados</h3></div><div style="padding:25px"><div id="schoolHolidaysList">${
+      state.schoolHolidays.length?state.schoolHolidays.map(h=>`<div class="school-holiday-item" id="holiday-${h.holidayId}"><div class="holiday-info"><div class="holiday-name">${utils.escapeHtml(h.name)}</div><div class="holiday-dates">${utils.formatDateDisplay(h.startDate)} - ${utils.formatDateDisplay(h.endDate)}</div></div><div class="holiday-days">${h.days} día${h.days!==1?'s':''}</div><div class="holiday-actions"><button class="holiday-action-btn edit" onclick="openEditSchoolHoliday('${h.holidayId}')" title="Editar">✏️</button><button class="holiday-action-btn delete" onclick="confirmDeleteSchoolHolidayById('${h.holidayId}')" title="Eliminar">🗑️</button></div></div>`).join(''):'<p style="color:#94a3b8;text-align:center;padding:20px">No hay festivos/puentes configurados</p>'
+    }</div></div></div>
+  </div>`;
+};
+
+const openEditSchoolHoliday=(holidayId)=>{
+  const h=state.schoolHolidays.find(x=>x.holidayId===holidayId);
+  if(h)openModal('editSchoolHoliday',h);
+};
+
+const confirmDeleteSchoolHolidayById=(holidayId)=>{
+  const h=state.schoolHolidays.find(x=>x.holidayId===holidayId);
+  if(!h)return;
+  openModal('deleteConfirm',{type:'schoolHoliday',id:holidayId,message:`¿Estás seguro de que quieres eliminar "${utils.escapeHtml(h.name)}"?`});
+};
+
+// Calendar View Tab
+const renderCalendarViewTab=()=>{
+  const updateDisplay=()=>{
+    const d=new Date(state.calendarViewYear,state.calendarViewMonth-1,1),n=new Date(),isCurrent=state.calendarViewYear===n.getFullYear()&&state.calendarViewMonth===n.getMonth()+1;
+    const maxDate=new Date(n.getFullYear(),n.getMonth()+12,1),currentDate=new Date(state.calendarViewYear,state.calendarViewMonth-1,1);
+    return{monthName:d.toLocaleDateString('es-ES',{month:'long',year:'numeric'}),isCurrent,nextDisabled:currentDate>=maxDate};
+  };
+  
+  state.expandedCells={};
+  
+  const{monthName,isCurrent,nextDisabled}=updateDisplay();
+  $('calendarViewTab').innerHTML=`<div class="card"><div class="card-header"><h3 class="card-title">📅 Calendario de Permisos</h3><div class="card-actions"><div class="month-selector"><button class="month-nav-btn" onclick="changeCalendarView(-1)">‹</button><div class="month-display" id="calendarViewMonthDisplay">${monthName}${isCurrent?'<span class="month-current-badge">ACTUAL</span>':''}</div><button class="month-nav-btn" id="calendarViewNextBtn" onclick="changeCalendarView(1)" ${nextDisabled?'disabled':''}>›</button></div></div></div><div style="padding:25px">
+    <div class="calendar-legend" style="display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#fef3c7;border:2px solid #f59e0b;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Festivo/Puente</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#dbeafe;border:2px solid #3b82f6;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Vacaciones</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#ede9fe;border:2px solid #8b5cf6;border-radius:4px"></div><span style="font-size:13px;color:#64748b">D.R. Empleado</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#fee2e2;border:2px solid #ef4444;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Médico</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#d1fae5;border:2px solid #10b981;border-radius:4px"></div><span style="font-size:13px;color:#64748b">D.R. Empresa</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#ccfbf1;border:2px solid #14b8a6;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Permiso</span></div>
+    </div>
+    <div id="calendarViewGrid" class="calendar-view-container"><div class="loading"><div class="spinner"></div><p>Cargando calendario...</p></div></div>
+  </div></div>`;
+  
+  loadCalendarView();
+};
+
+const loadCalendarView=()=>{
+  google.script.run.withSuccessHandler(r=>{
+    if(r.success)renderCalendarViewGrid(r);
+    else $('calendarViewGrid').innerHTML=`<div class="empty-state"><p style="color:#ef4444">Error: ${r.error||'Error desconocido'}</p></div>`;
+  }).withFailureHandler(e=>$('calendarViewGrid').innerHTML=`<div class="empty-state"><p style="color:#ef4444">Error: ${e.message}</p></div>`).getAllHolidaysForCalendar(state.calendarViewYear,state.calendarViewMonth);
+};
+
+const renderCalendarViewGrid=r=>{
+  const{year,month,calendarData}=r,first=new Date(year,month-1,1),last=new Date(year,month,0),start=first.getDay(),total=last.getDate(),today=utils.formatDate(new Date());
+  
+  let html='<div class="calendar-view-grid">';
+  ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].forEach(d=>html+=`<div class="calendar-view-header">${d}</div>`);
+  for(let i=0;i<start;i++)html+='<div class="calendar-view-cell empty"></div>';
+  
+  for(let d=1;d<=total;d++){
+    const ds=`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const data=calendarData[ds]||{schoolHoliday:null,teacherHolidays:[]};
+    const cls=['calendar-view-cell'];
+    const isExpanded=state.expandedCells[ds]||false;
+    const teacherCount=data.teacherHolidays?.length||0;
+    const showExpandButton=teacherCount>3;
+    
+    if(ds===today)cls.push('today');
+    if(data.schoolHoliday)cls.push('school-holiday');
+    if(teacherCount>0)cls.push('has-holidays');
+    
+    html+=`<div class="${cls.join(' ')}" data-date="${ds}">
+      <div class="calendar-view-day-num" onclick="openModal('calendarDayDetail','${ds}')">${d}</div>`;
+    
+    if(data.schoolHoliday){
+      html+=`<div class="calendar-view-school-name" onclick="openModal('calendarDayDetail','${ds}')">${utils.escapeHtml(data.schoolHoliday)}</div>`;
+    }
+    
+    if(teacherCount>0){
+      html+=`<div class="calendar-view-teachers ${isExpanded?'expanded':'collapsed'}" id="teachers-${ds}">`;
+      
+      const teachersToShow=isExpanded?data.teacherHolidays:data.teacherHolidays.slice(0,3);
+      teachersToShow.forEach(t=>{
+        html+=`<div class="calendar-view-teacher-badge ${utils.typeColor(t.type)}" onclick="openModal('calendarDayDetail','${ds}')">${utils.escapeHtml(t.name.split(' ')[0])}</div>`;
+      });
+      
+      html+=`</div>`;
+      
+     if(showExpandButton){
+  html+=`<span class="expand-toggle" onclick="event.stopPropagation();openModal('calendarDayDetail','${ds}')">+${teacherCount - 3} más</span>`;
+}
+    }
+    
+    html+='</div>';
+  }
+  
+  const end=(start+total)%7;
+  if(end)for(let i=end;i<7;i++)html+='<div class="calendar-view-cell empty"></div>';
+  html+='</div>';
+  $('calendarViewGrid').innerHTML=html;
+};
+
+const changeCalendarView=dir=>{
+  state.calendarViewMonth+=dir;
+  if(state.calendarViewMonth<1){state.calendarViewMonth=12;state.calendarViewYear--}
+  else if(state.calendarViewMonth>12){state.calendarViewMonth=1;state.calendarViewYear++}
+  state.expandedCells={};
+  renderCalendarViewTab();
+};
+
+const renderCalendarDayDetail=data=>{
+  const has=data.schoolHoliday||data.teacherHolidays?.length;
+  if(!has)return $('modalBody').innerHTML='<div class="day-detail-no-holidays"><div class="day-detail-no-holidays-icon">✅</div><p>No hay permisos programados para este día</p><p style="font-size:12px;margin-top:10px">Se espera que todos los profesores estén disponibles.</p></div>';
+  
+  let html='';
+  if(data.schoolHoliday)html+=`<div class="day-detail-section"><div class="day-detail-section-title">🗓️ Festivo/Puente</div><div class="day-detail-school-holiday"><div class="day-detail-school-holiday-name">${utils.escapeHtml(data.schoolHoliday.name)}</div></div></div>`;
+  if(data.teacherHolidays?.length){
+    html+=`<div class="day-detail-section"><div class="day-detail-section-title">👥 Profesores de Permiso (${data.teacherHolidays.length})</div>${
+      data.teacherHolidays.map(t=>`<div class="day-detail-teacher-item ${utils.typeColor(t.type)}"><div><div class="day-detail-teacher-name">${utils.escapeHtml(t.name)}</div><div class="day-detail-teacher-email">${utils.escapeHtml(t.email||'')}</div>${t.reason?`<div style="font-size:11px;color:#94a3b8;margin-top:4px">${utils.escapeHtml(t.reason)}</div>`:''}</div><span class="type-badge ${utils.typeColor(t.type)}">${utils.typeName(t.type)}</span></div>`).join('')
+    }</div>`;
+    html+=`<div style="background:#f0f9ff;padding:12px 16px;border-radius:10px;margin-top:20px;text-align:center"><span style="font-weight:600;color:#0369a1">📊 ${data.teacherHolidays.length} profesor${data.teacherHolidays.length!==1?'es':''} de permiso este día</span></div>`;
+  }
+  $('modalBody').innerHTML=html;
+};
+
+// Holiday Actions
+const processRequest=(id,action)=>{
+  const row=$(`request-${id}`);if(row)row.style.opacity='0.5';
+  google.script.run.withSuccessHandler(r=>{
+    if(r.success){
+      showStatus(r.message,'success');
+      loadPendingRequests().then(()=>{
+        loadApprovedRequests().then(()=>{
+          renderRequestsTab();
+          loadTeacherHolidayOverview();
+          if(state.currentSection==='teachers')loadData(true);
+        });
+      });
+    }
+    else{showStatus(r.message,'error');if(row)row.style.opacity='1'}
+  }).withFailureHandler(e=>{showStatus(`Error: ${e.message}`,'error');if(row)row.style.opacity='1'}).processPunchHolidayRequest(id,action,ADMIN_EMAIL);
+};
+
+const populateTeacherDropdown = () => {
+  const sel = $('schoolDayTeacher');
+  if (!sel) return;
+  
+  const teachers = state.holidayTeachers || [];
+  const admins = state.holidayAdmins || [];
+  
+  if (teachers.length > 0 || admins.length > 0) {
+    let options = '<option value="">Selecciona un empleado...</option>';
+    
+    // Add teachers section
+    if (teachers.length > 0) {
+      options += '<optgroup label="👩‍🏫 Profesores">';
+      options += teachers.map(t => 
+        `<option value="${utils.escapeHtml(t.name)}" data-email="${utils.escapeHtml(t.email || '')}">${utils.escapeHtml(t.name)}</option>`
+      ).join('');
+      options += '</optgroup>';
+    }
+    
+    // Add admins section
+    if (admins.length > 0) {
+      options += '<optgroup label="👔 Administración">';
+      options += admins.map(a => 
+        `<option value="${utils.escapeHtml(a.name)}" data-email="${utils.escapeHtml(a.email || '')}">${utils.escapeHtml(a.name)}</option>`
+      ).join('');
+      options += '</optgroup>';
+    }
+    
+    sel.innerHTML = options;
+  } else {
+    sel.innerHTML = '<option value="">Cargando empleados...</option>';
+  }
+};
+
+const assignSchoolDay = () => {
+  const sel = $('schoolDayTeacher');
+  const date = $('schoolDayDate').value;
+  const btn = $('assignSchoolDayBtn');
+  
+  if (!sel.value) return showStatus('Por favor selecciona un profesor', 'error');
+  if (!date) return showStatus('Por favor selecciona una fecha', 'error');
+  
+  const teacherName = sel.value;
+  const teacherEmail = sel.options[sel.selectedIndex].dataset.email || '';
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ Asignando...';
+  
+  google.script.run.withSuccessHandler(r => {
+    btn.disabled = false;
+    btn.textContent = '✅ Asignar D.R. Empresa';
+    
+    if (r.success) {
+      showStatus(r.message, 'success');
+      sel.value = '';
+      $('schoolDayDate').value = '';
+      loadTeacherHolidayOverview();
+      refreshAssignedDaysList();
+      if (state.currentSection === 'teachers') loadData(true);
+    } else {
+      showStatus(r.message, 'error');
+    }
+  }).withFailureHandler(e => {
+    btn.disabled = false;
+    btn.textContent = '✅ Asignar D.R. Empresa';
+    showStatus(`Error: ${e.message}`, 'error');
+  }).assignPunchSchoolDay(teacherName, teacherEmail, date, ADMIN_EMAIL);
+};
+
+const addSchoolHoliday=()=>{
+  const name=$('schoolHolidayName').value.trim(),start=$('schoolHolidayStart').value,end=$('schoolHolidayEnd').value,btn=$('addSchoolHolidayBtn');
+  if(!name)return showStatus('Por favor ingresa el nombre del festivo/puente','error');
+  if(!start||!end)return showStatus('Por favor selecciona las fechas','error');
+  if(end<start)return showStatus('La fecha de fin debe ser posterior a la de inicio','error');
+  
+  btn.disabled=true;btn.textContent='⏳ Añadiendo...';
+  google.script.run.withSuccessHandler(r=>{
+    btn.disabled=false;btn.textContent='➕ Añadir Festivo/Puente';
+    if(r.success){showStatus(r.message,'success');$('schoolHolidayName').value='';$('schoolHolidayStart').value='';$('schoolHolidayEnd').value='';loadSchoolHolidays()}
+    else showStatus(r.message,'error');
+  }).withFailureHandler(e=>{btn.disabled=false;btn.textContent='➕ Añadir Festivo/Puente';showStatus(`Error: ${e.message}`,'error')}).addPunchSchoolHoliday(start,end,name,'Holiday');
+};
+
+const saveSchoolHolidayEdit=()=>{
+  const holidayId=$('editSchoolHolidayId').value;
+  const name=$('editSchoolHolidayName').value.trim();
+  const start=$('editSchoolHolidayStart').value;
+  const end=$('editSchoolHolidayEnd').value;
+  const btn=$('saveSchoolHolidayBtn');
+  
+  if(!name)return showStatus('Por favor ingresa el nombre del festivo/puente','error');
+  if(!start||!end)return showStatus('Por favor selecciona las fechas','error');
+  if(end<start)return showStatus('La fecha de fin debe ser posterior a la de inicio','error');
+  
+  btn.disabled=true;btn.textContent='⏳ Guardando...';
+  google.script.run.withSuccessHandler(r=>{
+    btn.disabled=false;btn.textContent='💾 Guardar Cambios';
+    if(r.success){showStatus(r.message,'success');closeModal();loadSchoolHolidays()}else showStatus(r.message,'error');
+  }).withFailureHandler(e=>{btn.disabled=false;btn.textContent='💾 Guardar Cambios';showStatus(`Error: ${e.message}`,'error')}).updateSchoolHoliday(holidayId,start,end,name,'Holiday');
+};
+
+const saveAssignedDayEdit=()=>{
+  const id=$('editAssignedDayId').value,date=$('editAssignedDayDate').value,btn=$('saveAssignedDayBtn');
+  if(!date)return showStatus('Por favor selecciona una fecha','error');
+  
+  btn.disabled=true;btn.textContent='⏳ Guardando...';
+  google.script.run.withSuccessHandler(r=>{
+    btn.disabled=false;btn.textContent='💾 Guardar Cambios';
+    if(r.success){showStatus(r.message,'success');closeModal();loadAssignedSchoolDays();loadTeacherHolidayOverview()}else showStatus(r.message,'error');
+  }).withFailureHandler(e=>{btn.disabled=false;btn.textContent='💾 Guardar Cambios';showStatus(`Error: ${e.message}`,'error')}).updateAssignedSchoolDay(id,date);
+};
+
+// Delete Confirmations
+const confirmDeleteSchoolHoliday=(i)=>{
+  const h=state.schoolHolidays[i];
+  if(h)confirmDeleteSchoolHolidayById(h.holidayId);
+};
+
+const confirmDeleteAssignedDay=(i)=>{
+  const d=state.assignedDays[i];
+  if(d)confirmDeleteAssignedDayById(d.requestId);
+};
+
+const confirmDelete=()=>{
+  const{type,id}=state.deleteAction;
+  closeModal();
+  
+  const handlers={
+    schoolHoliday:()=>google.script.run.withSuccessHandler(r=>{if(r.success){showStatus(r.message,'success');loadSchoolHolidays()}else showStatus(r.message,'error')}).withFailureHandler(e=>showStatus(`Error: ${e.message}`,'error')).deleteSchoolHoliday(id),
+    
+    assignedDay:()=>google.script.run.withSuccessHandler(r=>{if(r.success){showStatus(r.message,'success');loadAssignedSchoolDays();loadTeacherHolidayOverview()}else showStatus(r.message,'error')}).withFailureHandler(e=>showStatus(`Error: ${e.message}`,'error')).deleteAssignedSchoolDay(id),
+    
+    approvedRequest:()=>google.script.run.withSuccessHandler(r=>{
+      if(r.success){
+        showStatus(r.message,'success');
+        loadApprovedRequests().then(()=>{
+          renderRequestsTab();
+          loadTeacherHolidayOverview();
+          if(state.currentSection==='teachers')loadData(true);
+        });
+      }else showStatus(r.message,'error');
+    }).withFailureHandler(e=>showStatus(`Error: ${e.message}`,'error')).deleteApprovedHolidayRequest(id,ADMIN_EMAIL),
+    
+    teacher:()=>google.script.run.withSuccessHandler(r=>{if(r.success){showToast('Profesor desactivado','success');closeModal();loadData(true)}else showToast(r.message,'error')}).withFailureHandler(e=>showToast(`Error: ${e.message}`,'error')).deactivateTeacher(id),
+    
+    // ADD THIS NEW HANDLER FOR PAID HOURS:
+    paidHours:()=>google.script.run.withSuccessHandler(r=>{
+      if(r.success){
+        showPaidHoursStatus(r.message,'success');
+        loadPaidHoursTab();
+        loadData(true);
+      }else{
+        showPaidHoursStatus(r.message,'error');
+      }
+    }).withFailureHandler(e=>showPaidHoursStatus(`Error: ${e.message}`,'error')).deletePaidHours(id,ADMIN_EMAIL)
+  };
+  
+  handlers[type]?.();
+};
+
+// Export to Google Sheet
+const exportCSV = () => {
+  const btn = document.querySelector('[onclick="exportCSV()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generando informe...';
+  }
+  
+  showToast('Creando informe en Google Sheets...', '');
+  
+  google.script.run
+    .withSuccessHandler(r => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '📥 Exportar';
+      }
+      
+      if (r.success) {
+        showToast('✅ ' + r.message, 'success');
+        // Open in new tab
+        window.open(r.url, '_blank');
+      } else {
+        showToast('❌ ' + r.message, 'error');
+      }
+    })
+    .withFailureHandler(e => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '📥 Exportar';
+      }
+      showToast('❌ Error: ' + e.message, 'error');
+    })
+    .exportPunchMonthlyReportCSV(state.viewYear, state.viewMonth);
+};
+
+// Archive Functions
+const loadArchiveYears=()=>{
+  google.script.run.withSuccessHandler(years=>{
+    const sel=$('archiveYearSelect');
+    if(!years||years.length===0){
+      sel.innerHTML='<option value="">No hay años anteriores para archivar</option>';
+      $('archiveBtn').disabled=true;
+    }else{
+      sel.innerHTML='<option value="">Selecciona un año...</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join('');
+      $('archiveBtn').disabled=false;
+    }
+  }).withFailureHandler(e=>{
+    $('archiveYearSelect').innerHTML='<option value="">Error al cargar</option>';
+    $('archiveBtn').disabled=true;
+  }).getAvailableArchiveYears();
+};
+
+const performArchive=()=>{
+  const year=$('archiveYearSelect').value;
+  if(!year){showToast('Por favor selecciona un año','error');return}
+  if(!confirm(`¿Estás seguro de que quieres archivar todos los datos de ${year}?\n\nEsta acción moverá los fichajes y solicitudes de vacaciones a hojas de archivo.`))return;
+  
+  const btn=$('archiveBtn');
+  btn.disabled=true;btn.textContent='⏳ Archivando...';
+  
+  google.script.run.withSuccessHandler(r=>{
+    btn.disabled=false;btn.textContent='📦 Archivar Año';
+    if(r.success){
+      $('archiveResult').innerHTML=`<div style="background:#d1fae5;border:2px solid #10b981;border-radius:12px;padding:20px;text-align:center"><div style="font-size:48px;margin-bottom:10px">✅</div><div style="font-weight:700;color:#065f46;font-size:18px">Archivo Completado</div><div style="color:#047857;margin-top:10px"><strong>${r.details.punchesArchived}</strong> fichajes archivados<br><strong>${r.details.holidaysArchived}</strong> solicitudes de vacaciones archivadas</div></div>`;
+      showToast('Archivo completado exitosamente','success');
+      loadArchiveYears();
+    }else{
+      $('archiveResult').innerHTML=`<div style="background:#fee2e2;border:2px solid #ef4444;border-radius:12px;padding:20px;text-align:center"><div style="font-size:48px;margin-bottom:10px">❌</div><div style="font-weight:700;color:#991b1b">Error</div><div style="color:#991b1b;margin-top:10px">${r.message}</div></div>`;
+      showToast('Error al archivar: '+r.message,'error');
+    }
+  }).withFailureHandler(e=>{
+    btn.disabled=false;btn.textContent='📦 Archivar Año';
+    showToast('Error: '+e.message,'error');
+  }).archiveYearData(parseInt(year));
+};
+
+$$('.tabs').forEach(tabs => tabs.addEventListener('click', e => {
+  if (!e.target.classList.contains('tab')) return;
+  const tabId = e.target.dataset.tab;
+  
+  // Update active state for tabs within this tabs container only
+  tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  
+  // Determine which section we're in based on tabs container id
+  const isTeachersSection = tabs.id === 'teachersTabs';
+  
+  if (isTeachersSection) {
+    // Teachers section tabs only - ADD 'adminsListTab' to the array
+    ['teachersListTab', 'adminsListTab', 'paidHoursTab', 'freezeTab'].forEach(id => {
+      const el = $(id);
+      if (el) el.classList.toggle('active', id === tabId);
+    });
+    
+    // Load data for the tab - ADD THE NEW CONDITION
+    if (tabId === 'adminsListTab') {
+      loadAdminWorkers();
+    } else if (tabId === 'paidHoursTab') {
+      loadPaidHoursTab();
+    } else if (tabId === 'freezeTab') {
+      loadFreezeTab();
+    }
+  } else {
+    // Holiday section tabs - only affect holiday tab contents
+    ['requestsTab', 'overviewTab', 'calendarViewTab', 'assignTab', 'schoolHolidaysTab'].forEach(id => {
+      const el = $(id);
+      if (el) el.classList.toggle('active', id === tabId);
+    });
+    
+    // Load data for the tab
+    if (tabId === 'calendarViewTab') renderCalendarViewTab();
+    else if (tabId === 'schoolHolidaysTab') renderSchoolHolidaysTab();
+    else if (tabId === 'overviewTab') renderOverviewTab();
+    else if (tabId === 'assignTab') renderAssignTab();
+    else if (tabId === 'requestsTab') renderRequestsTab();
+  }
+}));
+
+// Modal & Sidebar Close Events
+$('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+document.addEventListener('click',e=>{
+  const sidebar=$('sidebar'),btn=document.querySelector('.mobile-menu-btn');
+  if(window.innerWidth<=768&&sidebar.classList.contains('open')&&!sidebar.contains(e.target)&&!btn.contains(e.target))sidebar.classList.remove('open');
+});
+
+// ========================================
+// VIEW MODE TOGGLE FUNCTIONS
+// ========================================
+
+const setHoursViewMode = (mode) => {
+  state.hoursViewMode = mode;
+  $$('.toggle-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+  
+  // Update both teacher and admin selectors
+  $('monthSelector').style.display = mode === 'monthly' ? 'flex' : 'none';
+  $('weekSelector').style.display = mode === 'weekly' ? 'flex' : 'none';
+  if ($('adminMonthSelector')) $('adminMonthSelector').style.display = mode === 'monthly' ? 'flex' : 'none';
+  if ($('adminWeekSelector')) $('adminWeekSelector').style.display = mode === 'weekly' ? 'flex' : 'none';
+  
+  if (mode === 'weekly') state.weekOffset = 0;
+  
+  // Reload both tables
+  loadData(true);
+};
+
+const updateWeekDisplay = () => {
+  const isCurrentWeek = state.weekOffset === 0;
+  const weekText = state.weekInfo && state.weekInfo.number && state.weekInfo.display
+    ? `Sem ${state.weekInfo.number}: ${state.weekInfo.display}`
+    : 'Esta Semana';
+  const badge = isCurrentWeek ? '<span class="week-current-badge">ACTUAL</span>' : '';
+  
+  // Update teacher week display
+  const weekDisp = $('weekDisplay');
+  if (weekDisp) weekDisp.innerHTML = weekText + badge;
+  
+  // Update admin week display
+  const adminWeekDisp = $('adminWeekDisplay');
+  if (adminWeekDisp) adminWeekDisp.innerHTML = weekText + badge;
+  
+  // Update next buttons
+  const nextBtn = $('nextWeekBtn');
+  if (nextBtn) nextBtn.disabled = isCurrentWeek;
+  const adminNextBtn = $('adminNextWeekBtn');
+  if (adminNextBtn) adminNextBtn.disabled = isCurrentWeek;
+};
+
+const changeWeek = (dir) => {
+  if (dir > 0 && state.weekOffset >= 0) return;
+  state.weekOffset += dir;
+  loadData(true);
+};
+// ========================================
+// ADMIN VIEW MODE FUNCTIONS
+// ========================================
+
+const loadData = (force = false) => {
+  if (state.isLoading) return;
+  const key = `${state.viewYear}-${state.viewMonth}`;
+  const cached = state.cache[key];
+  if (!force && cached && Date.now() - cached.ts < 120000) return displayTeachers(cached.data);
+  
+  state.isLoading = true;
+  const btn = $('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Cargando...';
+  
+  google.script.run.withSuccessHandler(r => {
+    state.isLoading = false;
+    btn.disabled = false;
+    btn.textContent = '🔄 Actualizar';
+    if (r.error) return showToast(`Error: ${r.error}`, 'error');
+    state.cache[key] = { data: r, ts: Date.now() };
+    state.puenteDays = r.puenteDays || 9;
+    state.weekInfo = { start: r.weekStart, end: r.weekEnd, number: r.weekNumber, display: r.weekDisplay, offset: r.weekOffset || 0 };
+    displayTeachers(r);
+    loadAdminWorkers();  // ← ADD THIS LINE
+  }).withFailureHandler(e => {
+    state.isLoading = false;
+    btn.disabled = false;
+    btn.textContent = '🔄 Actualizar';
+    handleError(e);
+  }).getAllTeachersWithHoursAndHolidays(state.viewYear, state.viewMonth, state.weekOffset);
+};
+
+// ========================================
+// TAB EVENT DELEGATION
+// ========================================
+
+$$('.tabs').forEach(tabs=>tabs.addEventListener('click',e=>{
+  if(!e.target.classList.contains('tab'))return;
+  const tabId=e.target.dataset.tab;
+  tabs.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  $$('.tab-content').forEach(c=>c.classList.remove('active'));
+  $(tabId).classList.add('active');
+  
+  if(tabId==='calendarViewTab')renderCalendarViewTab();
+  else if(tabId==='schoolHolidaysTab')renderSchoolHolidaysTab();
+  else if(tabId==='overviewTab')renderOverviewTab();
+  else if(tabId==='assignTab')renderAssignTab();
+  else if(tabId==='requestsTab')renderRequestsTab();
+}));
+
+// Modal & Sidebar Close Events
+$('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+document.addEventListener('click',e=>{
+  const sidebar=$('sidebar'),btn=document.querySelector('.mobile-menu-btn');
+  if(window.innerWidth<=768&&sidebar.classList.contains('open')&&!sidebar.contains(e.target)&&!btn.contains(e.target))sidebar.classList.remove('open');
+});
+
+// ========================================
+// FREEZE FUNCTIONS
+// ========================================
+
+const loadFreezeStatus = () => {
+  google.script.run.withSuccessHandler(r => {
+    state.freezeStatus = r;
+    updateFreezeUI();
+  }).withFailureHandler(e => {
+    console.error('Error loading freeze status:', e);
+    state.freezeStatus = { frozen: false };
+    updateFreezeUI();
+  }).getFreezeStatus();
+};
+
+const updateFreezeUI = () => {
+  const status = state.freezeStatus || { frozen: false };
+  const statusText = $('freezeStatusText');
+  const freezeBtn = $('freezeBtn');
+  const unfreezeBtn = $('unfreezeBtn');
+  const card = $('freezeCard');
+  
+  if (!statusText) return;
+  
+  // Get yesterday's date
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+  
+  if (status.frozen) {
+    statusText.innerHTML = `<span class="frozen">🔒 Congelado hasta: ${status.freezeDateDisplay || status.freezeDate}</span>`;
+    statusText.classList.add('frozen');
+    card.classList.add('active');
+    
+    // Always show unfreeze
+    unfreezeBtn.style.display = 'flex';
+    
+    // Show freeze button if freeze date is BEFORE yesterday (can extend)
+    if (status.freezeDate < yesterdayStr) {
+      freezeBtn.style.display = 'flex';
+      freezeBtn.innerHTML = '🔒 Extender hasta ayer';
+    } else {
+      freezeBtn.style.display = 'none';
+    }
+  } else {
+    statusText.innerHTML = '🔓 No hay fichajes congelados';
+    statusText.classList.remove('frozen');
+    card.classList.remove('active');
+    
+    freezeBtn.style.display = 'flex';
+    freezeBtn.innerHTML = '🔒 Congelar hasta ayer';
+    unfreezeBtn.style.display = 'none';
+  }
+};
+
+const freezePunches = () => {
+  const btn = $('freezeBtn');
+  if(btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Congelando...';
+  }
+  
+  google.script.run.withSuccessHandler(r => {
+    if (r.success) {
+      showToast(r.message, 'success');
+      state.freezeStatus = { frozen: true, freezeDate: r.freezeDate };
+      renderFreezeTab();
+    } else {
+      showToast(r.message, 'error');
+      if(btn) {
+        btn.disabled = false;
+        btn.innerHTML = '🔒 Congelar hasta ayer';
+      }
+    }
+  }).withFailureHandler(e => {
+    showToast('Error: ' + e.message, 'error');
+    if(btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🔒 Congelar hasta ayer';
+    }
+  }).freezePunchesBeforeToday(ADMIN_EMAIL);
+};
+
+const unfreezePunches = () => {
+  const btn = $('unfreezeBtn');
+  if(btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Descongelando...';
+  }
+  
+  google.script.run.withSuccessHandler(r => {
+    if (r.success) {
+      showToast(r.message, 'success');
+      state.freezeStatus = { frozen: false, freezeDate: null };
+      renderFreezeTab();
+    } else {
+      showToast(r.message, 'error');
+      if(btn) {
+        btn.disabled = false;
+        btn.innerHTML = '🔓 Descongelar todo';
+      }
+    }
+  }).withFailureHandler(e => {
+    showToast('Error: ' + e.message, 'error');
+    if(btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🔓 Descongelar todo';
+    }
+  }).unfreezeAllPunches(ADMIN_EMAIL);
+};
+// ========================================
+// PAID HOURS TAB FUNCTIONS
+// ========================================
+
+const loadPaidHoursTab = () => {
+  $('paidHoursContent').innerHTML = '<div class="loading"><div class="spinner"></div><p>Cargando horas pagadas...</p></div>';
+  
+  google.script.run.withSuccessHandler(records => {
+    state.paidHoursRecords = records || [];
+    renderPaidHoursTab();
+  }).withFailureHandler(e => {
+    $('paidHoursContent').innerHTML = `<div class="empty-state"><p style="color:#ef4444">Error: ${e.message}</p></div>`;
+  }).getAllPaidHours();
+};
+
+const renderPaidHoursTab = () => {
+  const records = state.paidHoursRecords || [];
+  const teacherOptions = state.teachers.map(t => 
+    `<option value="${utils.escapeHtml(t.email)}" data-name="${utils.escapeHtml(t.name)}">${utils.escapeHtml(t.name)}</option>`
+  ).join('');
+  
+  const today = new Date().toISOString().split('T')[0];
+  
+  let html = `
+    <div id="paidHoursStatusMessage" class="status-message"></div>
+    
+    <div class="holiday-grid">
+      <!-- Add Form -->
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">💰 Registrar Horas Pagadas</h3></div>
+        <div style="padding:25px">
+          <div class="paid-hours-form">
+            <div class="info-box" style="margin-bottom:20px">
+              <div class="info-box-text">
+                Las <strong>Horas Pagadas</strong> son horas que se descuentan del total trabajado del profesor (ej: horas extra ya compensadas, ajustes, etc).
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Seleccionar Profesor</label>
+              <select id="paidHoursTeacher" class="form-select">
+                <option value="">Selecciona un profesor...</option>
+                ${teacherOptions}
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Horas</label>
+              <input type="number" id="paidHoursAmount" class="form-input" min="0.5" step="0.5" placeholder="ej: 2.5" style="font-size:20px;text-align:center;font-weight:600">
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Fecha</label>
+              <input type="date" id="paidHoursDate" class="form-input" value="${today}">
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Notas (opcional)</label>
+              <input type="text" id="paidHoursNotes" class="form-input" placeholder="ej: Compensación horas extra diciembre">
+            </div>
+            
+            <button class="submit-btn" onclick="savePaidHours()" id="savePaidHoursBtn">💰 Registrar Horas Pagadas</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- History on the right -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📋 Historial de Horas Pagadas</h3>
+        </div>
+        <div style="padding:15px 25px 10px 25px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <input type="text" class="search-input" id="paidHoursSearch" placeholder="🔍 Buscar por profesor..." oninput="filterPaidHours(this.value)" style="flex:1;min-width:200px">
+            <select class="form-select" id="paidHoursMonthFilter" onchange="filterPaidHours()" style="width:180px;padding:10px;border:2px solid #e0e7ff;border-radius:10px">
+              <option value="all">Todos los Meses</option>
+              ${generateMonthOptions()}
+            </select>
+          </div>
+        </div>
+        <div style="padding:0 25px 25px 25px;max-height:500px;overflow-y:auto">
+          <div id="paidHoursList">
+            ${renderPaidHoursList(records)}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  $('paidHoursContent').innerHTML = html;
+};
+
+const generateMonthOptions = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = d.toISOString().slice(0, 7);
+    const label = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    options.push(`<option value="${value}">${label}</option>`);
+  }
+  return options.join('');
+};
+
+const renderPaidHoursList = (records) => {
+  if (!records || !records.length) {
+    return '<div class="empty-state" style="padding:40px"><div class="empty-state-icon">💰</div><p>No hay horas pagadas registradas</p></div>';
+  }
+  
+  return records.map(r => `
+    <div class="paid-hours-item" id="paid-${r.paidId}">
+      <div class="paid-info">
+        <div class="paid-teacher">${utils.escapeHtml(r.teacherName)}</div>
+        <div class="paid-details">
+          📅 ${utils.formatDateDisplay(r.date)}
+          ${r.notes ? ` • ${utils.escapeHtml(r.notes)}` : ''}
+          <br>
+          <span style="font-size:11px;color:#94a3b8">Registrado por: ${utils.escapeHtml(r.createdBy || 'Admin')}</span>
+        </div>
+      </div>
+      <div class="paid-hours-value">${r.hours}h</div>
+      <div class="paid-actions">
+        <button class="holiday-action-btn edit" onclick="openEditPaidHours('${r.paidId}')" title="Editar">✏️</button>
+        <button class="holiday-action-btn delete" onclick="confirmDeletePaidHours('${r.paidId}')" title="Eliminar">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+};
+
+const filterPaidHours = (searchQuery) => {
+  const query = searchQuery || ($('paidHoursSearch')?.value || '').toLowerCase();
+  const monthFilter = $('paidHoursMonthFilter')?.value || 'all';
+  
+  let filtered = state.paidHoursRecords || [];
+  
+  if (query) {
+    filtered = filtered.filter(r => 
+      r.teacherName.toLowerCase().includes(query) || 
+      r.teacherEmail.toLowerCase().includes(query) ||
+      (r.notes && r.notes.toLowerCase().includes(query))
+    );
+  }
+  
+  if (monthFilter !== 'all') {
+    filtered = filtered.filter(r => r.date && r.date.startsWith(monthFilter));
+  }
+  
+  $('paidHoursList').innerHTML = renderPaidHoursList(filtered);
+};
+
+const showPaidHoursStatus = (msg, type) => {
+  const e = $('paidHoursStatusMessage');
+  if (e) {
+    e.textContent = msg;
+    e.className = `status-message ${type}`;
+    setTimeout(() => e.className = 'status-message', 5000);
+  }
+};
+
+const savePaidHours = () => {
+  const select = $('paidHoursTeacher');
+  const email = select.value;
+  const name = select.options[select.selectedIndex]?.dataset?.name || '';
+  const hours = parseFloat($('paidHoursAmount').value);
+  const date = $('paidHoursDate').value;
+  const notes = $('paidHoursNotes').value.trim();
+  
+  if (!email) return showPaidHoursStatus('Por favor selecciona un profesor', 'error');
+  if (!hours || hours <= 0) return showPaidHoursStatus('Por favor ingresa las horas (mayor a 0)', 'error');
+  if (!date) return showPaidHoursStatus('Por favor selecciona una fecha', 'error');
+  
+  const btn = $('savePaidHoursBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+  
+  google.script.run.withSuccessHandler(r => {
+    btn.disabled = false;
+    btn.textContent = '💰 Registrar Horas Pagadas';
+    
+    if (r.success) {
+      showPaidHoursStatus(r.message, 'success');
+      // Clear form
+      select.value = '';
+      $('paidHoursAmount').value = '';
+      $('paidHoursNotes').value = '';
+      // Reload tab
+      loadPaidHoursTab();
+      // Refresh teachers table data
+      loadData(true);
+    } else {
+      showPaidHoursStatus(r.message, 'error');
+    }
+  }).withFailureHandler(e => {
+    btn.disabled = false;
+    btn.textContent = '💰 Registrar Horas Pagadas';
+    showPaidHoursStatus('Error: ' + e.message, 'error');
+  }).addPaidHours(email, name, hours, date, notes, ADMIN_EMAIL);
+};
+
+const openEditPaidHours = (paidId) => {
+  const record = (state.paidHoursRecords || []).find(r => r.paidId === paidId);
+  if (!record) return showPaidHoursStatus('Registro no encontrado', 'error');
+  
+  openModal('editPaidHours', record);
+};
+
+const confirmDeletePaidHours = (paidId) => {
+  const record = (state.paidHoursRecords || []).find(r => r.paidId === paidId);
+  if (!record) return showPaidHoursStatus('Registro no encontrado', 'error');
+  
+  openModal('deleteConfirm', {
+    type: 'paidHours',
+    id: paidId,
+    message: `¿Estás seguro de que quieres eliminar este registro?<br><br>
+      <strong>${utils.escapeHtml(record.teacherName)}</strong><br>
+      ${record.hours}h - ${utils.formatDateDisplay(record.date)}<br><br>
+      <span style="color:#f59e0b">Esto restaurará ${record.hours}h al total del profesor.</span>`
+  });
+};
+
+const deletePaidHoursRecord = (paidId) => {
+  const row = $(`paid-${paidId}`);
+  if (row) row.style.opacity = '0.5';
+  
+  google.script.run.withSuccessHandler(r => {
+    if (r.success) {
+      showPaidHoursStatus(r.message, 'success');
+      loadPaidHoursTab();
+      loadData(true);
+    } else {
+      showPaidHoursStatus(r.message, 'error');
+      if (row) row.style.opacity = '1';
+    }
+  }).withFailureHandler(e => {
+    showPaidHoursStatus('Error: ' + e.message, 'error');
+    if (row) row.style.opacity = '1';
+  }).deletePaidHours(paidId, ADMIN_EMAIL);
+};
+
+const saveEditPaidHours = () => {
+  const paidId = $('editPaidHoursId').value;
+  const hours = parseFloat($('editPaidHoursAmount').value);
+  const date = $('editPaidHoursDate').value;
+  const notes = $('editPaidHoursNotes').value.trim();
+  
+  if (!hours || hours <= 0) return showToast('Las horas deben ser mayor a 0', 'error');
+  if (!date) return showToast('Por favor selecciona una fecha', 'error');
+  
+  const btn = $('saveEditPaidHoursBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+  
+  google.script.run.withSuccessHandler(r => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Cambios';
+    
+    if (r.success) {
+      showToast(r.message, 'success');
+      closeModal();
+      loadPaidHoursTab();
+      loadData(true);
+    } else {
+      showToast(r.message, 'error');
+    }
+  }).withFailureHandler(e => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Cambios';
+    showToast('Error: ' + e.message, 'error');
+  }).updatePaidHours(paidId, hours, date, notes, ADMIN_EMAIL);
+};
+
+// ========================================
+// FREEZE TAB FUNCTIONS
+// ========================================
+
+const loadFreezeTab = () => {
+  google.script.run.withSuccessHandler(r => {
+    state.freezeStatus = r;
+    renderFreezeTab();
+  }).withFailureHandler(e => {
+    console.error('Error loading freeze status:', e);
+    state.freezeStatus = { frozen: false };
+    renderFreezeTab();
+  }).getFreezeStatus();
+};
+
+const renderFreezeTab = () => {
+  const status = state.freezeStatus || { frozen: false };
+  const isFrozen = status.frozen;
+  
+  // Get yesterday's date
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+  
+  // Determine button visibility
+  const showExtend = isFrozen && status.freezeDate < yesterdayStr;
+  const freezeBtnText = showExtend ? '🔒 Extender hasta ayer' : '🔒 Congelar hasta ayer';
+  
+  const html = `
+    <div class="holiday-grid">
+      <!-- Freeze Control Card -->
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">🔒 Control de Congelación</h3></div>
+        <div style="padding:25px">
+          <div class="freeze-card ${isFrozen ? 'active' : ''}">
+            <div class="freeze-card-header">
+              <div class="freeze-card-icon">${isFrozen ? '🔒' : '🔓'}</div>
+              <div>
+                <div class="freeze-card-title">${isFrozen ? 'Fichajes Congelados' : 'Sin Congelación Activa'}</div>
+                <div class="freeze-card-subtitle">Una vez congelados, solo administradores pueden editar los fichajes</div>
+              </div>
+            </div>
+            
+            <div class="freeze-status">
+              <div class="freeze-status-label">Estado Actual</div>
+              <div class="freeze-status-value ${isFrozen ? 'frozen' : ''}" id="freezeStatusText">
+                ${isFrozen ? `🔒 Congelado hasta: ${status.freezeDateDisplay || status.freezeDate}` : '🔓 No hay fichajes congelados'}
+              </div>
+            </div>
+            
+            <div class="freeze-actions">
+              ${!isFrozen || showExtend ? `
+                <button class="freeze-btn freeze" id="freezeBtn" onclick="freezePunches()">
+                  ${freezeBtnText}
+                </button>
+              ` : ''}
+              ${isFrozen ? `
+                <button class="freeze-btn unfreeze" id="unfreezeBtn" onclick="unfreezePunches()">
+                  🔓 Descongelar todo
+                </button>
+              ` : ''}
+            </div>
+            
+            <div class="freeze-info">
+              <strong>ℹ️ ¿Cómo funciona?</strong><br>
+              • Al congelar, todos los fichajes de días anteriores a hoy quedarán bloqueados<br>
+              • Los profesores no podrán editar ni eliminar fichajes congelados<br>
+              • Tú (admin) podrás seguir editándolos si es necesario<br>
+              • Puedes descongelar en cualquier momento
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Info Card -->
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">ℹ️ Información</h3></div>
+        <div style="padding:25px;color:#64748b;line-height:1.8">
+          <p><strong>💡 Recomendación</strong></p>
+          <br>
+          <p>Congela los fichajes cada lunes para cerrar la semana anterior. Así garantizas que los datos de la semana pasada no sean modificados.</p>
+          <br><br>
+          <p><strong>⚠️ Nota importante</strong></p>
+          <br>
+          <p>La congelación afecta a TODOS los profesores. Si necesitas corregir un fichaje congelado, solo tú (admin) podrás hacerlo desde el calendario del profesor.</p>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  $('freezeContent').innerHTML = html;
+};
+
+const loadAdminWorkers = (force = false) => {
+  google.script.run.withSuccessHandler(r => {
+    state.adminWorkers = r.admins || [];
+    state.adminWeekInfo = {
+      start: r.weekStart,
+      end: r.weekEnd,
+      number: r.weekNumber,
+      display: r.weekDisplay,
+      offset: r.weekOffset || 0
+    };
+    renderAdminsTable(state.adminWorkers);
+    updateAdminMonthDisplay();
+    updateAdminWeekDisplay();
+    // Update stats card
+    const adminCountEl = document.querySelector('.stat-card:nth-child(2) .stat-value');
+    if (adminCountEl) adminCountEl.textContent = state.adminWorkers.length;
+  }).withFailureHandler(e => {
+    console.error('Error loading admins:', e);
+    $('adminsTable').innerHTML = '<div class="empty-state"><p>Error cargando administración</p></div>';
+  }).getAllAdminWorkersWithHours(state.viewYear, state.viewMonth, state.weekOffset);
+};
+
+const renderAdminsTable = (admins) => {
+  if (!admins || !admins.length) {
+    return $('adminsTable').innerHTML = '<div class="empty-state"><div class="empty-state-icon">👔</div><p>No hay personal de administración</p></div>';
+  }
+  
+  const isWeekly = state.hoursViewMode === 'weekly';
+  const hoursHeader = isWeekly ? 'Horas Semana' : 'Horas del Mes';
+  
+  $('adminsTable').innerHTML = `<table><thead><tr><th>Empleado</th><th>${hoursHeader}</th><th>Horas Totales</th><th>Pagadas</th><th>Médicas</th><th>Progreso Anual</th><th>Esperado/Año</th><th>Acciones</th></tr></thead><tbody>${
+    admins.map(a => {
+      const pc = utils.getProgressClass(a.progressPercent || 0);
+      const pw = Math.min(a.progressPercent || 0, 150);
+      const displayHours = isWeekly ? (a.weeklyHours || 0) : (a.monthlyHours || 0);
+      const expectedWeekly = a.expectedWeeklyHours || ((a.expectedYearlyHours || 1230) / 52);
+      const medicalHoursDisplay = isWeekly ? (a.medicalHoursWeek || 0) : (a.medicalHoursMonth || 0);
+      
+      let hoursBadgeClass = pc;
+      if (isWeekly) {
+        const weeklyPercent = expectedWeekly > 0 ? (a.weeklyHours / expectedWeekly) * 100 : 0;
+        hoursBadgeClass = weeklyPercent >= 98 ? 'on-track' : weeklyPercent >= 70 ? 'warning' : 'behind';
+      }
+      
+      const medicalBadge = (a.medicalHours || 0) > 0 
+        ? `<span class="type-badge medical" style="font-size:12px">${(a.medicalHours || 0).toFixed(1)}h</span><div style="font-size:10px;color:#94a3b8;margin-top:2px">${a.medicalWorkingDays || 0} días</div>`
+        : '<span style="color:#cbd5e1">—</span>';
+      
+      return `<tr class="clickable" onclick="openModal('editAdmin','${utils.escapeHtml(a.email)}')">
+        <td><div class="teacher-name">${utils.escapeHtml(a.name)}</div><div class="teacher-email">${utils.escapeHtml(a.email) || '(sin correo)'}</div><div class="click-hint">Clic para editar configuración</div></td>
+        <td><span class="hours-badge ${hoursBadgeClass}">${displayHours.toFixed(1)}h</span>${medicalHoursDisplay > 0 ? '<div style="font-size:10px;color:#991b1b;margin-top:2px">🏥 incl. ' + medicalHoursDisplay.toFixed(1) + 'h méd.</div>' : ''}</td>
+        <td><span style="font-weight:600;color:#092b50">${(a.totalHours || 0).toFixed(1)}h</span>${(a.medicalHours || 0) > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + (a.medicalHours || 0).toFixed(1) + 'h méd.</div>' : ''}</td>
+        <td><span class="paid-hours-badge">${a.paidHours || 0}h</span></td>
+        <td style="text-align:center">${medicalBadge}</td>
+        <td class="progress-cell"><div class="progress-container"><div class="progress-bar-wrapper"><div class="progress-bar ${pc}" style="width:${pw}%"></div></div><div class="progress-text"><span class="progress-percent ${pc}">${(a.progressPercent || 0).toFixed(0)}%</span><span style="color:#94a3b8;font-size:11px">${(a.expectedHoursToDate || 0).toFixed(0)}h esp</span></div></div></td>
+        <td><span style="color:#64748b">${a.expectedYearlyHours || 1230}h</span></td>
+        <td onclick="event.stopPropagation()"><button class="view-btn" onclick="openModal('adminCalendar',{email:'${utils.escapeHtml(a.email)}',name:'${utils.escapeHtml(a.name)}'})">📅 Calendario</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+};
+
+const filterAdmins = (q) => {
+  const f = state.adminWorkers.filter(a => 
+    a.name.toLowerCase().includes(q.toLowerCase()) || 
+    (a.email && a.email.toLowerCase().includes(q.toLowerCase()))
+  );
+  renderAdminsTable(f);
+};
+
+const renderEditAdminForm = (a) => {
+  $('modalTitle').textContent = `✏️ Editar: ${a.name}`;
+  $('modalBody').innerHTML = `
+    <div class="info-box"><div class="info-box-text">💡 Ajusta el objetivo de horas anuales y la asignación de permisos.</div></div>
+    <div class="settings-section">
+      <div class="settings-section-title">📊 Objetivo de Horas de Trabajo</div>
+      <div class="form-group">
+        <label class="form-label">Horas Anuales Esperadas</label>
+        <input type="number" class="form-input large" id="editAdminExpectedHours" value="${a.expectedYearlyHours}" min="0" max="3000">
+        <div class="form-hint">Se usa para calcular el porcentaje de progreso</div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">🏖️ Asignación de Permisos</div>
+      <div class="settings-grid">
+        <div class="setting-item"><div class="setting-label">Vacaciones</div><input type="number" class="setting-input" id="editAdminAnnualDays" value="${a.annualDays}" min="0" max="50"></div>
+        <div class="setting-item"><div class="setting-label">D.R. Empleado</div><input type="number" class="setting-input" id="editAdminPersonalDays" value="${a.personalDays}" min="0" max="20"></div>
+        <div class="setting-item"><div class="setting-label">D.R. Empresa</div><input type="number" class="setting-input" id="editAdminSchoolDays" value="${a.schoolDays}" min="0" max="20"></div>
+        <div class="setting-item"><div class="setting-label">Visita Médica</div><input type="number" class="setting-input" id="editAdminMedApptHours" value="${a.medApptHours||20}" min="0" max="100" step="1"></div>
+              </div>
+    </div>
+    <div class="btn-row">
+      <button class="cancel-btn" onclick="closeModal()">Cancelar</button>
+      <button class="submit-btn" onclick="saveAdminSettings()" id="saveAdminBtn">💾 Guardar Cambios</button>
+    </div>
+  `;
+};
+
+const updateAdminMonthDisplay = () => {
+  const d = new Date(state.viewYear, state.viewMonth - 1, 1);
+  const n = new Date();
+  const isCurrent = state.viewYear === n.getFullYear() && state.viewMonth === n.getMonth() + 1;
+  const monthText = d.toLocaleDateString('es-ES', {month: 'long', year: 'numeric'});
+  const badge = isCurrent ? '<span class="month-current-badge">ACTUAL</span>' : '';
+  
+  const adminMonthDisp = $('adminMonthDisplay');
+  if (adminMonthDisp) adminMonthDisp.innerHTML = monthText + badge;
+  
+  const adminNextBtn = $('adminNextMonthBtn');
+  if (adminNextBtn) adminNextBtn.disabled = isCurrent;
+};
+
+const updateAdminWeekDisplay = () => {
+  const isCurrentWeek = state.weekOffset === 0;
+  const weekText = state.adminWeekInfo?.display || 'Esta Semana';
+  const badge = isCurrentWeek ? '<span class="week-current-badge">ACTUAL</span>' : '';
+  
+  const adminWeekDisp = $('adminWeekDisplay');
+  if (adminWeekDisp) adminWeekDisp.innerHTML = weekText + badge;
+  
+  const adminNextBtn = $('adminNextWeekBtn');
+  if (adminNextBtn) adminNextBtn.disabled = isCurrentWeek;
+};
+const saveAdminSettings = () => {
+  const btn = $('saveAdminBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+  
+  google.script.run.withSuccessHandler(r => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Cambios';
+    if (r.success) {
+      showToast(r.message, 'success');
+      closeModal();
+      loadAdminWorkers(true);
+    } else {
+      showToast(r.message, 'error');
+    }
+  }).withFailureHandler(e => {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Cambios';
+    showToast(`Error: ${e.message}`, 'error');
+  }).updateAdminWorkerSettings(state.editingTeacher, {
+    expectedYearlyHours: parseInt($('editAdminExpectedHours').value) || 1230,
+    annualDays: parseInt($('editAdminAnnualDays').value) || 31,
+    personalDays: parseInt($('editAdminPersonalDays').value) || 3,
+    schoolDays: parseInt($('editAdminSchoolDays').value) || 4,
+    medApptHours: parseFloat($('editAdminMedApptHours').value) || 20
+  });
+};
+
+// Check if current admin is Super Admin
+google.script.run.withSuccessHandler(isSuperAdmin => {
+  state.isSuperAdmin = isSuperAdmin;
+  
+  // Show/hide freeze tab
+  const freezeTabBtn = $('freezeTabBtn');
+  if (freezeTabBtn) {
+    freezeTabBtn.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+  }
+}).withFailureHandler(() => {
+  state.isSuperAdmin = false;
+}).isSuperAdmin(ADMIN_EMAIL);
+
+// ========================================
+// INIT - Must be LAST
+// ========================================
+
+updateMonthDisplay();
+updateWeekDisplay();
+loadData();
+
+google.script.run.withSuccessHandler(r=>{
+  state.pendingRequests=r;
+  const tabBadge=$('requestsTabBadge');
+  const navBadge=$('pendingBadge');
+  if(r.length){
+    tabBadge.style.display='inline';tabBadge.textContent=r.length;
+    navBadge.style.display='inline-block';navBadge.textContent=r.length;
+  }else{
+    tabBadge.style.display='none';
+    navBadge.style.display='none';
+  }
+}).getPendingPunchHolidayRequests();
+</script>
+</body>
+</html>

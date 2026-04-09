@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WorldClass">
+  <meta name="theme-color" content="#092b50">
+  <link rel="apple-touch-icon" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <link rel="icon" type="image/png" href="https://i.ibb.co/93tykMkW/logo-1.png">
+  <title>WorldClass BCN - Fichaje</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="teacher-body">
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="header-logo">
+          <img src="https://i0.wp.com/worldclassbcn.com/wp-content/uploads/2025/05/worldclass_logo.png?fit=368%2C396&ssl=1" alt="WorldClass" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <span class="logo-letter" style="display:none">W</span>
+        </div>
+        <div class="header-title">
+          <h1 id="teacherName">Cargando...</h1>
+          <p>Control de Fichaje</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="adminBtn" class="btn-icon" onclick="window.location.href='admin.html'" title="Panel Admin" style="display:none">📊</button>
+        <button class="btn-icon" onclick="signOut()" title="Cerrar Sesión">🚪</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="main-tabs">
+      <button class="main-tab active" onclick="switchTab('hours')" id="tabHours">
+        <span class="main-tab-icon">⏱️</span><span>Fichaje</span>
+      </button>
+      <button class="main-tab" onclick="switchTab('holidays')" id="tabHolidays">
+        <span class="main-tab-icon">🏖️</span><span>Permisos</span>
+      </button>
+    </div>
+
+    <!-- HOURS TAB -->
+    <div id="hoursTab" class="tab-content active">
+      <!-- Progress Card -->
+      <div class="progress-card">
+        <div class="progress-card-header">
+          <span class="progress-card-title">Progreso Anual</span>
+          <span class="progress-card-hours" id="progressHours">--</span>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar on-track" id="progressBar" style="width:0%"></div>
+          </div>
+          <div class="progress-text">
+            <span class="progress-percent on-track" id="progressPercent">--%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Date Card -->
+      <div class="date-card">
+        <div class="date-nav">
+          <button class="date-nav-btn" onclick="prevDay()">‹</button>
+          <div class="date-center">
+            <div class="date-number" id="dateNumber">--</div>
+            <div class="date-text" id="dateText">Cargando...</div>
+            <span class="date-badge" id="dateBadge" style="display:none">HOY</span>
+          </div>
+          <button class="date-nav-btn" id="nextDayBtn" onclick="nextDay()">›</button>
+        </div>
+      </div>
+
+      <!-- Frozen Banner -->
+      <div class="frozen-banner" id="frozenBanner" style="display:none">
+        <span class="frozen-icon">🔒</span>
+        <div class="frozen-text">
+          <strong>Día Congelado</strong>
+          <span>Los fichajes de este día están bloqueados</span>
+        </div>
+      </div>
+
+      <!-- Future Warning -->
+      <div class="future-warning" id="futureWarning" style="display:none">
+        ⚠️ No puedes fichar en días futuros
+      </div>
+
+      <!-- Punch Section -->
+      <div class="punch-card" id="punchSection">
+        <div class="section-title">Fichar</div>
+        <div class="time-input-wrapper">
+          <div class="time-label">Hora</div>
+          <input type="time" class="time-input" id="timeInput" aria-label="Hora del fichaje">
+        </div>
+        <button class="punch-btn in" id="punchBtn" onclick="submitPunch()">
+          <span class="punch-btn-icon">🟢</span> Fichar Entrada
+        </button>
+
+        <!-- Prep Time -->
+        <div class="prep-time-section" id="prepTimeSection" style="display:none">
+          <div class="prep-time-checkbox-wrapper" id="prepTimeWrapper" onclick="togglePrepTime()">
+            <div class="prep-time-checkbox" id="prepTimeCheckbox"></div>
+            <div class="prep-time-info">
+              <span class="prep-time-title">📚 Horas No Lectivas</span>
+              <span class="prep-time-badge" id="prepTimeBadge">1.5h</span>
+            </div>
+            <button class="prep-time-undo" id="prepTimeUndo" onclick="event.stopPropagation();undoPrepTime()" style="display:none" aria-label="Deshacer horas no lectivas">↩️</button>
+          </div>
+        </div>
+
+        <!-- Punches List -->
+        <div class="punches-section">
+          <div class="punches-header">
+            <span class="section-title">Fichajes del Día</span>
+            <span class="punches-count" id="punchesCount">0 fichajes</span>
+          </div>
+          <div id="punchesList">
+            <div class="empty-state">
+              <div class="empty-state-icon">📋</div>
+              <div class="empty-state-text">Sin fichajes este día</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day Hours -->
+        <div class="hours-card">
+          <div class="hours-value" id="dayHoursValue">0.00</div>
+          <div class="hours-label">Horas Trabajadas Hoy</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOLIDAYS TAB -->
+    <div id="holidaysTab" class="tab-content">
+      <!-- Holiday Summary -->
+      <div class="holiday-summary-section">
+        <div class="holiday-summary-header">
+          <span class="holiday-summary-title">🏖️ Resumen de Permisos</span>
+        </div>
+        <div class="holiday-stats">
+          <div class="holiday-stat">
+            <div class="holiday-stat-value" id="annualUsed">0</div>
+            <div class="holiday-stat-label">Vacaciones<span id="annualTotal">/31</span></div>
+          </div>
+          <div class="holiday-stat">
+            <div class="holiday-stat-value" id="personalUsed">0</div>
+            <div class="holiday-stat-label">D.R. Empleado<span id="personalTotal">/3</span></div>
+          </div>
+          <div class="holiday-stat">
+            <div class="holiday-stat-value" id="medicalUsed">0</div>
+            <div class="holiday-stat-label">Baja Médica</div>
+          </div>
+          <div class="holiday-stat">
+            <div class="holiday-stat-value" id="schoolUsed">0</div>
+            <div class="holiday-stat-label">D.R. Empresa</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Holiday Request Form -->
+      <div class="holiday-card">
+        <div class="section-title">Nueva Solicitud</div>
+
+        <div class="holiday-type-btn-group">
+          <button class="holiday-type-btn" data-type="Annual" onclick="selectHolidayType(this,'Annual')">
+            <div class="holiday-type-icon">🏖️</div>
+            <div class="holiday-type-name">Vacaciones</div>
+          </button>
+          <button class="holiday-type-btn" data-type="Personal" onclick="selectHolidayType(this,'Personal')">
+            <div class="holiday-type-icon">👤</div>
+            <div class="holiday-type-name">D.R. Empleado</div>
+          </button>
+          <button class="holiday-type-btn" data-type="Medical" onclick="selectHolidayType(this,'Medical')">
+            <div class="holiday-type-icon">🏥</div>
+            <div class="holiday-type-name">Baja Médica</div>
+          </button>
+          <button class="holiday-type-btn" data-type="Permiso" onclick="selectHolidayType(this,'Permiso')">
+            <div class="holiday-type-icon">📋</div>
+            <div class="holiday-type-name">Permiso</div>
+          </button>
+        </div>
+
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label" for="holidayStartDate">Fecha Inicio</label>
+          <input type="date" class="form-input" id="holidayStartDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="holidayEndDate">Fecha Fin</label>
+          <input type="date" class="form-input" id="holidayEndDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="holidayReason">Motivo (opcional)</label>
+          <textarea class="form-textarea" id="holidayReason" rows="2" placeholder="Motivo de la solicitud..."></textarea>
+        </div>
+
+        <button class="submit-btn" onclick="submitHolidayRequest()">Enviar Solicitud</button>
+      </div>
+
+      <!-- Requests List -->
+      <div class="holiday-card" style="margin-top:12px">
+        <div class="section-title">Mis Solicitudes</div>
+        <div id="requestsList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-text">Sin solicitudes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="overlay" id="editOverlay">
+    <div class="edit-modal">
+      <div class="modal-header">
+        <h3>Editar Fichaje</h3>
+        <button class="modal-close" onclick="closeEditModal()">✕</button>
+      </div>
+      <input type="hidden" id="editPunchId">
+      <input type="time" class="edit-time-input" id="editTimeInput" aria-label="Nueva hora">
+      <div class="edit-actions">
+        <button class="edit-btn cancel" onclick="closeEditModal()">Cancelar</button>
+        <button class="edit-btn save" onclick="savePunchEdit()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/teacher.js"></script>
+</body>
+</html>
