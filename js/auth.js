@@ -9,7 +9,7 @@ async function getProfile() {
   const session = await getSession();
   if (!session) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('profiles')
     .select('*')
     .eq('id', session.user.id)
@@ -26,7 +26,7 @@ async function signInWithGoogle() {
   const { error } = await db.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin + window.location.pathname
+      redirectTo: 'https://danielbaudy-oss.github.io/WORLDCLASSBCN/index.html'
     }
   });
   if (error) {
