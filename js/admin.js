@@ -431,6 +431,86 @@ function buildSchoolHolidayDateSet(schoolHolidays) {
   return dateSet;
 }
 
+// Pre-compute working days for the year (weekdays minus school holidays)
+// Matches Code.js precomputeWorkingDays() exactly
+function precomputeWorkingDaysForYear(schoolHolidayDates) {
+  var now = new Date();
+  now.setHours(0, 0, 0, 0);
+  var year = now.getFullYear();
+  var yearStart = new Date(year, 0, 1);
+  var yearEnd = new Date(year, 11, 31);
+  var allWorkingDays = new Set();
+  var passedWorkingDays = new Set();
+  var allCount = 0;
+  var passedCount = 0;
+  var current = new Date(yearStart);
+  current.setHours(0, 0, 0, 0);
+  while (current <= yearEnd) {
+    var dayOfWeek = current.getDay();
+    var dateStr = formatDate(current);
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !schoolHolidayDates.has(dateStr)) {
+      allWorkingDays.add(dateStr);
+      allCount++;
+      if (current <= now) {
+        passedWorkingDays.add(dateStr);
+        passedCount++;
+      }
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return {
+    allWorkingDays: allWorkingDays,
+    allCount: allCount,
+    passedWorkingDays: passedWorkingDays,
+    passedCount: passedCount
+  };
+}
+
+// Calculate a specific teacher's working day progress
+// Matches Code.js getTeacherWorkingDayProgress() exactly
+function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays) {
+  allocatedDays = allocatedDays || 0;
+  var holidaysTakenOnWorkingDays = 0;
+  var holidaysTakenOnPassedDays = 0;
+  if (teacherHolidayDates && teacherHolidayDates.size > 0) {
+    teacherHolidayDates.forEach(function(dateStr) {
+      if (precomputed.allWorkingDays.has(dateStr)) {
+        holidaysTakenOnWorkingDays++;
+        if (precomputed.passedWorkingDays.has(dateStr)) {
+          holidaysTakenOnPassedDays++;
+        }
+      }
+    });
+  }
+  var totalWorkingDays = precomputed.allCount - allocatedDays;
+  var passedWorkingDays = precomputed.passedCount - holidaysTakenOnPassedDays;
+  totalWorkingDays = Math.max(0, totalWorkingDays);
+  passedWorkingDays = Math.max(0, passedWorkingDays);
+  return {
+    totalWorkingDays: totalWorkingDays,
+    passedWorkingDays: passedWorkingDays,
+    progressRatio: totalWorkingDays > 0 ? passedWorkingDays / totalWorkingDays : 0
+  };
+}
+
+// Build a Set of holiday dates for a user from approved non-Medical holiday_requests
+function buildTeacherHolidayDates(holidays, userId) {
+  var dates = new Set();
+  if (!holidays) return dates;
+  holidays.forEach(function(h) {
+    if (h.user_id !== userId) return;
+    if (h.status !== 'Approved') return;
+    if (h.type === 'Medical') return;
+    var current = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (current <= end) {
+      dates.add(formatDate(current));
+      current.setDate(current.getDate() + 1);
+    }
+  });
+  return dates;
+}
+
 
 // ========================================
 // TASK 3.1: STATS GRID
@@ -472,15 +552,20 @@ async function loadStatsGrid(teacherData, adminData) {
     // Period range
     var periodRange = viewMode === 'monthly' ? getMonthRange() : getWeekRange();
 
+    // Pre-compute working days for the year (matches Code.js)
+    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates);
+
+    // Load holiday requests for progress calculation
+    if (!cachedHolidays) {
+      var hRes = await db.from('holiday_requests').select('*').eq('status', 'Approved');
+      cachedHolidays = hRes.data || [];
+    }
+
     // Compute stats
     var allProfiles = teachers.concat(admins);
     var totalProgress = 0;
     var onTrackCount = 0;
     var totalPeriodHours = 0;
-
-    // Working days for progress calculation
-    var totalWorkingDaysYear = countWorkingDays(yearStart, today, schoolHolidayDates);
-    var totalWorkingDaysInYear = countWorkingDays(yearStart, year + '-12-31', schoolHolidayDates);
 
     allProfiles.forEach(function(profile) {
       var userPunches = cachedPunches.filter(function(p) { return p.user_id === profile.id; });
@@ -488,10 +573,19 @@ async function loadStatsGrid(teacherData, adminData) {
       var periodHours = calculateHoursFromPunches(userPunches, periodRange.start, periodRange.end);
       totalPeriodHours += periodHours;
 
-      var expectedYearly = profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
-      var expectedToDate = totalWorkingDaysInYear > 0
-        ? (expectedYearly * totalWorkingDaysYear / totalWorkingDaysInYear)
-        : 0;
+      var isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
+      var defaults = isAdmin ? ADMIN_DEFAULTS : DEFAULTS;
+      var expectedYearly = profile.expected_yearly_hours || defaults.EXPECTED_YEARLY_HOURS;
+      var annualDays = profile.annual_days || defaults.ANNUAL_DAYS;
+      var personalDays = profile.personal_days || defaults.PERSONAL_DAYS;
+      var schoolDays = profile.school_days || defaults.SCHOOL_DAYS;
+
+      // Build teacher holiday dates (approved, non-Medical)
+      var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, profile.id);
+      var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+
+      var expectedToDate = expectedYearly * progress.progressRatio;
       var percent = expectedToDate > 0 ? (yearlyHours / expectedToDate) * 100 : 0;
 
       totalProgress += percent;
@@ -500,17 +594,16 @@ async function loadStatsGrid(teacherData, adminData) {
 
     var avgProgress = allProfiles.length > 0 ? Math.round(totalProgress / allProfiles.length) : 0;
 
-    // Working days stats
-    var monthRange = getMonthRange();
-    var totalWorkingDaysMonth = countWorkingDays(monthRange.start, monthRange.end, schoolHolidayDates);
-    var passedWorkingDays = countWorkingDays(monthRange.start, today < monthRange.end ? today : monthRange.end, schoolHolidayDates);
+    // Working days stats — year-level (passed/total for the year)
+    var passedWorkingDays = precomputed.passedCount;
+    var totalWorkingDaysYear = precomputed.allCount;
 
     // Render stats
     document.getElementById('statTeachers').textContent = teachers.length;
     document.getElementById('statAdmins').textContent = admins.length;
     document.getElementById('statOnTrack').textContent = onTrackCount + '/' + allProfiles.length;
     document.getElementById('statAvgProgress').textContent = 'Progreso medio: ' + avgProgress + '%';
-    document.getElementById('statWorkingDays').textContent = passedWorkingDays + '/' + totalWorkingDaysMonth;
+    document.getElementById('statWorkingDays').textContent = passedWorkingDays + '/' + totalWorkingDaysYear;
     document.getElementById('statSchoolHolidays').textContent = cachedSchoolHolidays.length + ' festivos excluidos';
     document.getElementById('statPeriodHours').textContent = totalPeriodHours.toFixed(1) + 'h';
 
@@ -519,6 +612,7 @@ async function loadStatsGrid(teacherData, adminData) {
       'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     var periodLabel = document.getElementById('statPeriodLabel');
     if (periodLabel) {
+      var monthRange = getMonthRange();
       periodLabel.textContent = viewMode === 'monthly'
         ? 'Horas en ' + monthNames[monthRange.month].charAt(0).toUpperCase() + monthNames[monthRange.month].slice(1)
         : 'Horas esta Semana';
@@ -584,9 +678,8 @@ async function loadTeachersTable() {
       cachedPaidHours = phRes.data || [];
     }
 
-    // Working days for progress
-    var totalWorkingDaysYear = countWorkingDays(yearStart, today, schoolHolidayDates);
-    var totalWorkingDaysInYear = countWorkingDays(yearStart, year + '-12-31', schoolHolidayDates);
+    // Pre-compute working days for the year (matches Code.js)
+    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates);
 
     if (!teachers.length) {
       tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay profesores activos</td></tr>';
@@ -608,12 +701,24 @@ async function loadTeachersTable() {
       var paidTotal = userPaidHours.reduce(function(sum, ph) { return sum + (parseFloat(ph.hours) || 0); }, 0);
 
       // Medical hours: from approved Medical holiday_requests
-      // Calculate as working days in the request period * (expected_yearly_hours / totalWorkingDaysInYear)
+      // Calculate as working days in the request period * (expected_yearly_hours / totalWorkingDays)
       var userMedical = cachedHolidays.filter(function(h) {
         return h.user_id === t.id && h.type === 'Medical';
       });
-      var hoursPerWorkingDay = totalWorkingDaysInYear > 0
-        ? (t.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) / totalWorkingDaysInYear
+
+      // Progress calculation using Code.js approach
+      var expectedYearly = t.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
+      var annualDays = t.annual_days || DEFAULTS.ANNUAL_DAYS;
+      var personalDays = t.personal_days || DEFAULTS.PERSONAL_DAYS;
+      var schoolDays = t.school_days || DEFAULTS.SCHOOL_DAYS;
+
+      // Build teacher holiday dates (approved, non-Medical)
+      var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, t.id);
+      var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+
+      var hoursPerWorkingDay = progress.totalWorkingDays > 0
+        ? expectedYearly / progress.totalWorkingDays
         : 0;
       var medicalHours = 0;
       userMedical.forEach(function(h) {
@@ -622,11 +727,8 @@ async function loadTeachersTable() {
       });
       medicalHours = Math.round(medicalHours * 10) / 10;
 
-      // Progress percent
-      var expectedYearly = t.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
-      var expectedToDate = totalWorkingDaysInYear > 0
-        ? (expectedYearly * totalWorkingDaysYear / totalWorkingDaysInYear)
-        : 0;
+      // Progress percent using Code.js formula
+      var expectedToDate = expectedYearly * progress.progressRatio;
       var progressPercent = expectedToDate > 0 ? ((yearlyHours + paidTotal + medicalHours) / expectedToDate) * 100 : 0;
       progressPercent = Math.round(progressPercent * 10) / 10;
 
@@ -759,9 +861,8 @@ async function loadAdminWorkersTable() {
       cachedPaidHours = phRes.data || [];
     }
 
-    // Working days
-    var totalWorkingDaysYear = countWorkingDays(yearStart, today, schoolHolidayDates);
-    var totalWorkingDaysInYear = countWorkingDays(yearStart, year + '-12-31', schoolHolidayDates);
+    // Pre-compute working days for the year (matches Code.js)
+    var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates);
 
     if (!admins.length) {
       tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay administradores activos</td></tr>';
@@ -785,8 +886,19 @@ async function loadAdminWorkersTable() {
       var userMedical = cachedHolidays.filter(function(h) {
         return h.user_id === a.id && h.type === 'Medical';
       });
+
+      // Progress calculation using Code.js approach
       var expectedYearly = a.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS;
-      var hoursPerWorkingDay = totalWorkingDaysInYear > 0 ? expectedYearly / totalWorkingDaysInYear : 0;
+      var annualDays = a.annual_days || ADMIN_DEFAULTS.ANNUAL_DAYS;
+      var personalDays = a.personal_days || ADMIN_DEFAULTS.PERSONAL_DAYS;
+      var schoolDays = a.school_days || ADMIN_DEFAULTS.SCHOOL_DAYS;
+
+      // Build teacher holiday dates (approved, non-Medical)
+      var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, a.id);
+      var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+
+      var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
       var medicalHours = 0;
       userMedical.forEach(function(h) {
         var days = countWorkingDays(h.start_date, h.end_date, schoolHolidayDates);
@@ -794,10 +906,8 @@ async function loadAdminWorkersTable() {
       });
       medicalHours = Math.round(medicalHours * 10) / 10;
 
-      // Progress
-      var expectedToDate = totalWorkingDaysInYear > 0
-        ? (expectedYearly * totalWorkingDaysYear / totalWorkingDaysInYear)
-        : 0;
+      // Progress using Code.js formula
+      var expectedToDate = expectedYearly * progress.progressRatio;
       var progressPercent = expectedToDate > 0 ? ((yearlyHours + paidTotal + medicalHours) / expectedToDate) * 100 : 0;
       progressPercent = Math.round(progressPercent * 10) / 10;
 
