@@ -2892,7 +2892,7 @@ async function confirmArchive(year) {
 // TASK 15.2: EXPORT CSV
 // ========================================
 
-function exportCSV() {
+async function exportCSV() {
   if (!cachedTeachers && !cachedAdmins) {
     showToast('No hay datos para exportar. Carga la tabla primero.', 'error');
     return;
@@ -2918,10 +2918,20 @@ function exportCSV() {
   var cutoffDate = periodRange.end < today ? periodRange.end : today;
   var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
   var punches = cachedPunches || [];
-  var holidays = cachedHolidays || [];
+
+  // Load ALL punches including PREP for prep time calculation
+  var allPunchRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
+    .gte('date', yearStart).lte('date', cutoffDate).limit(10000);
+  var allPunches = allPunchRes.data || [];
+
+  // Load ALL holiday requests (not just approved) for time off columns
+  var allHolidayRes = await db.from('holiday_requests').select('*');
+  var allHolidays = allHolidayRes.data || [];
+  var approvedHolidays = allHolidays.filter(function(h) { return h.status === 'Approved'; });
+
   var paidHours = cachedPaidHours || [];
 
-  var headers = ['Tipo', 'Nombre', 'Email', 'Horas Periodo', 'Horas Totales', 'Pagadas', 'Médicas', 'Progreso %', 'Esperado/Año', 'H.No Lectivas'];
+  var headers = ['Tipo', 'Nombre', 'Email', 'Horas Periodo', 'Horas Totales', 'Pagadas', 'Médicas', 'Progreso %', 'Esperado/Año', 'H.No Lectivas', 'Vac. Usadas', 'Vac. Total', 'D.R.Emp Usados', 'D.R.Emp Total', 'D.R.Empr Usados', 'D.R.Empr Total', 'Baja Médica', 'Visita Méd.', 'Permiso'];
   var csvRows = [headers.join(',')];
 
   allProfiles.forEach(function(p) {
@@ -2939,12 +2949,12 @@ function exportCSV() {
     var userPaid = paidHours.filter(function(ph) { return ph.user_id === p.id; });
     var paidTotal = userPaid.reduce(function(s, ph) { return s + (parseFloat(ph.hours) || 0); }, 0);
 
-    var teacherHolidayDates = buildTeacherHolidayDates(holidays, p.id);
+    var teacherHolidayDates = buildTeacherHolidayDates(approvedHolidays, p.id);
     var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
     var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
     var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
 
-    var userMedical = holidays.filter(function(h) { return h.user_id === p.id && h.type === 'Medical'; });
+    var userMedical = approvedHolidays.filter(function(h) { return h.user_id === p.id && h.type === 'Medical'; });
     var medicalHours = 0;
     userMedical.forEach(function(h) {
       var medStart = h.start_date > yearStart ? h.start_date : yearStart;
@@ -2958,10 +2968,27 @@ function exportCSV() {
     var expectedToDate = expectedYearly * progress.progressRatio;
     var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
 
+    // Actual prep time from PREP punches
     var prepTotal = 0;
-    if (!isAdmin && punches) {
-      // Prep time not in cachedPunches (filtered to IN/OUT), skip for CSV
-    }
+    allPunches.filter(function(pu) { return pu.user_id === p.id && pu.punch_type === 'PREP'; }).forEach(function(pu) {
+      var match = (pu.notes || '').match(/Hours:\s*([\d.]+)/);
+      if (match) prepTotal += parseFloat(match[1]);
+    });
+    prepTotal = Math.round(prepTotal * 10) / 10;
+
+    // Time off summary
+    var userHolidays = allHolidays.filter(function(h) { return h.user_id === p.id; });
+    var annualUsed = 0, personalUsed = 0, schoolUsed = 0, medicalDays = 0, medApptUsed = 0, permisoUsed = 0;
+    userHolidays.forEach(function(h) {
+      if (h.status !== 'Approved') return;
+      var days = parseFloat(h.days) || 0;
+      if (h.type === 'Annual') annualUsed += days;
+      else if (h.type === 'Personal') personalUsed += days;
+      else if (h.type === 'School') schoolUsed += days;
+      else if (h.type === 'Medical') medicalDays += days;
+      else if (h.type === 'MedAppt') medApptUsed += days;
+      else if (h.type === 'Permiso') permisoUsed += days;
+    });
 
     var row = [
       isAdmin ? 'Admin' : 'Profesor',
@@ -2973,7 +3000,16 @@ function exportCSV() {
       medicalHours.toFixed(2),
       progressPercent.toFixed(1),
       expectedYearly,
-      p.prep_time_yearly || 0
+      prepTotal,
+      annualUsed,
+      annualDays,
+      personalUsed,
+      personalDays,
+      schoolUsed,
+      schoolDays,
+      medicalDays,
+      medApptUsed,
+      permisoUsed
     ];
     csvRows.push(row.join(','));
   });
