@@ -872,7 +872,7 @@ async function loadTeachersTable() {
         '<td><span class="hours-badge ' + prepColor + '">' + prepTimeTotal + 'h / ' + prepTimeYearly + 'h</span>' +
           '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">' + prepWeeksLogged.size + ' semanas</div></td>' +
         '<td>' + expectedYearly + 'h</td>' +
-        '<td><button class="view-btn" onclick="event.stopPropagation();if(typeof openCalendarModal===\'function\')openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')" style="padding:6px 12px;font-size:12px">📅</button></td>' +
+        '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
 
@@ -1049,7 +1049,7 @@ async function loadAdminWorkersTable() {
           '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(1) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
         '</div></td>' +
         '<td>' + expectedYearly + 'h</td>' +
-        '<td><button class="view-btn" onclick="event.stopPropagation();if(typeof openCalendarModal===\'function\')openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')" style="padding:6px 12px;font-size:12px">📅</button></td>' +
+        '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
 
