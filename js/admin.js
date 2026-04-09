@@ -888,7 +888,7 @@ async function loadTeachersTable() {
         '<td>' + medicalHours.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
-          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(1) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
+          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
         '</div></td>' +
         '<td><span class="hours-badge ' + prepColor + '">' + prepTimeTotal + 'h / ' + prepTimeYearly + 'h</span>' +
           '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">' + prepWeeksLogged.size + ' semanas</div></td>' +
@@ -1072,7 +1072,7 @@ async function loadAdminWorkersTable() {
         '<td>' + medicalHours.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
-          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(1) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
+          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
         '</div></td>' +
         '<td>' + expectedYearly + 'h</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +

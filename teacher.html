@@ -45,7 +45,20 @@
 
     <!-- HOURS TAB -->
     <div id="hoursTab" class="tab-content active">
-      <!-- Progress Card -->
+      <!-- Date Card -->
+      <div class="date-card">
+        <div class="date-nav">
+          <button class="date-nav-btn" onclick="prevDay()">‹</button>
+          <div class="date-center">
+            <div class="date-number" id="dateNumber">--</div>
+            <div class="date-text" id="dateText">Cargando...</div>
+            <span class="date-badge" id="dateBadge" style="display:none">HOY</span>
+          </div>
+          <button class="date-nav-btn" id="nextDayBtn" onclick="nextDay()">›</button>
+        </div>
+      </div>
+
+      <!-- Progress Card (below day) -->
       <div class="progress-card">
         <div class="progress-card-header">
           <span class="progress-card-title">Progreso Anual</span>
@@ -57,20 +70,8 @@
           </div>
           <div class="progress-text">
             <span class="progress-percent on-track" id="progressPercent">--%</span>
+            <span class="progress-expected" id="progressExpected">--h esperadas</span>
           </div>
-        </div>
-      </div>
-
-      <!-- Date Card -->
-      <div class="date-card">
-        <div class="date-nav">
-          <button class="date-nav-btn" onclick="prevDay()">‹</button>
-          <div class="date-center">
-            <div class="date-number" id="dateNumber">--</div>
-            <div class="date-text" id="dateText">Cargando...</div>
-            <span class="date-badge" id="dateBadge" style="display:none">HOY</span>
-          </div>
-          <button class="date-nav-btn" id="nextDayBtn" onclick="nextDay()">›</button>
         </div>
       </div>
 
@@ -96,7 +97,7 @@
           <input type="time" class="time-input" id="timeInput" aria-label="Hora del fichaje">
         </div>
         <button class="punch-btn in" id="punchBtn" onclick="submitPunch()">
-          <span class="punch-btn-icon">🟢</span> Fichar Entrada
+          Fichar Entrada
         </button>
 
         <!-- Prep Time -->
@@ -176,6 +177,10 @@
           <button class="holiday-type-btn" data-type="Medical" onclick="selectHolidayType(this,'Medical')">
             <div class="holiday-type-icon">🏥</div>
             <div class="holiday-type-name">Baja Médica</div>
+          </button>
+          <button class="holiday-type-btn" data-type="MedAppt" onclick="selectHolidayType(this,'MedAppt')">
+            <div class="holiday-type-icon">⚕️</div>
+            <div class="holiday-type-name">Visita Médica</div>
           </button>
           <button class="holiday-type-btn" data-type="Permiso" onclick="selectHolidayType(this,'Permiso')">
             <div class="holiday-type-icon">📋</div>

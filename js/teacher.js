@@ -166,7 +166,7 @@ function updatePunchButton(punches) {
   const btn = document.getElementById('punchBtn');
   const isIn = punches.length % 2 === 0;
   btn.className = 'punch-btn ' + (isIn ? 'in' : 'out');
-  btn.innerHTML = `<span class="punch-btn-icon">${isIn ? '🟢' : '🟡'}</span> Fichar ${isIn ? 'Entrada' : 'Salida'}`;
+  btn.textContent = 'Fichar ' + (isIn ? 'Entrada' : 'Salida');
 }
 
 function updateDayHours(punches) {
@@ -520,23 +520,106 @@ async function loadProgress() {
     .lte('date', today);
 
   const totalHours = calculateTotalHours(punches || []);
-  const expectedYearly = currentProfile.expected_yearly_hours;
 
-  // Simple progress based on time elapsed in year
-  const yearProgress = dayOfYear(new Date()) / 365;
-  const expectedToDate = expectedYearly * yearProgress;
-  const percent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+  // Load school holidays for accurate working days
+  const { data: schoolHolidays } = await db.from('school_holidays').select('*');
+  const schoolHolidayDates = new Set();
+  (schoolHolidays || []).forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      var ds = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+      if (ds >= yearStart && ds <= year + '-12-31') schoolHolidayDates.add(ds);
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  // Load approved holidays for this user (non-Medical)
+  const { data: holidays } = await db.from('holiday_requests').select('*')
+    .eq('user_id', currentProfile.id).eq('status', 'Approved');
+
+  // Build teacher holiday dates (exclude Medical)
+  var teacherHolidayDates = new Set();
+  (holidays || []).forEach(function(h) {
+    if (h.type === 'Medical') return;
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      var ds = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+      if (ds >= yearStart && ds <= year + '-12-31') teacherHolidayDates.add(ds);
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  // Precompute working days (same logic as admin.js)
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  var ys = new Date(year, 0, 1); var ye = new Date(year, 11, 31);
+  var allWD = new Set(), passedWD = new Set(), allCount = 0, passedCount = 0;
+  var cur = new Date(ys); cur.setHours(0, 0, 0, 0);
+  while (cur <= ye) {
+    var dow = cur.getDay();
+    var ds = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+    if (dow !== 0 && dow !== 6 && !schoolHolidayDates.has(ds)) {
+      allWD.add(ds); allCount++;
+      if (cur <= now) { passedWD.add(ds); passedCount++; }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  // Teacher progress (same as admin getTeacherProgress)
+  var expectedYearly = currentProfile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
+  var annualDays = currentProfile.annual_days || DEFAULTS.ANNUAL_DAYS;
+  var personalDays = currentProfile.personal_days || DEFAULTS.PERSONAL_DAYS;
+  var schoolDays = currentProfile.school_days || DEFAULTS.SCHOOL_DAYS;
+  var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
+
+  var holidaysTakenOnPassed = 0;
+  teacherHolidayDates.forEach(function(ds) {
+    if (allWD.has(ds) && passedWD.has(ds)) holidaysTakenOnPassed++;
+  });
+
+  var totalWorkingDays = Math.max(0, allCount - allocatedDays);
+  var passedWorkingDays = Math.max(0, passedCount - holidaysTakenOnPassed);
+  var progressRatio = totalWorkingDays > 0 ? passedWorkingDays / totalWorkingDays : 0;
+
+  // Medical hours
+  var hoursPerWorkingDay = totalWorkingDays > 0 ? expectedYearly / totalWorkingDays : 0;
+  var medicalHours = 0;
+  (holidays || []).filter(function(h) { return h.type === 'Medical'; }).forEach(function(h) {
+    var mStart = h.start_date > yearStart ? h.start_date : yearStart;
+    var mEnd = h.end_date < today ? h.end_date : today;
+    if (mStart <= mEnd) {
+      var c = new Date(mStart + 'T12:00:00'), e = new Date(mEnd + 'T12:00:00'), days = 0;
+      while (c <= e) {
+        var d = c.getDay();
+        var dStr = c.getFullYear() + '-' + String(c.getMonth() + 1).padStart(2, '0') + '-' + String(c.getDate()).padStart(2, '0');
+        if (d !== 0 && d !== 6 && !schoolHolidayDates.has(dStr)) days++;
+        c.setDate(c.getDate() + 1);
+      }
+      medicalHours += days * hoursPerWorkingDay;
+    }
+  });
+
+  // Paid hours
+  const { data: paidData } = await db.from('paid_hours').select('hours').eq('user_id', currentProfile.id);
+  var paidTotal = (paidData || []).reduce(function(s, p) { return s + (parseFloat(p.hours) || 0); }, 0);
+
+  var adjustedTotal = totalHours - paidTotal + medicalHours;
+  var expectedToDate = expectedYearly * progressRatio;
+  var percent = expectedToDate > 0 ? (adjustedTotal / expectedToDate) * 100 : 0;
 
   const progressBar = document.getElementById('progressBar');
   const progressPercent = document.getElementById('progressPercent');
   const progressHours = document.getElementById('progressHours');
+  const progressExpected = document.getElementById('progressExpected');
 
   const status = percent >= 98 ? 'on-track' : percent >= 80 ? 'warning' : 'behind';
   progressBar.style.width = Math.min(percent, 100) + '%';
   progressBar.className = 'progress-bar ' + status;
-  progressPercent.textContent = Math.round(percent * 10) / 10 + '%';
+  progressPercent.textContent = Math.round(percent) + '%';
   progressPercent.className = 'progress-percent ' + status;
-  progressHours.textContent = totalHours.toFixed(1) + 'h / ' + expectedYearly + 'h';
+  progressHours.textContent = adjustedTotal.toFixed(1) + 'h / ' + expectedYearly + 'h';
+  if (progressExpected) progressExpected.textContent = Math.round(expectedToDate) + 'h esperadas';
 }
 
 function calculateTotalHours(punches) {
