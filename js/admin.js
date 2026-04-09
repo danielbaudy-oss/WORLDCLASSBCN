@@ -842,26 +842,1849 @@ async function loadAdminWorkersTable() {
   }
 }
 
+// Stubs removed — real implementations follow below.
+
+
 // ========================================
-// PLACEHOLDER STUBS (for future tasks)
+// TASK 6.1: CALENDAR MODAL
 // ========================================
 
-// These will be implemented in later tasks.
-// Having stubs prevents errors when HTML onclick handlers fire.
+var calendarUserId = null;
+var calendarUserName = '';
+var calendarMonthOffset = 0;
 
-function exportCSV() { showToast('Exportar CSV - próximamente', 'info'); }
-function openAddTeacherModal() { showToast('Añadir profesor - próximamente', 'info'); }
-function openAddAdminModal() { showToast('Añadir admin - próximamente', 'info'); }
-function submitPaidHours() { showToast('Horas pagadas - próximamente', 'info'); }
-function loadHolidayData() { /* stub */ }
-function assignDREmpresa() { showToast('Asignar D.R. Empresa - próximamente', 'info'); }
-function addSchoolHoliday() { showToast('Añadir festivo - próximamente', 'info'); }
-function performArchive() { showToast('Archivar - próximamente', 'info'); }
-function changeCalendarMonth() { /* stub */ }
-function filterApprovedRequests() { /* stub */ }
-function filterHolidayOverview() { /* stub */ }
-function filterDREmpresa() { /* stub */ }
-function filterPaidHours() { /* stub */ }
+async function openCalendarModal(userId, userName) {
+  calendarUserId = userId;
+  calendarUserName = userName;
+  calendarMonthOffset = 0;
+  await renderCalendarModal();
+}
+
+async function renderCalendarModal() {
+  var now = new Date();
+  var d = new Date(now.getFullYear(), now.getMonth() + calendarMonthOffset, 1);
+  var year = d.getFullYear();
+  var month = d.getMonth();
+  var monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
+
+  // Query punches for this user for this month
+  var startDate = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+  var endDate = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(daysInMonth).padStart(2, '0');
+
+  var { data: punches } = await db.from('time_punches').select('*')
+    .eq('user_id', calendarUserId)
+    .gte('date', startDate).lte('date', endDate)
+    .order('date').order('time');
+  punches = punches || [];
+
+  // Group punches by date
+  var byDate = {};
+  punches.forEach(function(p) {
+    if (!byDate[p.date]) byDate[p.date] = [];
+    byDate[p.date].push(p);
+  });
+
+  var isCurrentMonth = calendarMonthOffset >= 0;
+  var prevDisabled = '';
+  var nextDisabled = calendarMonthOffset >= 0 ? 'disabled' : '';
+
+  var html = '<div style="margin-bottom:20px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
+      '<button class="month-nav-btn" onclick="calendarMonthOffset--;renderCalendarModal()" ' + prevDisabled + '>‹</button>' +
+      '<div style="font-size:18px;font-weight:700;color:var(--primary)">' + monthNames[month] + ' ' + year +
+        (calendarMonthOffset === 0 ? ' <span class="actual-badge">ACTUAL</span>' : '') + '</div>' +
+      '<button class="month-nav-btn" onclick="calendarMonthOffset++;renderCalendarModal()" ' + nextDisabled + '>›</button>' +
+    '</div>' +
+    '<div class="calendar-grid">';
+
+  // Day headers
+  var dayHeaders = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  dayHeaders.forEach(function(dh) {
+    html += '<div class="calendar-header-cell">' + dh + '</div>';
+  });
+
+  // Empty cells before first day
+  for (var e = 0; e < firstDayOfWeek; e++) {
+    html += '<div class="calendar-cell empty"></div>';
+  }
+
+  var todayStr = formatDate(new Date());
+
+  // Day cells
+  for (var day = 1; day <= daysInMonth; day++) {
+    var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    var dayPunches = byDate[dateStr] || [];
+    var inOutPunches = dayPunches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
+    var hasPunches = inOutPunches.length > 0;
+    var hours = hasPunches ? calculateDayHours(inOutPunches) : 0;
+    var isToday = dateStr === todayStr;
+
+    var classes = 'calendar-cell';
+    if (hasPunches) classes += ' has-punches';
+    if (isToday) classes += ' today';
+
+    html += '<div class="' + classes + '" onclick="showDayDetail(\'' + dateStr + '\')">';
+    html += '<div class="calendar-day-num">' + day + '</div>';
+    if (hasPunches) {
+      html += '<div class="calendar-punch-count">' + inOutPunches.length + ' fichajes</div>';
+      html += '<div class="calendar-hours">' + hours.toFixed(1) + 'h</div>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div></div>';
+  html += '<div id="calendarDayDetail"></div>';
+
+  openModal('📅 ' + calendarUserName, html, true);
+}
+
+async function showDayDetail(dateStr) {
+  var container = document.getElementById('calendarDayDetail');
+  if (!container) return;
+
+  var { data: punches } = await db.from('time_punches').select('*')
+    .eq('user_id', calendarUserId)
+    .eq('date', dateStr)
+    .order('time');
+  punches = punches || [];
+
+  var inOutPunches = punches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
+  var hours = calculateDayHours(inOutPunches);
+
+  var dateDisplay = formatDateDisplay(dateStr);
+  var isSuperAdmin = adminProfile && adminProfile.role === 'super_admin';
+
+  var html = '<div class="day-hours-summary">' +
+    '<div class="day-hours-value">' + hours.toFixed(2) + 'h</div>' +
+    '<div class="day-hours-label">' + dateDisplay + '</div>' +
+  '</div>';
+
+  // Super admin add punch button
+  if (isSuperAdmin) {
+    html += '<div style="margin-bottom:15px">' +
+      '<button class="action-btn add" onclick="showAddPunchForm(\'' + dateStr + '\')" style="padding:8px 16px;font-size:13px">➕ Añadir Fichaje</button>' +
+    '</div>';
+    html += '<div id="addPunchFormContainer"></div>';
+  }
+
+  if (!punches.length) {
+    html += '<div class="empty-state" style="padding:30px"><div class="empty-state-icon">📭</div><div class="empty-state-text">Sin fichajes este día</div></div>';
+  } else {
+    punches.forEach(function(p) {
+      var typeClass = p.punch_type === 'IN' ? 'in' : 'out';
+      var typeLabel = p.punch_type === 'IN' ? 'ENTRADA' : (p.punch_type === 'OUT' ? 'SALIDA' : p.punch_type);
+      var typeColorClass = p.punch_type === 'IN' ? 'in' : 'out';
+
+      html += '<div class="day-punch-item ' + typeClass + '" id="punch-' + p.id + '">' +
+        '<div class="punch-info">' +
+          '<span class="punch-type ' + typeColorClass + '">' + typeLabel + '</span>' +
+          '<span class="punch-time-display">' + (p.time || '').substring(0, 5) + '</span>' +
+        '</div>';
+
+      if (isSuperAdmin) {
+        html += '<div style="display:flex;gap:6px">' +
+          '<button class="holiday-action-btn edit" onclick="showEditPunchForm(\'' + p.id + '\',\'' + (p.time || '').substring(0, 5) + '\',\'' + dateStr + '\')">✏️</button>' +
+          '<button class="holiday-action-btn delete" onclick="deletePunch(\'' + p.id + '\',\'' + dateStr + '\')">🗑️</button>' +
+        '</div>';
+      }
+
+      html += '</div>';
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+
+// ========================================
+// TASK 6.2: SUPER ADMIN PUNCH CRUD
+// ========================================
+
+function showAddPunchForm(dateStr) {
+  var container = document.getElementById('addPunchFormContainer');
+  if (!container) return;
+  var now = new Date();
+  var defaultTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+  container.innerHTML = '<div style="background:var(--gray-50);padding:15px;border-radius:10px;margin-bottom:15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+    '<input type="time" id="newPunchTime" value="' + defaultTime + '" class="form-input" style="width:auto">' +
+    '<select id="newPunchType" class="form-select" style="width:auto">' +
+      '<option value="auto">Automático</option>' +
+      '<option value="IN">ENTRADA</option>' +
+      '<option value="OUT">SALIDA</option>' +
+    '</select>' +
+    '<button class="action-btn primary" onclick="saveNewPunch(\'' + dateStr + '\')" style="padding:8px 16px;font-size:13px">💾 Guardar</button>' +
+    '<button class="cancel-btn" onclick="document.getElementById(\'addPunchFormContainer\').innerHTML=\'\'" style="padding:8px 16px;font-size:13px">Cancelar</button>' +
+  '</div>';
+}
+
+async function saveNewPunch(dateStr) {
+  var timeVal = document.getElementById('newPunchTime').value;
+  var typeVal = document.getElementById('newPunchType').value;
+  if (!timeVal) { showToast('Introduce una hora', 'error'); return; }
+
+  // Auto-detect type based on existing punches
+  if (typeVal === 'auto') {
+    var { data: existing } = await db.from('time_punches').select('punch_type')
+      .eq('user_id', calendarUserId).eq('date', dateStr)
+      .in('punch_type', ['IN', 'OUT']).order('time', { ascending: false }).limit(1);
+    if (existing && existing.length > 0 && existing[0].punch_type === 'IN') {
+      typeVal = 'OUT';
+    } else {
+      typeVal = 'IN';
+    }
+  }
+
+  var { error } = await db.from('time_punches').insert({
+    user_id: calendarUserId,
+    date: dateStr,
+    time: timeVal + ':00',
+    punch_type: typeVal,
+    notes: 'Añadido por admin'
+  });
+
+  if (error) { showToast('Error al añadir fichaje: ' + error.message, 'error'); return; }
+  showToast('Fichaje añadido', 'success');
+  await showDayDetail(dateStr);
+  await renderCalendarModal();
+}
+
+function showEditPunchForm(punchId, currentTime, dateStr) {
+  var el = document.getElementById('punch-' + punchId);
+  if (!el) return;
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;width:100%">' +
+    '<input type="time" id="editPunchTime-' + punchId + '" value="' + currentTime + '" class="form-input" style="width:auto">' +
+    '<button class="action-btn primary" onclick="saveEditPunch(\'' + punchId + '\',\'' + dateStr + '\')" style="padding:6px 12px;font-size:12px">💾</button>' +
+    '<button class="cancel-btn" onclick="showDayDetail(\'' + dateStr + '\')" style="padding:6px 12px;font-size:12px">✕</button>' +
+  '</div>';
+}
+
+async function saveEditPunch(punchId, dateStr) {
+  var timeVal = document.getElementById('editPunchTime-' + punchId).value;
+  if (!timeVal) { showToast('Introduce una hora', 'error'); return; }
+
+  var { error } = await db.from('time_punches').update({
+    time: timeVal + ':00',
+    edited_at: new Date().toISOString()
+  }).eq('id', punchId);
+
+  if (error) { showToast('Error al editar: ' + error.message, 'error'); return; }
+  showToast('Fichaje actualizado', 'success');
+  await showDayDetail(dateStr);
+  await renderCalendarModal();
+}
+
+async function deletePunch(punchId, dateStr) {
+  var el = document.getElementById('punch-' + punchId);
+  if (el) el.style.opacity = '0.4';
+
+  var { error } = await db.from('time_punches').delete().eq('id', punchId);
+  if (error) {
+    if (el) el.style.opacity = '1';
+    showToast('Error al eliminar: ' + error.message, 'error');
+    return;
+  }
+  showToast('Fichaje eliminado', 'success');
+  await showDayDetail(dateStr);
+  await renderCalendarModal();
+}
+
+
+// ========================================
+// TASK 7.1: EDIT TEACHER MODAL
+// ========================================
+
+async function openEditTeacherModal(userId) {
+  var { data: profile, error } = await db.from('profiles').select('*').eq('id', userId).single();
+  if (error || !profile) { showToast('Error al cargar perfil', 'error'); return; }
+
+  var html = '<div style="margin-bottom:20px">' +
+    '<div class="teacher-name" style="font-size:20px">' + profile.name + '</div>' +
+    '<div class="teacher-email">' + (profile.email || '') + '</div>' +
+    '<span class="type-badge teacher" style="margin-top:8px;display:inline-block">Profesor</span>' +
+    (profile.status === 'Inactive' ? ' <span class="status-badge inactive">Inactivo</span>' : '') +
+  '</div>';
+
+  // Work hours section
+  html += '<div class="settings-section">' +
+    '<div class="settings-section-title">📊 Objetivo de Horas de Trabajo</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item highlight">' +
+        '<div class="setting-label">Horas Anuales Esperadas</div>' +
+        '<input type="number" class="setting-input" id="editExpectedHours" value="' + (profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) + '">' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Prep time section
+  html += '<div class="settings-section">' +
+    '<div class="settings-section-title">📚 Tiempo de Preparación (No Lectivo)</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Horas No Lectivas Anual</div>' +
+        '<input type="number" class="setting-input" id="editPrepTime" value="' + (profile.prep_time_yearly != null ? profile.prep_time_yearly : DEFAULTS.PREP_TIME_YEARLY) + '">' +
+        '<div class="form-hint" style="margin-top:6px">~' + ((profile.prep_time_yearly || DEFAULTS.PREP_TIME_YEARLY) / DEFAULTS.WORKING_WEEKS_PER_YEAR).toFixed(1) + 'h/semana</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Holiday allocations
+  html += '<div class="settings-section">' +
+    '<div class="settings-section-title">🏖️ Asignación de Permisos</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Vacaciones (días)</div>' +
+        '<input type="number" class="setting-input" id="editAnnualDays" value="' + (profile.annual_days != null ? profile.annual_days : DEFAULTS.ANNUAL_DAYS) + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empleado (días)</div>' +
+        '<input type="number" class="setting-input" id="editPersonalDays" value="' + (profile.personal_days != null ? profile.personal_days : DEFAULTS.PERSONAL_DAYS) + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empresa (días)</div>' +
+        '<input type="number" class="setting-input" id="editSchoolDays" value="' + (profile.school_days != null ? profile.school_days : DEFAULTS.SCHOOL_DAYS) + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Visita Médica (horas)</div>' +
+        '<input type="number" class="setting-input" id="editMedApptHours" value="' + (profile.med_appt_hours != null ? profile.med_appt_hours : DEFAULTS.MEDICAL_APPT_HOURS) + '">' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Save button
+  html += '<div class="btn-row">' +
+    '<button class="submit-btn" onclick="saveTeacherSettings(\'' + userId + '\')">💾 Guardar Cambios</button>' +
+    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+  '</div>';
+
+  // Deactivate button
+  html += '<div style="margin-top:20px;padding-top:20px;border-top:2px solid #fee2e2">' +
+    '<button class="action-btn" onclick="deactivateProfile(\'' + userId + '\',\'teacher\')" style="width:100%;padding:12px;background:#fff;border:2px solid var(--danger);color:var(--danger);border-radius:10px;font-weight:600;cursor:pointer">🗑️ Desactivar Profesor</button>' +
+  '</div>';
+
+  openModal('⚙️ Configuración de Profesor', html);
+}
+
+async function saveTeacherSettings(userId) {
+  var updates = {
+    expected_yearly_hours: parseInt(document.getElementById('editExpectedHours').value) || DEFAULTS.EXPECTED_YEARLY_HOURS,
+    prep_time_yearly: parseFloat(document.getElementById('editPrepTime').value) || DEFAULTS.PREP_TIME_YEARLY,
+    annual_days: parseInt(document.getElementById('editAnnualDays').value) || DEFAULTS.ANNUAL_DAYS,
+    personal_days: parseInt(document.getElementById('editPersonalDays').value) || DEFAULTS.PERSONAL_DAYS,
+    school_days: parseInt(document.getElementById('editSchoolDays').value) || DEFAULTS.SCHOOL_DAYS,
+    med_appt_hours: parseFloat(document.getElementById('editMedApptHours').value) || DEFAULTS.MEDICAL_APPT_HOURS
+  };
+
+  var { error } = await db.from('profiles').update(updates).eq('id', userId);
+  if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
+  showToast('Configuración guardada', 'success');
+  closeModal();
+  cachedTeachers = null;
+  cachedPunches = null;
+  await loadTeachersTable();
+}
+
+async function deactivateProfile(userId, type) {
+  var confirmHtml = '<div style="text-align:center;padding:20px">' +
+    '<div style="font-size:48px;margin-bottom:15px">⚠️</div>' +
+    '<div style="font-size:18px;font-weight:700;color:var(--danger);margin-bottom:10px">¿Desactivar este perfil?</div>' +
+    '<p style="color:var(--gray-500);margin-bottom:20px">El usuario no podrá acceder al sistema. Esta acción se puede revertir.</p>' +
+    '<div class="btn-row">' +
+      '<button class="submit-btn" style="background:var(--danger)" onclick="confirmDeactivate(\'' + userId + '\',\'' + type + '\')">Sí, Desactivar</button>' +
+      '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+    '</div>' +
+  '</div>';
+  openModal('Confirmar Desactivación', confirmHtml);
+}
+
+async function confirmDeactivate(userId, type) {
+  var { error } = await db.from('profiles').update({ status: 'Inactive' }).eq('id', userId);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Perfil desactivado', 'success');
+  closeModal();
+  cachedTeachers = null;
+  cachedAdmins = null;
+  cachedPunches = null;
+  if (type === 'teacher') await loadTeachersTable();
+  else await loadAdminWorkersTable();
+}
+
+// ========================================
+// TASK 7.2: EDIT ADMIN MODAL
+// ========================================
+
+async function openEditAdminModal(userId) {
+  var { data: profile, error } = await db.from('profiles').select('*').eq('id', userId).single();
+  if (error || !profile) { showToast('Error al cargar perfil', 'error'); return; }
+
+  var roleBadge = profile.role === 'super_admin' ? '<span class="type-badge super_admin">Super Admin</span>' : '<span class="type-badge admin">Admin</span>';
+
+  var html = '<div style="margin-bottom:20px">' +
+    '<div class="teacher-name" style="font-size:20px">' + profile.name + '</div>' +
+    '<div class="teacher-email">' + (profile.email || '') + '</div>' +
+    roleBadge +
+    (profile.status === 'Inactive' ? ' <span class="status-badge inactive">Inactivo</span>' : '') +
+  '</div>';
+
+  // Work hours section
+  html += '<div class="settings-section">' +
+    '<div class="settings-section-title">📊 Objetivo de Horas de Trabajo</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item highlight">' +
+        '<div class="setting-label">Horas Anuales Esperadas</div>' +
+        '<input type="number" class="setting-input" id="editAdminExpectedHours" value="' + (profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) + '">' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Holiday allocations (no prep time)
+  html += '<div class="settings-section">' +
+    '<div class="settings-section-title">🏖️ Asignación de Permisos</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Vacaciones (días)</div>' +
+        '<input type="number" class="setting-input" id="editAdminAnnualDays" value="' + (profile.annual_days != null ? profile.annual_days : ADMIN_DEFAULTS.ANNUAL_DAYS) + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empleado (días)</div>' +
+        '<input type="number" class="setting-input" id="editAdminPersonalDays" value="' + (profile.personal_days != null ? profile.personal_days : ADMIN_DEFAULTS.PERSONAL_DAYS) + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empresa (días)</div>' +
+        '<input type="number" class="setting-input" id="editAdminSchoolDays" value="' + (profile.school_days != null ? profile.school_days : ADMIN_DEFAULTS.SCHOOL_DAYS) + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Visita Médica (horas)</div>' +
+        '<input type="number" class="setting-input" id="editAdminMedApptHours" value="' + (profile.med_appt_hours != null ? profile.med_appt_hours : ADMIN_DEFAULTS.MEDICAL_APPT_HOURS) + '">' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Save button
+  html += '<div class="btn-row">' +
+    '<button class="submit-btn" onclick="saveAdminSettings(\'' + userId + '\')">💾 Guardar Cambios</button>' +
+    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+  '</div>';
+
+  // Deactivate button
+  html += '<div style="margin-top:20px;padding-top:20px;border-top:2px solid #fee2e2">' +
+    '<button class="action-btn" onclick="deactivateProfile(\'' + userId + '\',\'admin\')" style="width:100%;padding:12px;background:#fff;border:2px solid var(--danger);color:var(--danger);border-radius:10px;font-weight:600;cursor:pointer">🗑️ Desactivar Admin</button>' +
+  '</div>';
+
+  openModal('⚙️ Configuración de Admin', html);
+}
+
+async function saveAdminSettings(userId) {
+  var updates = {
+    expected_yearly_hours: parseInt(document.getElementById('editAdminExpectedHours').value) || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS,
+    annual_days: parseInt(document.getElementById('editAdminAnnualDays').value) || ADMIN_DEFAULTS.ANNUAL_DAYS,
+    personal_days: parseInt(document.getElementById('editAdminPersonalDays').value) || ADMIN_DEFAULTS.PERSONAL_DAYS,
+    school_days: parseInt(document.getElementById('editAdminSchoolDays').value) || ADMIN_DEFAULTS.SCHOOL_DAYS,
+    med_appt_hours: parseFloat(document.getElementById('editAdminMedApptHours').value) || ADMIN_DEFAULTS.MEDICAL_APPT_HOURS
+  };
+
+  var { error } = await db.from('profiles').update(updates).eq('id', userId);
+  if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
+  showToast('Configuración guardada', 'success');
+  closeModal();
+  cachedAdmins = null;
+  cachedPunches = null;
+  await loadAdminWorkersTable();
+}
+
+
+// ========================================
+// TASK 8.1: ADD TEACHER MODAL
+// ========================================
+
+function openAddTeacherModal() {
+  var html = '<div class="form-group">' +
+    '<label class="form-label">Nombre *</label>' +
+    '<input type="text" class="form-input" id="addTeacherName" placeholder="Nombre completo" oninput="this.value=this.value.toUpperCase()">' +
+  '</div>' +
+  '<div class="form-group">' +
+    '<label class="form-label">Correo Electrónico</label>' +
+    '<input type="email" class="form-input" id="addTeacherEmail" placeholder="email@ejemplo.com">' +
+  '</div>' +
+  '<div class="settings-section">' +
+    '<div class="settings-section-title">📊 Configuración</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item highlight">' +
+        '<div class="setting-label">Horas Anuales Esperadas</div>' +
+        '<input type="number" class="setting-input" id="addTeacherExpected" value="1230">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Horas No Lectivas Anual</div>' +
+        '<input type="number" class="setting-input" id="addTeacherPrep" value="70">' +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="settings-section">' +
+    '<div class="settings-section-title">🏖️ Asignación de Permisos</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Vacaciones (días)</div>' +
+        '<input type="number" class="setting-input" id="addTeacherAnnual" value="31">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empleado (días)</div>' +
+        '<input type="number" class="setting-input" id="addTeacherPersonal" value="3">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empresa (días)</div>' +
+        '<input type="number" class="setting-input" id="addTeacherSchool" value="4">' +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="btn-row">' +
+    '<button class="submit-btn" onclick="saveNewTeacher()">➕ Añadir Profesor</button>' +
+    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+  '</div>';
+
+  openModal('➕ Añadir Profesor', html);
+}
+
+async function saveNewTeacher() {
+  var name = (document.getElementById('addTeacherName').value || '').trim();
+  if (!name) { showToast('El nombre es obligatorio', 'error'); return; }
+
+  var email = (document.getElementById('addTeacherEmail').value || '').trim().toLowerCase();
+
+  // We need a user ID. For profiles without auth, generate a UUID
+  var newId = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+
+  var { error } = await db.from('profiles').insert({
+    id: newId,
+    name: name,
+    email: email || name.toLowerCase().replace(/\s+/g, '.') + '@worldclassbcn.com',
+    role: 'teacher',
+    status: 'Active',
+    expected_yearly_hours: parseInt(document.getElementById('addTeacherExpected').value) || 1230,
+    prep_time_yearly: parseFloat(document.getElementById('addTeacherPrep').value) || 70,
+    annual_days: parseInt(document.getElementById('addTeacherAnnual').value) || 31,
+    personal_days: parseInt(document.getElementById('addTeacherPersonal').value) || 3,
+    school_days: parseInt(document.getElementById('addTeacherSchool').value) || 4
+  });
+
+  if (error) { showToast('Error al añadir: ' + error.message, 'error'); return; }
+  showToast('Profesor añadido correctamente', 'success');
+  closeModal();
+  cachedTeachers = null;
+  cachedPunches = null;
+  await loadTeachersTable();
+  await loadStatsGrid();
+}
+
+// ========================================
+// TASK 8.2: ADD ADMIN MODAL
+// ========================================
+
+function openAddAdminModal() {
+  var html = '<div class="form-group">' +
+    '<label class="form-label">Nombre *</label>' +
+    '<input type="text" class="form-input" id="addAdminName" placeholder="Nombre completo" oninput="this.value=this.value.toUpperCase()">' +
+  '</div>' +
+  '<div class="form-group">' +
+    '<label class="form-label">Correo Electrónico *</label>' +
+    '<input type="email" class="form-input" id="addAdminEmail" placeholder="email@ejemplo.com">' +
+  '</div>' +
+  '<div class="settings-section">' +
+    '<div class="settings-section-title">📊 Configuración</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item highlight">' +
+        '<div class="setting-label">Horas Anuales Esperadas</div>' +
+        '<input type="number" class="setting-input" id="addAdminExpected" value="1500">' +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="settings-section">' +
+    '<div class="settings-section-title">🏖️ Asignación de Permisos</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Vacaciones (días)</div>' +
+        '<input type="number" class="setting-input" id="addAdminAnnual" value="31">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empleado (días)</div>' +
+        '<input type="number" class="setting-input" id="addAdminPersonal" value="3">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">D.R. Empresa (días)</div>' +
+        '<input type="number" class="setting-input" id="addAdminSchool" value="4">' +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="btn-row">' +
+    '<button class="submit-btn" onclick="saveNewAdmin()">➕ Añadir Admin</button>' +
+    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+  '</div>';
+
+  openModal('➕ Añadir Admin', html);
+}
+
+async function saveNewAdmin() {
+  var name = (document.getElementById('addAdminName').value || '').trim();
+  var email = (document.getElementById('addAdminEmail').value || '').trim().toLowerCase();
+  if (!name) { showToast('El nombre es obligatorio', 'error'); return; }
+  if (!email) { showToast('El correo es obligatorio', 'error'); return; }
+
+  var newId = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+
+  var { error } = await db.from('profiles').insert({
+    id: newId,
+    name: name,
+    email: email,
+    role: 'admin',
+    status: 'Active',
+    expected_yearly_hours: parseInt(document.getElementById('addAdminExpected').value) || 1500,
+    prep_time_yearly: 0,
+    annual_days: parseInt(document.getElementById('addAdminAnnual').value) || 31,
+    personal_days: parseInt(document.getElementById('addAdminPersonal').value) || 3,
+    school_days: parseInt(document.getElementById('addAdminSchool').value) || 4
+  });
+
+  if (error) { showToast('Error al añadir: ' + error.message, 'error'); return; }
+  showToast('Admin añadido correctamente', 'success');
+  closeModal();
+  cachedAdmins = null;
+  cachedPunches = null;
+  await loadAdminWorkersTable();
+  await loadStatsGrid();
+}
+
+
+// ========================================
+// TASK 9.1: PAID HOURS TAB
+// ========================================
+
+var cachedPaidHoursList = null;
+
+async function loadPaidHoursTab() {
+  // Populate teacher selector
+  var select = document.getElementById('paidHoursTeacher');
+  if (select && select.options.length <= 1) {
+    var { data: profiles } = await db.from('profiles').select('id, name, role').eq('status', 'Active').order('name');
+    profiles = profiles || [];
+    var opts = '<option value="">Seleccionar profesor...</option>';
+    profiles.forEach(function(p) {
+      opts += '<option value="' + p.id + '">' + p.name + (p.role !== 'teacher' ? ' (Admin)' : '') + '</option>';
+    });
+    select.innerHTML = opts;
+  }
+
+  // Set default date
+  var dateInput = document.getElementById('paidHoursDate');
+  if (dateInput && !dateInput.value) {
+    dateInput.value = formatDate(new Date());
+  }
+
+  // Populate month filter
+  var monthFilter = document.getElementById('paidHoursMonthFilter');
+  if (monthFilter && monthFilter.options.length <= 1) {
+    var now = new Date();
+    var monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    var opts2 = '<option value="">Todos los meses</option>';
+    for (var i = 0; i < 12; i++) {
+      var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      var val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      opts2 += '<option value="' + val + '">' + monthNames[d.getMonth()] + ' ' + d.getFullYear() + '</option>';
+    }
+    monthFilter.innerHTML = opts2;
+  }
+
+  await loadPaidHoursList();
+}
+
+async function loadPaidHoursList() {
+  var container = document.getElementById('paidHoursList');
+  if (!container) return;
+
+  var { data } = await db.from('paid_hours').select('*, profiles!paid_hours_user_id_fkey(name, email)')
+    .order('date', { ascending: false });
+  cachedPaidHoursList = data || [];
+
+  renderPaidHoursList(cachedPaidHoursList);
+}
+
+function renderPaidHoursList(items) {
+  var container = document.getElementById('paidHoursList');
+  if (!container) return;
+
+  if (!items || !items.length) {
+    container.innerHTML = '<div class="empty-state" style="padding:30px"><div class="empty-state-icon">💰</div><div class="empty-state-text">No hay horas pagadas registradas</div></div>';
+    return;
+  }
+
+  var html = '';
+  items.forEach(function(ph) {
+    var teacherName = ph.profiles ? ph.profiles.name : 'Desconocido';
+    var dateDisplay = new Date(ph.date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    html += '<div class="paid-hours-item" id="paid-' + ph.id + '">' +
+      '<div class="paid-info">' +
+        '<div class="paid-teacher">' + teacherName + '</div>' +
+        '<div class="paid-details">' + dateDisplay + (ph.notes ? ' · ' + ph.notes : '') + '</div>' +
+      '</div>' +
+      '<div class="paid-hours-value">' + parseFloat(ph.hours).toFixed(1) + 'h</div>' +
+      '<div class="paid-actions">' +
+        '<button class="holiday-action-btn edit" onclick="editPaidHours(\'' + ph.id + '\')">✏️</button>' +
+        '<button class="holiday-action-btn delete" onclick="deletePaidHours(\'' + ph.id + '\')">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+async function submitPaidHours() {
+  var userId = document.getElementById('paidHoursTeacher').value;
+  var hours = parseFloat(document.getElementById('paidHoursAmount').value);
+  var date = document.getElementById('paidHoursDate').value;
+  var notes = (document.getElementById('paidHoursNotes').value || '').trim();
+
+  if (!userId) { showToast('Selecciona un profesor', 'error'); return; }
+  if (!hours || hours <= 0) { showToast('Introduce horas válidas', 'error'); return; }
+  if (!date) { showToast('Selecciona una fecha', 'error'); return; }
+
+  var { error } = await db.from('paid_hours').insert({
+    user_id: userId,
+    hours: hours,
+    date: date,
+    notes: notes || null,
+    created_by: adminProfile.id
+  });
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Horas pagadas registradas', 'success');
+
+  // Reset form
+  document.getElementById('paidHoursAmount').value = '';
+  document.getElementById('paidHoursNotes').value = '';
+
+  cachedPaidHours = null;
+  await loadPaidHoursList();
+}
+
+async function editPaidHours(id) {
+  var item = cachedPaidHoursList ? cachedPaidHoursList.find(function(ph) { return ph.id === id; }) : null;
+  if (!item) return;
+
+  var teacherName = item.profiles ? item.profiles.name : 'Desconocido';
+
+  var html = '<div class="form-group">' +
+    '<label class="form-label">Profesor</label>' +
+    '<input type="text" class="form-input" value="' + teacherName + '" disabled>' +
+  '</div>' +
+  '<div class="form-group">' +
+    '<label class="form-label">Horas</label>' +
+    '<input type="number" class="form-input large" id="editPaidHoursAmount" value="' + item.hours + '" min="0.5" step="0.5">' +
+  '</div>' +
+  '<div class="form-group">' +
+    '<label class="form-label">Fecha</label>' +
+    '<input type="date" class="form-input" id="editPaidHoursDate" value="' + item.date + '">' +
+  '</div>' +
+  '<div class="form-group">' +
+    '<label class="form-label">Notas</label>' +
+    '<input type="text" class="form-input" id="editPaidHoursNotes" value="' + (item.notes || '') + '">' +
+  '</div>' +
+  '<div class="btn-row">' +
+    '<button class="submit-btn" onclick="saveEditPaidHours(\'' + id + '\')">💾 Guardar</button>' +
+    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+  '</div>';
+
+  openModal('✏️ Editar Horas Pagadas', html);
+}
+
+async function saveEditPaidHours(id) {
+  var hours = parseFloat(document.getElementById('editPaidHoursAmount').value);
+  var date = document.getElementById('editPaidHoursDate').value;
+  var notes = (document.getElementById('editPaidHoursNotes').value || '').trim();
+
+  if (!hours || hours <= 0) { showToast('Introduce horas válidas', 'error'); return; }
+  if (!date) { showToast('Selecciona una fecha', 'error'); return; }
+
+  var { error } = await db.from('paid_hours').update({ hours: hours, date: date, notes: notes || null }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Horas actualizadas', 'success');
+  closeModal();
+  cachedPaidHours = null;
+  await loadPaidHoursList();
+}
+
+async function deletePaidHours(id) {
+  var html = '<div style="text-align:center;padding:20px">' +
+    '<div style="font-size:48px;margin-bottom:15px">⚠️</div>' +
+    '<div style="font-size:18px;font-weight:700;color:var(--danger);margin-bottom:10px">¿Eliminar horas pagadas?</div>' +
+    '<p style="color:var(--gray-500);margin-bottom:20px">Esta acción no se puede deshacer.</p>' +
+    '<div class="btn-row">' +
+      '<button class="submit-btn" style="background:var(--danger)" onclick="confirmDeletePaidHours(\'' + id + '\')">Sí, Eliminar</button>' +
+      '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+    '</div>' +
+  '</div>';
+  openModal('Confirmar Eliminación', html);
+}
+
+async function confirmDeletePaidHours(id) {
+  var { error } = await db.from('paid_hours').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Horas eliminadas', 'success');
+  closeModal();
+  cachedPaidHours = null;
+  await loadPaidHoursList();
+}
+
+function filterPaidHours() {
+  if (!cachedPaidHoursList) return;
+  var search = (document.getElementById('paidHoursSearch').value || '').toLowerCase();
+  var monthVal = document.getElementById('paidHoursMonthFilter').value;
+
+  var filtered = cachedPaidHoursList.filter(function(ph) {
+    var name = ph.profiles ? ph.profiles.name.toLowerCase() : '';
+    var email = ph.profiles ? (ph.profiles.email || '').toLowerCase() : '';
+    var notes = (ph.notes || '').toLowerCase();
+    var matchSearch = !search || name.includes(search) || email.includes(search) || notes.includes(search);
+    var matchMonth = !monthVal || ph.date.startsWith(monthVal);
+    return matchSearch && matchMonth;
+  });
+
+  renderPaidHoursList(filtered);
+}
+
+
+// ========================================
+// TASK 10.1: FREEZE TAB
+// ========================================
+
+async function loadFreezeTab() {
+  var { data: config } = await db.from('app_config').select('*').eq('key', 'FreezeDate').single();
+  var freezeDate = config && config.value ? config.value : '';
+
+  var freezeCard = document.getElementById('freezeCard');
+  var freezeIcon = document.getElementById('freezeIcon');
+  var freezeTitle = document.getElementById('freezeTitle');
+  var freezeStatusValue = document.getElementById('freezeStatusValue');
+  var freezeActions = document.getElementById('freezeActions');
+
+  if (!freezeCard || !freezeActions) return;
+
+  var yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = formatDate(yesterday);
+
+  if (freezeDate) {
+    freezeCard.classList.add('active');
+    freezeIcon.textContent = '🔒';
+    freezeTitle.textContent = 'Fichajes Congelados';
+    freezeStatusValue.textContent = 'Congelado hasta: ' + new Date(freezeDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    freezeStatusValue.classList.add('frozen');
+
+    var btns = '';
+    if (freezeDate < yesterdayStr) {
+      btns += '<button class="freeze-btn freeze" onclick="freezePunches()">🔒 Extender hasta ayer</button>';
+    }
+    btns += '<button class="freeze-btn unfreeze" onclick="unfreezePunches()">🔓 Descongelar todo</button>';
+    freezeActions.innerHTML = btns;
+  } else {
+    freezeCard.classList.remove('active');
+    freezeIcon.textContent = '🔓';
+    freezeTitle.textContent = 'Sin Congelación';
+    freezeStatusValue.textContent = 'No hay fichajes congelados';
+    freezeStatusValue.classList.remove('frozen');
+    freezeActions.innerHTML = '<button class="freeze-btn freeze" onclick="freezePunches()">🔒 Congelar hasta ayer</button>';
+  }
+}
+
+async function freezePunches() {
+  var yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = formatDate(yesterday);
+
+  var { error } = await db.from('app_config').upsert({ key: 'FreezeDate', value: yesterdayStr, description: 'Last frozen date (inclusive)' });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Fichajes congelados hasta ' + yesterdayStr, 'success');
+  await loadFreezeTab();
+}
+
+async function unfreezePunches() {
+  var { error } = await db.from('app_config').upsert({ key: 'FreezeDate', value: '', description: 'Last frozen date (inclusive)' });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Fichajes descongelados', 'success');
+  await loadFreezeTab();
+}
+
+
+// ========================================
+// TASK 11.1: VACACIONES STATS (loadHolidayData)
+// ========================================
+
+async function loadHolidayData() {
+  try {
+    // Load all holiday requests
+    var { data: allRequests } = await db.from('holiday_requests').select('*');
+    allRequests = allRequests || [];
+
+    // Load all active profiles
+    var { data: profiles } = await db.from('profiles').select('*').eq('status', 'Active');
+    profiles = profiles || [];
+
+    // Pending count
+    var pendingCount = allRequests.filter(function(r) { return r.status === 'Pending'; }).length;
+    document.getElementById('statPendingRequests').textContent = pendingCount;
+
+    // Update pending badges
+    var pendingBadge = document.getElementById('pendingBadge');
+    if (pendingBadge) {
+      pendingBadge.textContent = pendingCount;
+      pendingBadge.style.display = pendingCount > 0 ? 'inline' : 'none';
+    }
+    var solicitudesBadge = document.getElementById('solicitudesBadge');
+    if (solicitudesBadge) {
+      solicitudesBadge.textContent = pendingCount;
+      solicitudesBadge.style.display = pendingCount > 0 ? 'inline' : 'none';
+    }
+    var pendientesBadge = document.getElementById('pendientesBadge');
+    if (pendientesBadge) {
+      pendientesBadge.textContent = pendingCount;
+      pendientesBadge.style.display = pendingCount > 0 ? 'inline' : 'none';
+    }
+
+    // Approved requests
+    var approved = allRequests.filter(function(r) { return r.status === 'Approved'; });
+
+    // Annual usage
+    var totalAnnualDays = profiles.reduce(function(s, p) { return s + (p.annual_days || DEFAULTS.ANNUAL_DAYS); }, 0);
+    var usedAnnualDays = approved.filter(function(r) { return r.type === 'Annual'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+    var annualPercent = totalAnnualDays > 0 ? Math.round((usedAnnualDays / totalAnnualDays) * 100) : 0;
+    document.getElementById('statAnnualUsage').textContent = annualPercent + '%';
+    document.getElementById('statAnnualDays').textContent = usedAnnualDays + ' de ' + totalAnnualDays + ' días';
+    var annualBar = document.getElementById('statAnnualBar');
+    if (annualBar) annualBar.style.width = Math.min(annualPercent, 100) + '%';
+
+    // Personal usage
+    var totalPersonalDays = profiles.reduce(function(s, p) { return s + (p.personal_days || DEFAULTS.PERSONAL_DAYS); }, 0);
+    var usedPersonalDays = approved.filter(function(r) { return r.type === 'Personal'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+    var personalPercent = totalPersonalDays > 0 ? Math.round((usedPersonalDays / totalPersonalDays) * 100) : 0;
+    document.getElementById('statPersonalUsage').textContent = personalPercent + '%';
+    document.getElementById('statPersonalDays').textContent = usedPersonalDays + ' de ' + totalPersonalDays + ' días';
+    var personalBar = document.getElementById('statPersonalBar');
+    if (personalBar) personalBar.style.width = Math.min(personalPercent, 100) + '%';
+
+    // School usage
+    var totalSchoolDays = profiles.reduce(function(s, p) { return s + (p.school_days || DEFAULTS.SCHOOL_DAYS); }, 0);
+    var usedSchoolDays = approved.filter(function(r) { return r.type === 'School'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+    var schoolPercent = totalSchoolDays > 0 ? Math.round((usedSchoolDays / totalSchoolDays) * 100) : 0;
+    document.getElementById('statSchoolUsage').textContent = schoolPercent + '%';
+    document.getElementById('statSchoolDays').textContent = usedSchoolDays + ' de ' + totalSchoolDays + ' días';
+    var schoolBar = document.getElementById('statSchoolBar');
+    if (schoolBar) schoolBar.style.width = Math.min(schoolPercent, 100) + '%';
+
+    // Load pending requests by default
+    await loadPendingRequests();
+
+  } catch (err) {
+    console.error('Error loading holiday data:', err);
+  }
+}
+
+// ========================================
+// TASK 11.2: PENDING REQUESTS
+// ========================================
+
+async function loadPendingRequests() {
+  var tbody = document.getElementById('pendingRequestsTable');
+  if (!tbody) return;
+
+  try {
+    var { data } = await db.from('holiday_requests')
+      .select('*, profiles!holiday_requests_user_id_fkey(name, email)')
+      .eq('status', 'Pending')
+      .order('created_at', { ascending: false });
+    data = data || [];
+
+    var countLabel = document.getElementById('pendingCountLabel');
+    if (countLabel) countLabel.textContent = data.length + ' solicitudes';
+
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="padding:40px">' +
+        '<div class="empty-state-icon">✅</div>' +
+        '<div class="empty-state-text">No hay solicitudes pendientes</div>' +
+        '<p style="color:var(--gray-400);margin-top:8px">¡Todo al día!</p>' +
+      '</td></tr>';
+      return;
+    }
+
+    var rows = data.map(function(r) {
+      var name = r.profiles ? r.profiles.name : 'Desconocido';
+      var email = r.profiles ? r.profiles.email : '';
+      var typeInfo = HOLIDAY_TYPES[r.type] || { emoji: '📋', shortName: r.type, color: 'permiso' };
+      var startDisplay = new Date(r.start_date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      var endDisplay = new Date(r.end_date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      var dateRange = startDisplay + (r.start_date !== r.end_date ? ' hasta ' + endDisplay : '');
+      var requestDate = new Date(r.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
+      return '<tr>' +
+        '<td><div class="teacher-name">' + name + '</div><div class="teacher-email">' + email + '</div></td>' +
+        '<td><span class="type-badge ' + typeInfo.color + '">' + typeInfo.emoji + ' ' + typeInfo.shortName + '</span></td>' +
+        '<td>' + dateRange + '</td>' +
+        '<td>' + r.days + '</td>' +
+        '<td>' + (r.reason || '-') + '</td>' +
+        '<td>' + requestDate + '</td>' +
+        '<td>' +
+          '<button class="action-btn-small approve" onclick="approveRequest(\'' + r.id + '\')">✓ Aprobar</button>' +
+          '<button class="action-btn-small reject" onclick="rejectRequest(\'' + r.id + '\')">✕ Rechazar</button>' +
+        '</td>' +
+      '</tr>';
+    });
+
+    tbody.innerHTML = rows.join('');
+
+  } catch (err) {
+    console.error('Error loading pending requests:', err);
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error al cargar solicitudes</td></tr>';
+  }
+}
+
+async function approveRequest(id) {
+  var { error } = await db.from('holiday_requests').update({
+    status: 'Approved',
+    processed_by: adminProfile.id,
+    processed_at: new Date().toISOString()
+  }).eq('id', id);
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Solicitud aprobada', 'success');
+  await loadPendingRequests();
+  await loadHolidayData();
+}
+
+async function rejectRequest(id) {
+  var { error } = await db.from('holiday_requests').update({
+    status: 'Rejected',
+    processed_by: adminProfile.id,
+    processed_at: new Date().toISOString()
+  }).eq('id', id);
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Solicitud rechazada', 'success');
+  await loadPendingRequests();
+  await loadHolidayData();
+}
+
+
+// ========================================
+// TASK 11.3: APPROVED REQUESTS
+// ========================================
+
+var cachedApprovedRequests = null;
+
+async function loadApprovedRequests() {
+  var tbody = document.getElementById('approvedRequestsTable');
+  if (!tbody) return;
+
+  try {
+    var { data } = await db.from('holiday_requests')
+      .select('*, profiles!holiday_requests_user_id_fkey(name, email)')
+      .eq('status', 'Approved')
+      .order('start_date', { ascending: false });
+    cachedApprovedRequests = data || [];
+
+    renderApprovedRequests(cachedApprovedRequests);
+
+  } catch (err) {
+    console.error('Error loading approved requests:', err);
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error al cargar</td></tr>';
+  }
+}
+
+function renderApprovedRequests(items) {
+  var tbody = document.getElementById('approvedRequestsTable');
+  if (!tbody) return;
+
+  if (!items || !items.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="padding:40px">' +
+      '<div class="empty-state-icon">📋</div><div class="empty-state-text">No hay solicitudes aprobadas</div></td></tr>';
+    return;
+  }
+
+  var rows = items.map(function(r) {
+    var name = r.profiles ? r.profiles.name : 'Desconocido';
+    var email = r.profiles ? r.profiles.email : '';
+    var typeInfo = HOLIDAY_TYPES[r.type] || { emoji: '📋', shortName: r.type, color: 'permiso' };
+    var startDisplay = new Date(r.start_date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    var endDisplay = new Date(r.end_date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    var dateRange = startDisplay + (r.start_date !== r.end_date ? ' hasta ' + endDisplay : '');
+    var approvedBy = r.processed_by ? 'Admin' : '-';
+    var approvedDate = r.processed_at ? new Date(r.processed_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '';
+
+    return '<tr>' +
+      '<td><div class="teacher-name">' + name + '</div><div class="teacher-email">' + email + '</div></td>' +
+      '<td><span class="type-badge ' + typeInfo.color + '">' + typeInfo.emoji + ' ' + typeInfo.shortName + '</span></td>' +
+      '<td>' + dateRange + '</td>' +
+      '<td>' + r.days + '</td>' +
+      '<td>' + (r.reason || '-') + '</td>' +
+      '<td>' + approvedBy + (approvedDate ? ' · ' + approvedDate : '') + '</td>' +
+      '<td><button class="action-btn-small reject" onclick="deleteApprovedRequest(\'' + r.id + '\')">🗑️ Eliminar</button></td>' +
+    '</tr>';
+  });
+
+  tbody.innerHTML = rows.join('');
+}
+
+async function deleteApprovedRequest(id) {
+  var html = '<div style="text-align:center;padding:20px">' +
+    '<div style="font-size:48px;margin-bottom:15px">⚠️</div>' +
+    '<div style="font-size:18px;font-weight:700;color:var(--danger);margin-bottom:10px">¿Eliminar solicitud aprobada?</div>' +
+    '<p style="color:var(--gray-500);margin-bottom:20px">Los días se restaurarán al saldo del empleado.</p>' +
+    '<div class="btn-row">' +
+      '<button class="submit-btn" style="background:var(--danger)" onclick="confirmDeleteApproved(\'' + id + '\')">Sí, Eliminar</button>' +
+      '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+    '</div>' +
+  '</div>';
+  openModal('Confirmar Eliminación', html);
+}
+
+async function confirmDeleteApproved(id) {
+  var { error } = await db.from('holiday_requests').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Solicitud eliminada', 'success');
+  closeModal();
+  cachedHolidays = null;
+  await loadApprovedRequests();
+  await loadHolidayData();
+}
+
+function filterApprovedRequests() {
+  if (!cachedApprovedRequests) return;
+  var search = (document.getElementById('approvedSearch').value || '').toLowerCase();
+  var typeFilter = document.getElementById('approvedTypeFilter').value;
+
+  var filtered = cachedApprovedRequests.filter(function(r) {
+    var name = r.profiles ? r.profiles.name.toLowerCase() : '';
+    var email = r.profiles ? (r.profiles.email || '').toLowerCase() : '';
+    var matchSearch = !search || name.includes(search) || email.includes(search);
+    var matchType = !typeFilter || r.type === typeFilter;
+    return matchSearch && matchType;
+  });
+
+  renderApprovedRequests(filtered);
+}
+
+
+// ========================================
+// TASK 12.1: HOLIDAY OVERVIEW
+// ========================================
+
+var cachedOverviewData = null;
+
+async function loadHolidayOverview() {
+  var tbody = document.getElementById('holidayOverviewTable');
+  if (!tbody) return;
+
+  try {
+    // Load all profiles
+    var { data: profiles } = await db.from('profiles').select('*').eq('status', 'Active').order('name');
+    profiles = profiles || [];
+
+    // Load all holiday requests
+    var { data: requests } = await db.from('holiday_requests').select('*');
+    requests = requests || [];
+
+    cachedOverviewData = profiles.map(function(p) {
+      var userRequests = requests.filter(function(r) { return r.user_id === p.id; });
+      var approved = userRequests.filter(function(r) { return r.status === 'Approved'; });
+      var pending = userRequests.filter(function(r) { return r.status === 'Pending'; });
+
+      var annualUsed = approved.filter(function(r) { return r.type === 'Annual'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+      var annualPending = pending.filter(function(r) { return r.type === 'Annual'; }).length;
+      var personalUsed = approved.filter(function(r) { return r.type === 'Personal'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+      var personalPending = pending.filter(function(r) { return r.type === 'Personal'; }).length;
+      var schoolUsed = approved.filter(function(r) { return r.type === 'School'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+      var medicalUsed = approved.filter(function(r) { return r.type === 'Medical'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+      var medicalPending = pending.filter(function(r) { return r.type === 'Medical'; }).length;
+      var medApptUsed = approved.filter(function(r) { return r.type === 'MedAppt'; }).reduce(function(s, r) { return s + (parseFloat(r.hours) || 0); }, 0);
+      var medApptPending = pending.filter(function(r) { return r.type === 'MedAppt'; }).length;
+      var permisoUsed = approved.filter(function(r) { return r.type === 'Permiso'; }).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+      var permisoPending = pending.filter(function(r) { return r.type === 'Permiso'; }).length;
+      var totalPending = pending.length;
+
+      return {
+        profile: p,
+        annualUsed: annualUsed, annualTotal: p.annual_days || DEFAULTS.ANNUAL_DAYS, annualPending: annualPending,
+        personalUsed: personalUsed, personalTotal: p.personal_days || DEFAULTS.PERSONAL_DAYS, personalPending: personalPending,
+        schoolUsed: schoolUsed, schoolTotal: p.school_days || DEFAULTS.SCHOOL_DAYS,
+        medicalUsed: medicalUsed, medicalPending: medicalPending,
+        medApptUsed: medApptUsed, medApptTotal: p.med_appt_hours || DEFAULTS.MEDICAL_APPT_HOURS, medApptPending: medApptPending,
+        permisoUsed: permisoUsed, permisoPending: permisoPending,
+        totalPending: totalPending
+      };
+    });
+
+    renderHolidayOverview(cachedOverviewData);
+
+  } catch (err) {
+    console.error('Error loading holiday overview:', err);
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Error al cargar</td></tr>';
+  }
+}
+
+function renderHolidayOverview(items) {
+  var tbody = document.getElementById('holidayOverviewTable');
+  if (!tbody) return;
+
+  if (!items || !items.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay empleados activos</td></tr>';
+    return;
+  }
+
+  var rows = items.map(function(d) {
+    var p = d.profile;
+    var typeBadge = p.role === 'teacher'
+      ? '<span class="type-badge teacher">PROF</span>'
+      : '<span class="type-badge admin">ADMIN</span>';
+
+    var pendingBadge = d.totalPending > 0
+      ? '<span class="status-badge pending">' + d.totalPending + '</span>'
+      : '<span style="color:var(--gray-400)">0</span>';
+
+    function holidayCell(used, total, pending) {
+      var html = '<div class="holiday-cell"><span class="holiday-used">' + used + '</span><span class="holiday-total"> / ' + total + '</span>';
+      if (pending > 0) html += '<div class="holiday-pending">⏳ ' + pending + ' pend.</div>';
+      html += '</div>';
+      return html;
+    }
+
+    function holidayCellNolimit(used, pending) {
+      var html = '<div class="holiday-cell"><span class="holiday-used">' + used + '</span>';
+      if (pending > 0) html += '<div class="holiday-pending">⏳ ' + pending + ' pend.</div>';
+      html += '</div>';
+      return html;
+    }
+
+    return '<tr>' +
+      '<td style="text-align:left"><div class="teacher-name">' + p.name + '</div><div class="teacher-email">' + (p.email || '') + '</div></td>' +
+      '<td>' + typeBadge + '</td>' +
+      '<td>' + holidayCell(d.annualUsed, d.annualTotal, d.annualPending) + '</td>' +
+      '<td>' + holidayCell(d.personalUsed, d.personalTotal, d.personalPending) + '</td>' +
+      '<td>' + holidayCell(d.schoolUsed, d.schoolTotal, 0) + '</td>' +
+      '<td>' + holidayCellNolimit(d.medicalUsed, d.medicalPending) + '</td>' +
+      '<td>' + holidayCell(d.medApptUsed + 'h', d.medApptTotal + 'h', d.medApptPending) + '</td>' +
+      '<td>' + holidayCellNolimit(d.permisoUsed, d.permisoPending) + '</td>' +
+      '<td>' + pendingBadge + '</td>' +
+    '</tr>';
+  });
+
+  tbody.innerHTML = rows.join('');
+}
+
+function filterHolidayOverview() {
+  if (!cachedOverviewData) return;
+  var search = (document.getElementById('overviewSearch').value || '').toLowerCase();
+
+  var filtered = cachedOverviewData.filter(function(d) {
+    var name = d.profile.name.toLowerCase();
+    var email = (d.profile.email || '').toLowerCase();
+    return !search || name.includes(search) || email.includes(search);
+  });
+
+  renderHolidayOverview(filtered);
+}
+
+
+// ========================================
+// TASK 13.1: HOLIDAY CALENDAR
+// ========================================
+
+var calendarViewOffset = 0;
+
+async function loadHolidayCalendar() {
+  var grid = document.getElementById('holidayCalendarGrid');
+  if (!grid) return;
+
+  var now = new Date();
+  var d = new Date(now.getFullYear(), now.getMonth() + calendarViewOffset, 1);
+  var year = d.getFullYear();
+  var month = d.getMonth();
+  var monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var firstDayOfWeek = new Date(year, month, 1).getDay();
+
+  var titleEl = document.getElementById('calendarMonthTitle');
+  if (titleEl) {
+    titleEl.innerHTML = monthNames[month] + ' ' + year +
+      (calendarViewOffset === 0 ? ' <span class="actual-badge">ACTUAL</span>' : '');
+  }
+  var nextBtn = document.getElementById('calendarNextBtn');
+  if (nextBtn) nextBtn.disabled = calendarViewOffset >= 0;
+
+  var startDate = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+  var endDate = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(daysInMonth).padStart(2, '0');
+
+  // Load school holidays
+  var { data: schoolHolidays } = await db.from('school_holidays').select('*');
+  schoolHolidays = schoolHolidays || [];
+
+  // Build school holiday date map
+  var schoolHolidayMap = {};
+  schoolHolidays.forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      schoolHolidayMap[formatDate(cur)] = h.name;
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  // Load approved holiday requests for this month
+  var { data: holidays } = await db.from('holiday_requests')
+    .select('*, profiles!holiday_requests_user_id_fkey(name, email)')
+    .eq('status', 'Approved')
+    .lte('start_date', endDate)
+    .gte('end_date', startDate);
+  holidays = holidays || [];
+
+  // Build holiday map by date
+  var holidayMap = {};
+  holidays.forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      var ds = formatDate(cur);
+      if (ds >= startDate && ds <= endDate) {
+        if (!holidayMap[ds]) holidayMap[ds] = [];
+        holidayMap[ds].push(h);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  var todayStr = formatDate(new Date());
+
+  // Render grid
+  var html = '';
+  var dayHeaders = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  dayHeaders.forEach(function(dh) {
+    html += '<div class="calendar-view-header">' + dh + '</div>';
+  });
+
+  for (var e = 0; e < firstDayOfWeek; e++) {
+    html += '<div class="calendar-view-cell empty"></div>';
+  }
+
+  for (var day = 1; day <= daysInMonth; day++) {
+    var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    var isSchoolHoliday = schoolHolidayMap[dateStr];
+    var dayHolidays = holidayMap[dateStr] || [];
+    var isToday = dateStr === todayStr;
+
+    var classes = 'calendar-view-cell';
+    if (isSchoolHoliday) classes += ' school-holiday';
+    if (dayHolidays.length > 0) classes += ' has-holidays';
+    if (isToday) classes += ' today';
+
+    html += '<div class="' + classes + '" onclick="openCalendarDayDetail(\'' + dateStr + '\')">';
+    html += '<div class="calendar-view-day-num">' + day + '</div>';
+
+    if (isSchoolHoliday) {
+      html += '<div class="calendar-view-school-name">' + isSchoolHoliday + '</div>';
+    }
+
+    if (dayHolidays.length > 0) {
+      html += '<div class="calendar-view-teachers">';
+      var maxShow = 3;
+      for (var i = 0; i < Math.min(dayHolidays.length, maxShow); i++) {
+        var h = dayHolidays[i];
+        var typeInfo = HOLIDAY_TYPES[h.type] || { color: 'permiso' };
+        var teacherName = h.profiles ? h.profiles.name.split(' ')[0] : '?';
+        html += '<div class="calendar-view-teacher-badge ' + typeInfo.color + '">' + teacherName + '</div>';
+      }
+      if (dayHolidays.length > maxShow) {
+        html += '<div class="calendar-view-more">+' + (dayHolidays.length - maxShow) + ' más</div>';
+      }
+      html += '</div>';
+    }
+
+    html += '</div>';
+  }
+
+  grid.innerHTML = html;
+}
+
+function changeCalendarMonth(delta) {
+  if (delta > 0 && calendarViewOffset >= 0) return;
+  calendarViewOffset += delta;
+  if (calendarViewOffset > 0) calendarViewOffset = 0;
+  loadHolidayCalendar();
+}
+
+function openCalendarDayDetail(dateStr) {
+  // Gather data for this day from the DOM-rendered calendar
+  // Re-query for the detail modal
+  showCalendarDayModal(dateStr);
+}
+
+async function showCalendarDayModal(dateStr) {
+  var dateDisplay = formatDateDisplay(dateStr);
+
+  // Check school holiday
+  var { data: schoolHolidays } = await db.from('school_holidays').select('*');
+  schoolHolidays = schoolHolidays || [];
+  var schoolHolidayName = null;
+  schoolHolidays.forEach(function(h) {
+    if (dateStr >= h.start_date && dateStr <= h.end_date) {
+      schoolHolidayName = h.name;
+    }
+  });
+
+  // Load holidays for this day
+  var { data: holidays } = await db.from('holiday_requests')
+    .select('*, profiles!holiday_requests_user_id_fkey(name, email)')
+    .eq('status', 'Approved')
+    .lte('start_date', dateStr)
+    .gte('end_date', dateStr);
+  holidays = holidays || [];
+
+  var html = '<div style="margin-bottom:15px;font-size:16px;color:var(--gray-500)">' + dateDisplay + '</div>';
+
+  if (schoolHolidayName) {
+    html += '<div style="background:#fef3c7;padding:12px 16px;border-radius:10px;margin-bottom:15px;color:#92400e;font-weight:600">' +
+      '🏫 ' + schoolHolidayName + '</div>';
+  }
+
+  if (!holidays.length) {
+    html += '<div class="empty-state" style="padding:30px"><div class="empty-state-icon">📅</div><div class="empty-state-text">Nadie de vacaciones este día</div></div>';
+  } else {
+    holidays.forEach(function(h) {
+      var typeInfo = HOLIDAY_TYPES[h.type] || { emoji: '📋', shortName: h.type, color: 'permiso' };
+      var name = h.profiles ? h.profiles.name : 'Desconocido';
+      var email = h.profiles ? h.profiles.email : '';
+
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-50);border-radius:10px;margin-bottom:8px">' +
+        '<span class="type-badge ' + typeInfo.color + '">' + typeInfo.emoji + ' ' + typeInfo.shortName + '</span>' +
+        '<div><div class="teacher-name">' + name + '</div><div class="teacher-email">' + email + '</div>' +
+        (h.reason ? '<div style="font-size:12px;color:var(--gray-500);margin-top:2px">' + h.reason + '</div>' : '') +
+        '</div></div>';
+    });
+  }
+
+  openModal('📅 Detalle del Día', html);
+}
+
+
+// ========================================
+// TASK 14.1: D.R. EMPRESA
+// ========================================
+
+var cachedDREmpresaList = null;
+
+async function loadDREmpresa() {
+  // Populate employee dropdown
+  var teachersGroup = document.getElementById('drEmpresaTeachers');
+  var adminsGroup = document.getElementById('drEmpresaAdmins');
+
+  if (teachersGroup && teachersGroup.children.length === 0) {
+    var { data: profiles } = await db.from('profiles').select('id, name, role').eq('status', 'Active').order('name');
+    profiles = profiles || [];
+
+    var teacherOpts = '';
+    var adminOpts = '';
+    profiles.forEach(function(p) {
+      var opt = '<option value="' + p.id + '">' + p.name + '</option>';
+      if (p.role === 'teacher') teacherOpts += opt;
+      else adminOpts += opt;
+    });
+    if (teachersGroup) teachersGroup.innerHTML = teacherOpts;
+    if (adminsGroup) adminsGroup.innerHTML = adminOpts;
+  }
+
+  // Set default date
+  var dateInput = document.getElementById('drEmpresaDate');
+  if (dateInput && !dateInput.value) dateInput.value = formatDate(new Date());
+
+  // Load assigned days
+  await loadDREmpresaList();
+}
+
+async function loadDREmpresaList() {
+  var container = document.getElementById('drEmpresaList');
+  if (!container) return;
+
+  var { data } = await db.from('holiday_requests')
+    .select('*, profiles!holiday_requests_user_id_fkey(name, email)')
+    .eq('type', 'School')
+    .eq('status', 'Approved')
+    .order('start_date', { ascending: false });
+  cachedDREmpresaList = data || [];
+
+  renderDREmpresaList(cachedDREmpresaList);
+}
+
+function renderDREmpresaList(items) {
+  var container = document.getElementById('drEmpresaList');
+  if (!container) return;
+
+  if (!items || !items.length) {
+    container.innerHTML = '<div class="empty-state" style="padding:30px"><div class="empty-state-icon">🏢</div><div class="empty-state-text">No hay D.R. Empresa asignados</div></div>';
+    return;
+  }
+
+  var html = '';
+  items.forEach(function(r) {
+    var name = r.profiles ? r.profiles.name : 'Desconocido';
+    var dateDisplay = new Date(r.start_date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    var createdDate = new Date(r.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
+    html += '<div class="assigned-day-item">' +
+      '<div class="day-info">' +
+        '<div class="day-teacher">' + name + '</div>' +
+        '<div class="day-date">📅 ' + dateDisplay + '</div>' +
+        '<div class="day-meta">Asignado el ' + createdDate + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px">' +
+        '<button class="holiday-action-btn edit" onclick="editDREmpresa(\'' + r.id + '\',\'' + r.start_date + '\')">✏️</button>' +
+        '<button class="holiday-action-btn delete" onclick="deleteDREmpresa(\'' + r.id + '\')">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+async function assignDREmpresa() {
+  var userId = document.getElementById('drEmpresaEmployee').value;
+  var date = document.getElementById('drEmpresaDate').value;
+
+  if (!userId) { showToast('Selecciona un empleado', 'error'); return; }
+  if (!date) { showToast('Selecciona una fecha', 'error'); return; }
+
+  var { error } = await db.from('holiday_requests').insert({
+    user_id: userId,
+    start_date: date,
+    end_date: date,
+    days: 1,
+    type: 'School',
+    status: 'Approved',
+    processed_by: adminProfile.id,
+    processed_at: new Date().toISOString()
+  });
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('D.R. Empresa asignado', 'success');
+  cachedHolidays = null;
+  await loadDREmpresaList();
+}
+
+function editDREmpresa(id, currentDate) {
+  var html = '<div class="form-group">' +
+    '<label class="form-label">Nueva Fecha</label>' +
+    '<input type="date" class="form-input" id="editDREmpresaDate" value="' + currentDate + '">' +
+  '</div>' +
+  '<div class="btn-row">' +
+    '<button class="submit-btn" onclick="saveEditDREmpresa(\'' + id + '\')">💾 Guardar</button>' +
+    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+  '</div>';
+  openModal('✏️ Editar D.R. Empresa', html);
+}
+
+async function saveEditDREmpresa(id) {
+  var date = document.getElementById('editDREmpresaDate').value;
+  if (!date) { showToast('Selecciona una fecha', 'error'); return; }
+
+  var { error } = await db.from('holiday_requests').update({ start_date: date, end_date: date }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('D.R. Empresa actualizado', 'success');
+  closeModal();
+  cachedHolidays = null;
+  await loadDREmpresaList();
+}
+
+async function deleteDREmpresa(id) {
+  var html = '<div style="text-align:center;padding:20px">' +
+    '<div style="font-size:48px;margin-bottom:15px">⚠️</div>' +
+    '<div style="font-size:18px;font-weight:700;color:var(--danger);margin-bottom:10px">¿Eliminar D.R. Empresa?</div>' +
+    '<p style="color:var(--gray-500);margin-bottom:20px">El día se restaurará al saldo del empleado.</p>' +
+    '<div class="btn-row">' +
+      '<button class="submit-btn" style="background:var(--danger)" onclick="confirmDeleteDREmpresa(\'' + id + '\')">Sí, Eliminar</button>' +
+      '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+    '</div>' +
+  '</div>';
+  openModal('Confirmar Eliminación', html);
+}
+
+async function confirmDeleteDREmpresa(id) {
+  var { error } = await db.from('holiday_requests').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('D.R. Empresa eliminado', 'success');
+  closeModal();
+  cachedHolidays = null;
+  await loadDREmpresaList();
+}
+
+function filterDREmpresa() {
+  if (!cachedDREmpresaList) return;
+  var search = (document.getElementById('drEmpresaSearch').value || '').toLowerCase();
+
+  var filtered = cachedDREmpresaList.filter(function(r) {
+    var name = r.profiles ? r.profiles.name.toLowerCase() : '';
+    var email = r.profiles ? (r.profiles.email || '').toLowerCase() : '';
+    return !search || name.includes(search) || email.includes(search);
+  });
+
+  renderDREmpresaList(filtered);
+}
+
+
+// ========================================
+// TASK 14.2: SCHOOL HOLIDAYS (FESTIVOS)
+// ========================================
+
+async function loadFestivos() {
+  var container = document.getElementById('schoolHolidaysList');
+  if (!container) return;
+
+  var { data } = await db.from('school_holidays').select('*').order('start_date');
+  data = data || [];
+
+  if (!data.length) {
+    container.innerHTML = '<div class="empty-state" style="padding:30px"><div class="empty-state-icon">🗓️</div><div class="empty-state-text">No hay festivos configurados</div></div>';
+    return;
+  }
+
+  var html = '';
+  data.forEach(function(h) {
+    var startDisplay = new Date(h.start_date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+    var endDisplay = new Date(h.end_date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+    var dateRange = startDisplay + (h.start_date !== h.end_date ? ' - ' + endDisplay : '');
+
+    // Count days
+    var dayCount = 0;
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) { dayCount++; cur.setDate(cur.getDate() + 1); }
+
+    html += '<div class="school-holiday-item">' +
+      '<div class="holiday-info">' +
+        '<div class="holiday-name">' + h.name + '</div>' +
+        '<div class="holiday-dates">' + dateRange + '</div>' +
+      '</div>' +
+      '<span class="holiday-days">' + dayCount + ' día' + (dayCount > 1 ? 's' : '') + '</span>' +
+      '<div class="holiday-actions">' +
+        '<button class="holiday-action-btn edit" onclick="editSchoolHoliday(\'' + h.id + '\',\'' + h.name.replace(/'/g, "\\'") + '\',\'' + h.start_date + '\',\'' + h.end_date + '\')">✏️</button>' +
+        '<button class="holiday-action-btn delete" onclick="deleteSchoolHoliday(\'' + h.id + '\')">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+async function addSchoolHoliday() {
+  var name = (document.getElementById('schoolHolidayName').value || '').trim();
+  var startDate = document.getElementById('schoolHolidayStart').value;
+  var endDate = document.getElementById('schoolHolidayEnd').value;
+
+  if (!name) { showToast('Introduce un nombre', 'error'); return; }
+  if (!startDate) { showToast('Selecciona fecha de inicio', 'error'); return; }
+  if (!endDate) { showToast('Selecciona fecha de fin', 'error'); return; }
+  if (endDate < startDate) { showToast('La fecha de fin debe ser posterior a la de inicio', 'error'); return; }
+
+  var { error } = await db.from('school_holidays').insert({
+    name: name,
+    start_date: startDate,
+    end_date: endDate,
+    type: 'Holiday'
+  });
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Festivo añadido', 'success');
+
+  // Reset form
+  document.getElementById('schoolHolidayName').value = '';
+  document.getElementById('schoolHolidayStart').value = '';
+  document.getElementById('schoolHolidayEnd').value = '';
+
+  cachedSchoolHolidays = null;
+  await loadFestivos();
+}
+
+function editSchoolHoliday(id, name, startDate, endDate) {
+  var html = '<div class="form-group">' +
+    '<label class="form-label">Nombre</label>' +
+    '<input type="text" class="form-input" id="editSchoolHolidayName" value="' + name + '">' +
+  '</div>' +
+  '<div class="form-group">' +
+    '<label class="form-label">Fecha Inicio</label>' +
+    '<input type="date" class="form-input" id="editSchoolHolidayStart" value="' + startDate + '">' +
+  '</div>' +
+  '<div class="form-group">' +
+    '<label class="form-label">Fecha Fin</label>' +
+    '<input type="date" class="form-input" id="editSchoolHolidayEnd" value="' + endDate + '">' +
+  '</div>' +
+  '<div class="btn-row">' +
+    '<button class="submit-btn" onclick="saveEditSchoolHoliday(\'' + id + '\')">💾 Guardar</button>' +
+    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+  '</div>';
+  openModal('✏️ Editar Festivo', html);
+}
+
+async function saveEditSchoolHoliday(id) {
+  var name = (document.getElementById('editSchoolHolidayName').value || '').trim();
+  var startDate = document.getElementById('editSchoolHolidayStart').value;
+  var endDate = document.getElementById('editSchoolHolidayEnd').value;
+
+  if (!name) { showToast('Introduce un nombre', 'error'); return; }
+  if (!startDate || !endDate) { showToast('Selecciona las fechas', 'error'); return; }
+  if (endDate < startDate) { showToast('La fecha de fin debe ser posterior a la de inicio', 'error'); return; }
+
+  var { error } = await db.from('school_holidays').update({ name: name, start_date: startDate, end_date: endDate }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Festivo actualizado', 'success');
+  closeModal();
+  cachedSchoolHolidays = null;
+  await loadFestivos();
+}
+
+async function deleteSchoolHoliday(id) {
+  var html = '<div style="text-align:center;padding:20px">' +
+    '<div style="font-size:48px;margin-bottom:15px">⚠️</div>' +
+    '<div style="font-size:18px;font-weight:700;color:var(--danger);margin-bottom:10px">¿Eliminar festivo?</div>' +
+    '<p style="color:var(--gray-500);margin-bottom:20px">Se eliminará de los cálculos de días laborables.</p>' +
+    '<div class="btn-row">' +
+      '<button class="submit-btn" style="background:var(--danger)" onclick="confirmDeleteSchoolHoliday(\'' + id + '\')">Sí, Eliminar</button>' +
+      '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+    '</div>' +
+  '</div>';
+  openModal('Confirmar Eliminación', html);
+}
+
+async function confirmDeleteSchoolHoliday(id) {
+  var { error } = await db.from('school_holidays').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Festivo eliminado', 'success');
+  closeModal();
+  cachedSchoolHolidays = null;
+  await loadFestivos();
+}
+
+
+// ========================================
+// TASK 15.1: ARCHIVE
+// ========================================
+
+async function loadArchivoAnual() {
+  var select = document.getElementById('archiveYearSelect');
+  if (!select) return;
+
+  var currentYear = new Date().getFullYear();
+
+  // Find years that have data
+  var { data: punchYears } = await db.from('time_punches').select('date').order('date').limit(1);
+  var { data: holidayYears } = await db.from('holiday_requests').select('start_date').order('start_date').limit(1);
+
+  var earliestYear = currentYear;
+  if (punchYears && punchYears.length > 0) {
+    var py = parseInt(punchYears[0].date.substring(0, 4));
+    if (py < earliestYear) earliestYear = py;
+  }
+  if (holidayYears && holidayYears.length > 0) {
+    var hy = parseInt(holidayYears[0].start_date.substring(0, 4));
+    if (hy < earliestYear) earliestYear = hy;
+  }
+
+  var opts = '<option value="">Seleccionar año...</option>';
+  for (var y = earliestYear; y < currentYear; y++) {
+    opts += '<option value="' + y + '">' + y + '</option>';
+  }
+  select.innerHTML = opts;
+
+  if (earliestYear >= currentYear) {
+    select.innerHTML = '<option value="">No hay años anteriores disponibles</option>';
+  }
+}
+
+async function performArchive() {
+  var select = document.getElementById('archiveYearSelect');
+  var year = select ? select.value : '';
+  if (!year) { showToast('Selecciona un año', 'error'); return; }
+
+  var resultDiv = document.getElementById('archiveResult');
+
+  var html = '<div style="text-align:center;padding:20px">' +
+    '<div style="font-size:48px;margin-bottom:15px">📦</div>' +
+    '<div style="font-size:18px;font-weight:700;color:var(--primary);margin-bottom:10px">¿Archivar datos de ' + year + '?</div>' +
+    '<p style="color:var(--gray-500);margin-bottom:20px">Se moverán los fichajes y solicitudes de vacaciones del año ' + year + ' a tablas de archivo. Esta acción no se puede deshacer fácilmente.</p>' +
+    '<div class="btn-row">' +
+      '<button class="submit-btn" onclick="confirmArchive(\'' + year + '\')">📦 Confirmar Archivo</button>' +
+      '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
+    '</div>' +
+  '</div>';
+  openModal('Confirmar Archivo', html);
+}
+
+async function confirmArchive(year) {
+  closeModal();
+  var resultDiv = document.getElementById('archiveResult');
+  if (resultDiv) {
+    resultDiv.innerHTML = '<div class="info-box"><div class="info-box-text">' +
+      '<strong>ℹ️ Función de archivo</strong><br><br>' +
+      'El archivo del año ' + year + ' requiere tablas de archivo en la base de datos (archive_time_punches, archive_holiday_requests). ' +
+      'Contacta al administrador del sistema para configurar las tablas de archivo y ejecutar la migración de datos.' +
+      '</div></div>';
+  }
+  showToast('Archivo: funcionalidad pendiente de configuración', 'info');
+}
+
+// ========================================
+// TASK 15.2: EXPORT CSV
+// ========================================
+
+function exportCSV() {
+  var teachers = cachedTeachers || [];
+  var admins = cachedAdmins || [];
+  var allProfiles = teachers.concat(admins);
+
+  if (!allProfiles.length) {
+    showToast('No hay datos para exportar', 'error');
+    return;
+  }
+
+  // Build CSV header
+  var headers = ['Nombre', 'Email', 'Rol', 'Horas Anuales Esperadas', 'Estado'];
+  var csvRows = [headers.join(',')];
+
+  allProfiles.forEach(function(p) {
+    var row = [
+      '"' + (p.name || '').replace(/"/g, '""') + '"',
+      '"' + (p.email || '').replace(/"/g, '""') + '"',
+      p.role === 'teacher' ? 'Profesor' : 'Admin',
+      p.expected_yearly_hours || '',
+      p.status || 'Active'
+    ];
+    csvRows.push(row.join(','));
+  });
+
+  var csvContent = csvRows.join('\n');
+  var blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  var now = new Date();
+  link.download = 'empleados_' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado', 'success');
+}
+
 
 // ========================================
 // INIT ON DOM READY
