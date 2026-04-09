@@ -82,9 +82,10 @@ async function loadDay(date) {
   punchSection.style.display = 'block';
   futureWarning.style.display = 'none';
 
-  // Check freeze
+  // Check freeze — admins/super_admins are never frozen
   const freezeDate = await getConfigValue('FreezeDate');
-  const isFrozen = freezeDate && dateStr <= freezeDate;
+  const isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
+  const isFrozen = !isAdmin && freezeDate && dateStr <= freezeDate;
 
   const frozenBanner = document.getElementById('frozenBanner');
   if (isFrozen) {
@@ -130,6 +131,7 @@ async function loadPunches(dateStr, isFrozen) {
 function renderPunches(punches, isFrozen) {
   const container = document.getElementById('punchesList');
   const countEl = document.getElementById('punchesCount');
+  const isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
 
   if (!punches.length) {
     container.innerHTML = `
@@ -148,17 +150,25 @@ function renderPunches(punches, isFrozen) {
     const timeDisplay = p.time.substring(0, 5);
     const frozenClass = isFrozen ? ' frozen' : '';
 
+    // Teachers: read-only always. Admins: can edit unless frozen.
+    let actionsHtml = '';
+    if (isAdmin && !isFrozen) {
+      actionsHtml = `
+        <div class="punch-actions">
+          <button class="punch-action-btn edit" onclick="openEditPunch('${p.id}', '${timeDisplay}', '${p.notes || ''}')" aria-label="Editar fichaje">✏️</button>
+          <button class="punch-action-btn delete" onclick="confirmDeletePunch('${p.id}')" aria-label="Eliminar fichaje">🗑️</button>
+        </div>`;
+    } else if (isFrozen) {
+      actionsHtml = '<span class="frozen-lock">🔒</span>';
+    }
+
     return `
       <div class="punch-item ${typeClass}${frozenClass}" data-id="${p.id}">
         <div class="punch-item-left">
           <span class="punch-type-badge ${typeClass}">${typeLabel}</span>
           <span class="punch-time">${timeDisplay}</span>
         </div>
-        ${isFrozen ? '<span class="frozen-lock">🔒 Congelado</span>' : `
-        <div class="punch-actions">
-          <button class="punch-action-btn edit" onclick="openEditPunch('${p.id}', '${timeDisplay}', '${p.notes || ''}')" aria-label="Editar fichaje">✏️</button>
-          <button class="punch-action-btn delete" onclick="confirmDeletePunch('${p.id}')" aria-label="Eliminar fichaje">🗑️</button>
-        </div>`}
+        ${actionsHtml}
       </div>`;
   }).join('');
 }
@@ -218,12 +228,27 @@ async function submitPunch() {
     return;
   }
 
+  // Capture GPS
+  let latitude = null, longitude = null;
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: true });
+    });
+    latitude = pos.coords.latitude;
+    longitude = pos.coords.longitude;
+  } catch (e) {
+    // GPS denied or unavailable — punch still records without it
+    console.log('GPS not available:', e.message);
+  }
+
   const { error } = await db.from('time_punches').insert({
     user_id: currentProfile.id,
     date: dateStr,
     time: timeStr + ':00',
     punch_type: punchType,
-    notes: ''
+    notes: '',
+    latitude: latitude,
+    longitude: longitude
   });
 
   if (error) {
