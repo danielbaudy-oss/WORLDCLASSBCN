@@ -3,158 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WorldClass BCN — Cumplimiento Legal del Sistema de Fichaje</title>
+<title>WorldClass BCN — Cumplimiento Legal</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --primary: #092b50; --accent: #59d2ff; --success: #10b981; --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-500: #64748b; --gray-700: #334155; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: var(--gray-700); line-height: 1.7; }
-  .container { max-width: 800px; margin: 0 auto; padding: 40px 30px; }
-  .header { text-align: center; margin-bottom: 50px; padding-bottom: 30px; border-bottom: 3px solid var(--primary); }
-  .logo { font-size: 48px; margin-bottom: 10px; }
-  h1 { color: var(--primary); font-size: 28px; margin-bottom: 8px; }
-  .subtitle { color: var(--gray-500); font-size: 16px; }
-  .date { color: var(--gray-500); font-size: 13px; margin-top: 12px; }
-  h2 { color: var(--primary); font-size: 20px; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--gray-100); }
-  h3 { color: var(--primary); font-size: 16px; margin: 24px 0 10px; }
-  p { margin-bottom: 14px; }
-  .check-item { background: var(--gray-50); border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; border-left: 4px solid var(--success); }
-  .check-item .title { font-weight: 700; color: var(--primary); font-size: 15px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
-  .check-item .title::before { content: '✅'; }
-  .check-item p { color: var(--gray-700); font-size: 14px; margin: 0; }
-  .benefit-item { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; border-left: 4px solid var(--accent); }
-  .benefit-item .title { font-weight: 700; color: var(--primary); font-size: 15px; margin-bottom: 6px; }
-  .benefit-item p { color: var(--gray-700); font-size: 14px; margin: 0; }
-  .comparison { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
-  .comparison th { background: var(--primary); color: #fff; padding: 12px 16px; text-align: left; }
-  .comparison td { padding: 10px 16px; border-bottom: 1px solid var(--gray-100); }
-  .comparison tr:nth-child(even) { background: var(--gray-50); }
-  .old { color: #dc2626; }
-  .new { color: var(--success); font-weight: 600; }
-  .tech-details { background: var(--gray-50); border-radius: 12px; padding: 20px 24px; margin: 20px 0; font-size: 13px; }
-  .tech-details dt { font-weight: 700; color: var(--primary); margin-top: 8px; }
-  .tech-details dd { margin-left: 0; margin-bottom: 4px; }
-  .bottom-line { background: linear-gradient(135deg, var(--primary) 0%, #1e3a5f 100%); color: #fff; border-radius: 12px; padding: 24px; margin: 30px 0; }
-  .bottom-line p { color: rgba(255,255,255,0.9); }
-  .bottom-line strong { color: #fff; }
-  .footer { text-align: center; color: var(--gray-500); font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--gray-100); }
-  .print-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--primary); color: #fff; border: none; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 20px; }
-  .print-btn:hover { background: #0a3a6b; }
-  @media print { .print-btn { display: none; } body { font-size: 12px; } .container { padding: 20px; } }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#334155;line-height:1.7;max-width:780px;margin:0 auto;padding:40px 30px}
+  .header{text-align:center;margin-bottom:40px;padding-bottom:24px;border-bottom:3px solid #092b50}
+  .header img{height:60px;margin-bottom:10px}
+  h1{color:#092b50;font-size:22px;margin-bottom:4px}
+  .subtitle{color:#64748b;font-size:14px}
+  .date{color:#94a3b8;font-size:12px;margin-top:8px}
+  h2{color:#092b50;font-size:17px;margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid #f1f5f9}
+  p{margin-bottom:12px;font-size:14px}
+  .check{background:#f8fafc;border-radius:10px;padding:14px 18px;margin-bottom:10px;border-left:4px solid #10b981;font-size:14px}
+  .check b{color:#092b50}
+  .check b::before{content:'✅ '}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+  th{background:#092b50;color:#fff;padding:8px 12px;text-align:left}
+  td{padding:8px 12px;border-bottom:1px solid #f1f5f9}
+  tr:nth-child(even){background:#f8fafc}
+  .old{color:#dc2626}.new{color:#10b981;font-weight:600}
+  .summary{background:linear-gradient(135deg,#092b50,#1e3a5f);color:#fff;border-radius:12px;padding:20px;margin:24px 0;font-size:14px}
+  .summary strong{color:#fff}
+  .tech{background:#f8fafc;border-radius:10px;padding:16px 18px;margin:16px 0;font-size:12px;columns:2;column-gap:24px}
+  .tech p{margin:4px 0;break-inside:avoid}
+  .tech b{color:#092b50}
+  .footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:32px;padding-top:16px;border-top:1px solid #f1f5f9}
+  .print-btn{background:#092b50;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:16px}
+  @media print{.print-btn{display:none}body{padding:20px;font-size:11px}}
 </style>
 </head>
 <body>
-<div class="container">
 
 <div class="header">
-  <div class="logo">🕐</div>
-  <h1>WorldClass BCN</h1>
-  <div class="subtitle">Sistema de Control de Fichaje — Informe de Cumplimiento Legal</div>
-  <div class="date">Preparado para WorldClass BCN, Barcelona — Abril 2026</div>
+  <img src="https://i0.wp.com/worldclassbcn.com/wp-content/uploads/2025/05/worldclass_logo.png?fit=368%2C396&ssl=1" alt="WorldClass BCN">
+  <h1>Sistema de Control de Fichaje</h1>
+  <div class="subtitle">Informe de Cumplimiento Legal</div>
+  <div class="date">WorldClass BCN, Barcelona — Abril 2026</div>
 </div>
 
-<h2>Contexto Legal</h2>
-<p>La ley española de registro horario obligatorio (Real Decreto-ley 8/2019), actualizada con nuevos requisitos digitales que se espera sean plenamente exigibles en 2026, obliga a todas las empresas a utilizar un sistema digital de control horario que cumpla estándares técnicos específicos. No existe una certificación oficial obligatoria — la ley establece requisitos técnicos, no un sello de homologación. Cualquier software que cumpla estos requisitos es conforme.</p>
+<h2>Por Qué el Cambio</h2>
+<p>El Real Decreto-ley 8/2019, con requisitos digitales actualizados para 2026, exige un sistema de fichaje digital que cumpla estándares técnicos específicos. El sistema anterior (Google Sheets) no cumplía varios de estos requisitos.</p>
 
-<h2>Por Qué el Cambio Era Necesario</h2>
-<p>El sistema anterior de WorldClass BCN funcionaba sobre Google Apps Script y Google Sheets. Aunque cumplía su función operativa, presentaba limitaciones importantes de cara al cumplimiento normativo y la escalabilidad del negocio:</p>
-
-<table class="comparison">
-  <tr><th>Aspecto</th><th>Sistema Anterior</th><th>Sistema Actual</th></tr>
-  <tr><td>Base de datos</td><td class="old">Google Sheets (hoja de cálculo)</td><td class="new">PostgreSQL (base de datos relacional)</td></tr>
-  <tr><td>Trazabilidad</td><td class="old">Sin registro de cambios</td><td class="new">Auditoría automática completa</td></tr>
-  <tr><td>Geolocalización</td><td class="old">No disponible</td><td class="new">GPS en cada fichaje</td></tr>
-  <tr><td>Tiempo de respuesta</td><td class="old">3-8 segundos (arranque en frío)</td><td class="new">~50 milisegundos</td></tr>
-  <tr><td>Alta de empleados</td><td class="old">Edición manual de hojas</td><td class="new">Formulario con login automático</td></tr>
-  <tr><td>Acceso inspector</td><td class="old">Exportación manual</td><td class="new">Consulta en tiempo real</td></tr>
-  <tr><td>Retención de datos</td><td class="old">Dependiente de Google</td><td class="new">PostgreSQL con backups automáticos</td></tr>
-  <tr><td>Inalterabilidad</td><td class="old">Cualquiera con acceso puede editar</td><td class="new">Triggers de auditoría inalterables</td></tr>
+<table>
+  <tr><th>Aspecto</th><th>Antes</th><th>Ahora</th></tr>
+  <tr><td>Base de datos</td><td class="old">Google Sheets</td><td class="new">PostgreSQL</td></tr>
+  <tr><td>Auditoría</td><td class="old">Sin registro</td><td class="new">Automática e inalterable</td></tr>
+  <tr><td>GPS</td><td class="old">No</td><td class="new">Cada fichaje</td></tr>
+  <tr><td>Velocidad</td><td class="old">3-8 seg</td><td class="new">~50 ms</td></tr>
+  <tr><td>Alta empleados</td><td class="old">Edición manual</td><td class="new">Formulario + login automático</td></tr>
+  <tr><td>Acceso inspector</td><td class="old">Exportación manual</td><td class="new">Tiempo real</td></tr>
 </table>
 
 <h2>Cumplimiento Normativo</h2>
 
-<div class="check-item">
-  <div class="title">Sistema Digital (No Papel ni Hoja de Cálculo)</div>
-  <p>WorldClass BCN funciona sobre PostgreSQL (alojado en Supabase), una base de datos relacional profesional. El frontend es una aplicación web alojada en GitHub Pages. Las hojas de cálculo y los registros en papel no son conformes según la normativa actualizada — este sistema no es ninguno de los dos.</p>
-</div>
+<div class="check"><b>Sistema digital</b> — PostgreSQL, no hoja de cálculo. Las hojas de cálculo no son conformes según la normativa actualizada.</div>
+<div class="check"><b>Accesibilidad remota</b> — Aplicación web accesible desde cualquier dispositivo con navegador.</div>
+<div class="check"><b>Inalterabilidad</b> — Triggers de PostgreSQL registran cada inserción, modificación y eliminación en una tabla de auditoría. No se puede eludir desde la aplicación.</div>
+<div class="check"><b>GPS</b> — Coordenadas capturadas en cada fichaje vía API de Geolocalización del navegador.</div>
+<div class="check"><b>Acceso inmediato para inspectores</b> — Consulta en tiempo real de todos los registros, correcciones y coordenadas.</div>
+<div class="check"><b>Retención 4 años</b> — PostgreSQL con backups automáticos, sin eliminación automática.</div>
+<div class="check"><b>Empleado registra, responsable supervisa</b> — Fichaje con cuenta Google, administración separada con permisos por rol.</div>
+<div class="check"><b>Sin biometría</b> — Autenticación Google OAuth, sin huellas ni reconocimiento facial.</div>
 
-<div class="check-item">
-  <div class="title">Accesibilidad Remota</div>
-  <p>El sistema es accesible desde cualquier dispositivo con navegador y conexión a internet. Los empleados fichan desde su móvil o una tablet compartida. No requiere instalación de software.</p>
-</div>
-
-<div class="check-item">
-  <div class="title">Inalterabilidad / Registro de Auditoría a Prueba de Manipulaciones</div>
-  <p>Cada operación en la base de datos (inserción, modificación, eliminación) se registra automáticamente en una tabla dedicada de auditoría mediante triggers de PostgreSQL. Este registro no puede ser eludido desde la capa de aplicación. Cada entrada de auditoría registra: la tabla afectada, el identificador del registro, la acción realizada, los datos anteriores y posteriores completos en formato JSON, quién realizó el cambio y cuándo.</p>
-</div>
-
-<div class="check-item">
-  <div class="title">Posicionamiento GPS</div>
-  <p>Cada fichaje de entrada y salida captura las coordenadas GPS del empleado (latitud y longitud) mediante la API de Geolocalización del navegador. Las coordenadas se almacenan junto al registro del fichaje en la base de datos. Si el empleado deniega el acceso a la ubicación, el fichaje se registra igualmente pero sin datos GPS.</p>
-</div>
-
-<div class="check-item">
-  <div class="title">Accesibilidad Inmediata para Inspectores</div>
-  <p>La base de datos proporciona acceso en tiempo real a todos los registros de fichaje, incluyendo correcciones, eliminaciones, coordenadas GPS y marcas temporales. Se puede conceder acceso de solo lectura al panel de Supabase a un inspector bajo demanda, proporcionando visibilidad inmediata y completa de todos los registros.</p>
-</div>
-
-<div class="check-item">
-  <div class="title">Retención de Datos de 4 Años</div>
-  <p>Todos los datos se almacenan en PostgreSQL sin eliminación ni caducidad automática. El registro de auditoría es de solo escritura y conserva los registros indefinidamente. La base de datos está alojada en la infraestructura europea de Supabase con copias de seguridad automáticas.</p>
-</div>
-
-<div class="check-item">
-  <div class="title">El Empleado Registra, el Responsable Supervisa</div>
-  <p>Los empleados registran sus propios fichajes de entrada y salida mediante su cuenta de Google. El panel de administración permite a los responsables revisar todos los registros, aprobar o rechazar solicitudes de permisos y supervisar correcciones. Cualquier modificación de un registro queda documentada en el registro de auditoría.</p>
-</div>
-
-<div class="check-item">
-  <div class="title">Sin Datos Biométricos</div>
-  <p>La autenticación utiliza cuentas de Google — no huellas dactilares, reconocimiento facial ni ningún dato biométrico. Esto evita las preocupaciones de protección de datos planteadas por la jurisprudencia española reciente y las resoluciones de la AEPD sobre sistemas de fichaje biométricos.</p>
-</div>
-
-<h2>Ventajas Operativas del Nuevo Sistema</h2>
-
-<div class="benefit-item">
-  <div class="title">⚡ Velocidad de Respuesta</div>
-  <p>El sistema anterior tardaba entre 3 y 8 segundos en cargar debido al arranque en frío de Google Apps Script. El nuevo sistema responde en menos de 50 milisegundos, ofreciendo una experiencia fluida e instantánea para profesores y administradores.</p>
-</div>
-
-<div class="benefit-item">
-  <div class="title">👤 Alta de Empleados sin Fricciones</div>
-  <p>Dar de alta a un nuevo profesor o administrativo es inmediato: se añade desde el panel de administración y el empleado accede con su cuenta de Google en el primer inicio de sesión. Sin necesidad de editar hojas de cálculo, compartir archivos ni configuraciones manuales.</p>
-</div>
-
-<div class="benefit-item">
-  <div class="title">📱 Experiencia Móvil Optimizada</div>
-  <p>La aplicación está diseñada como una Progressive Web App que funciona perfectamente en móviles. Los empleados pueden añadirla a su pantalla de inicio como si fuera una app nativa, con carga instantánea y funcionamiento offline parcial.</p>
-</div>
-
-<div class="benefit-item">
-  <div class="title">📊 Informes y Exportación Avanzados</div>
-  <p>Exportación de informes mensuales en formato Excel con colores, progreso por empleado, desglose de permisos y horas médicas. Todo calculado automáticamente sin intervención manual.</p>
-</div>
-
-<div class="bottom-line">
-  <p><strong>En resumen:</strong> Ningún software en España lleva un sello gubernamental de certificación para el control horario. Lo que importa es cumplir los requisitos técnicos establecidos por la normativa. WorldClass BCN los cumple todos: base de datos profesional (no una hoja de cálculo), registro de auditoría completo e inalterable, registros GPS, acceso inmediato para inspectores, retención de 4 años y flujos de trabajo documentados para correcciones. Este sistema ya es más conforme que el que utiliza la gran mayoría de pequeñas empresas en España.</p>
+<div class="summary">
+  <strong>En resumen:</strong> No existe certificación gubernamental obligatoria para fichaje en España. Lo que importa es cumplir los requisitos técnicos. WorldClass BCN los cumple todos: base de datos profesional, auditoría inalterable, GPS, acceso inspector en tiempo real y retención de 4 años.
 </div>
 
 <h2>Detalles Técnicos</h2>
-<dl class="tech-details">
-  <dt>Base de datos</dt><dd>PostgreSQL vía Supabase (alojado en la UE)</dd>
-  <dt>Frontend</dt><dd>HTML/JS estático alojado en GitHub Pages</dd>
-  <dt>Autenticación</dt><dd>Google OAuth (sin datos biométricos)</dd>
-  <dt>Mecanismo de auditoría</dt><dd>Triggers AFTER de PostgreSQL en todas las tablas → tabla audit_log</dd>
-  <dt>Formato de datos</dt><dd>Todos los registros con marcas temporales UTC, fechas en formato ISO 8601</dd>
-  <dt>GPS</dt><dd>API de Geolocalización del navegador, coordenadas almacenadas por fichaje</dd>
-  <dt>Eliminación de fichajes</dt><dd>Solo administradores, con registro completo en auditoría</dd>
-</dl>
+<div class="tech">
+  <p><b>Base de datos:</b> PostgreSQL vía Supabase (UE)</p>
+  <p><b>Frontend:</b> HTML/JS en GitHub Pages</p>
+  <p><b>Auth:</b> Google OAuth</p>
+  <p><b>Auditoría:</b> Triggers AFTER → audit_log</p>
+  <p><b>Datos:</b> UTC, ISO 8601</p>
+  <p><b>GPS:</b> Geolocation API por fichaje</p>
+</div>
 
 <div class="footer">
-  <p>WorldClass BCN — Barcelona, España</p>
-  <p>Documento generado en abril 2026 | Versión del sistema 2.0</p>
+  <p>WorldClass BCN — Barcelona, España | Abril 2026 | v2.0</p>
   <button class="print-btn" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
 </div>
 
-</div>
 </body>
 </html>
