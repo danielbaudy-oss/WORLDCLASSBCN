@@ -787,8 +787,6 @@ function selectHolidayType(btn, type) {
   } else {
     dateGroup.style.display = 'block';
     medApptGroup.style.display = 'none';
-    // For Medical, hide end date (single day)
-    endDateGroup.style.display = type === 'Medical' ? 'none' : 'block';
   }
 }
 
