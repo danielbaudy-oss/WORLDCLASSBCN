@@ -420,11 +420,17 @@ function countWorkingDays(startDate, endDate, schoolHolidayDates) {
 function buildSchoolHolidayDateSet(schoolHolidays) {
   var dateSet = new Set();
   if (!schoolHolidays) return dateSet;
+  var year = new Date().getFullYear();
+  var yearStart = year + '-01-01';
+  var yearEnd = year + '-12-31';
   schoolHolidays.forEach(function(h) {
     var current = new Date(h.start_date + 'T12:00:00');
     var end = new Date(h.end_date + 'T12:00:00');
     while (current <= end) {
-      dateSet.add(formatDate(current));
+      var dateStr = formatDate(current);
+      if (dateStr >= yearStart && dateStr <= yearEnd) {
+        dateSet.add(dateStr);
+      }
       current.setDate(current.getDate() + 1);
     }
   });
@@ -669,7 +675,7 @@ async function loadStatsGrid(teacherData, adminData) {
       }
     });
 
-    var avgProgress = teacherProgressCount > 0 ? Math.round(teacherProgressSum / teacherProgressCount) : 0;
+    var avgProgress = allProfiles.length > 0 ? Math.round(totalProgress / allProfiles.length) : 0;
 
     // Working days stats — year-level (passed/total for the year)
     var passedWorkingDays = precomputed.passedCount;
@@ -678,7 +684,7 @@ async function loadStatsGrid(teacherData, adminData) {
     // Render stats
     document.getElementById('statTeachers').textContent = teachers.length;
     document.getElementById('statAdmins').textContent = admins.length;
-    document.getElementById('statOnTrack').textContent = teacherOnTrackCount + '/' + teachers.length;
+    document.getElementById('statOnTrack').textContent = onTrackCount + '/' + allProfiles.length;
     document.getElementById('statAvgProgress').textContent = 'Progreso promedio: ' + avgProgress + '%';
     document.getElementById('statWorkingDays').textContent = passedWorkingDays + '/' + totalWorkingDaysYear;
     document.getElementById('statSchoolHolidays').textContent = schoolHolidayDates.size + ' festivos configurados';
