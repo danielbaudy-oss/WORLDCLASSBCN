@@ -571,7 +571,6 @@ async function loadStatsGrid(teacherData, adminData) {
       var userPunches = cachedPunches.filter(function(p) { return p.user_id === profile.id; });
       var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, today);
       var periodHours = calculateHoursFromPunches(userPunches, periodRange.start, periodRange.end);
-      totalPeriodHours += periodHours;
 
       var isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
       var defaults = isAdmin ? ADMIN_DEFAULTS : DEFAULTS;
@@ -585,8 +584,76 @@ async function loadStatsGrid(teacherData, adminData) {
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
       var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
 
+      // Medical hours for period
+      var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
+      var userMedical = cachedHolidays.filter(function(h) {
+        return h.user_id === profile.id && h.type === 'Medical';
+      });
+      var periodMedicalHours = 0;
+      userMedical.forEach(function(h) {
+        var overlapStart = h.start_date > periodRange.start ? h.start_date : periodRange.start;
+        var overlapEnd = h.end_date < periodRange.end ? h.end_date : periodRange.end;
+        if (overlapStart <= overlapEnd) {
+          var days = countWorkingDays(overlapStart, overlapEnd, schoolHolidayDates);
+          periodMedicalHours += days * hoursPerWorkingDay;
+        }
+      });
+
+      // MedAppt hours for period
+      var periodMedApptHours = 0;
+      cachedHolidays.filter(function(h) {
+        return h.user_id === profile.id && h.type === 'MedAppt';
+      }).forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= periodRange.start && hDate <= periodRange.end) {
+          periodMedApptHours += parseFloat(h.total_days) || 0;
+        }
+      });
+
+      // Paid hours for period
+      var periodPaidHours = 0;
+      if (cachedPaidHours) {
+        cachedPaidHours.filter(function(ph) { return ph.user_id === profile.id; }).forEach(function(ph) {
+          var phDate = ph.date || '';
+          if (phDate >= periodRange.start && phDate <= periodRange.end) {
+            periodPaidHours += parseFloat(ph.hours) || 0;
+          }
+        });
+      }
+
+      // Period hours matching old code: worked - paid + medical + medAppt
+      var adjustedPeriodHours = periodHours - periodPaidHours + periodMedicalHours + periodMedApptHours;
+
+      // Only teachers count toward the period hours stat (matches old app)
+      if (!isAdmin) {
+        totalPeriodHours += adjustedPeriodHours;
+      }
+
+      // Progress: use yearly totals
+      var yearlyMedicalHours = 0;
+      userMedical.forEach(function(h) {
+        var days = countWorkingDays(h.start_date, h.end_date, schoolHolidayDates);
+        yearlyMedicalHours += days * hoursPerWorkingDay;
+      });
+      var yearlyMedApptHours = 0;
+      cachedHolidays.filter(function(h) {
+        return h.user_id === profile.id && h.type === 'MedAppt';
+      }).forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= yearStart && hDate <= today) {
+          yearlyMedApptHours += parseFloat(h.total_days) || 0;
+        }
+      });
+      var yearlyPaidHours = 0;
+      if (cachedPaidHours) {
+        cachedPaidHours.filter(function(ph) { return ph.user_id === profile.id; }).forEach(function(ph) {
+          yearlyPaidHours += parseFloat(ph.hours) || 0;
+        });
+      }
+      var totalHours = yearlyHours - yearlyPaidHours + yearlyMedicalHours + yearlyMedApptHours;
+
       var expectedToDate = expectedYearly * progress.progressRatio;
-      var percent = expectedToDate > 0 ? (yearlyHours / expectedToDate) * 100 : 0;
+      var percent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
 
       totalProgress += percent;
       if (percent >= 98) onTrackCount++;
@@ -725,11 +792,27 @@ async function loadTeachersTable() {
         var days = countWorkingDays(h.start_date, h.end_date, schoolHolidayDates);
         medicalHours += days * hoursPerWorkingDay;
       });
-      medicalHours = Math.round(medicalHours * 10) / 10;
+      medicalHours = Math.round(medicalHours * 100) / 100;
+
+      // MedAppt hours: from approved MedAppt holiday_requests (hours stored in total_days field)
+      var userMedAppt = cachedHolidays.filter(function(h) {
+        return h.user_id === t.id && h.type === 'MedAppt';
+      });
+      var medApptHours = 0;
+      userMedAppt.forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= yearStart && hDate <= today) {
+          medApptHours += parseFloat(h.total_days) || 0;
+        }
+      });
+      medApptHours = Math.round(medApptHours * 100) / 100;
+
+      // Total hours = worked - paid + medical + medAppt (matches Code.js exactly)
+      var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours;
 
       // Progress percent using Code.js formula
       var expectedToDate = expectedYearly * progress.progressRatio;
-      var progressPercent = expectedToDate > 0 ? ((yearlyHours + paidTotal + medicalHours) / expectedToDate) * 100 : 0;
+      var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
       progressPercent = Math.round(progressPercent * 10) / 10;
 
       // Prep time: from PREP punches
@@ -769,17 +852,17 @@ async function loadTeachersTable() {
       return '<tr onclick="if(typeof openEditTeacherModal===\'function\')openEditTeacherModal(\'' + t.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + t.name + '</div><div class="teacher-email">' + (t.email || '') + '</div></td>' +
         '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
-        '<td>' + (yearlyHours + paidTotal + medicalHours).toFixed(1) + 'h</td>' +
+        '<td>' + totalHours.toFixed(1) + 'h' + (medicalHours > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + medicalHours.toFixed(1) + 'h méd.</div>' : '') + '</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td>' + medicalHours.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
-          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(1) + '%</span></div>' +
+          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(1) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
         '</div></td>' +
         '<td><span class="hours-badge ' + prepColor + '">' + prepTimeTotal + 'h / ' + prepTimeYearly + 'h</span>' +
           '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">' + prepWeeksLogged.size + ' semanas</div></td>' +
         '<td>' + expectedYearly + 'h</td>' +
-        '<td><button class="action-btn secondary" onclick="event.stopPropagation();if(typeof openCalendarModal===\'function\')openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')" style="padding:6px 12px;font-size:12px">📅</button></td>' +
+        '<td><button class="view-btn" onclick="event.stopPropagation();if(typeof openCalendarModal===\'function\')openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')" style="padding:6px 12px;font-size:12px">📅</button></td>' +
       '</tr>';
     });
 
@@ -904,11 +987,27 @@ async function loadAdminWorkersTable() {
         var days = countWorkingDays(h.start_date, h.end_date, schoolHolidayDates);
         medicalHours += days * hoursPerWorkingDay;
       });
-      medicalHours = Math.round(medicalHours * 10) / 10;
+      medicalHours = Math.round(medicalHours * 100) / 100;
+
+      // MedAppt hours
+      var userMedAppt = cachedHolidays.filter(function(h) {
+        return h.user_id === a.id && h.type === 'MedAppt';
+      });
+      var medApptHours = 0;
+      userMedAppt.forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= yearStart && hDate <= today) {
+          medApptHours += parseFloat(h.total_days) || 0;
+        }
+      });
+      medApptHours = Math.round(medApptHours * 100) / 100;
+
+      // Total hours = worked - paid + medical + medAppt (matches Code.js)
+      var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours;
 
       // Progress using Code.js formula
       var expectedToDate = expectedYearly * progress.progressRatio;
-      var progressPercent = expectedToDate > 0 ? ((yearlyHours + paidTotal + medicalHours) / expectedToDate) * 100 : 0;
+      var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
       progressPercent = Math.round(progressPercent * 10) / 10;
 
       var status = getProgressStatus(progressPercent);
@@ -932,15 +1031,15 @@ async function loadAdminWorkersTable() {
       return '<tr onclick="if(typeof openEditAdminModal===\'function\')openEditAdminModal(\'' + a.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + a.name + '</div><div class="teacher-email">' + (a.email || '') + '</div></td>' +
         '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
-        '<td>' + (yearlyHours + paidTotal + medicalHours).toFixed(1) + 'h</td>' +
+        '<td>' + totalHours.toFixed(1) + 'h' + (medicalHours > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + medicalHours.toFixed(1) + 'h méd.</div>' : '') + '</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td>' + medicalHours.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
-          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(1) + '%</span></div>' +
+          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(1) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
         '</div></td>' +
         '<td>' + expectedYearly + 'h</td>' +
-        '<td><button class="action-btn secondary" onclick="event.stopPropagation();if(typeof openCalendarModal===\'function\')openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')" style="padding:6px 12px;font-size:12px">📅</button></td>' +
+        '<td><button class="view-btn" onclick="event.stopPropagation();if(typeof openCalendarModal===\'function\')openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')" style="padding:6px 12px;font-size:12px">📅</button></td>' +
       '</tr>';
     });
 

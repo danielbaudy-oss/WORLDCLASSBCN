@@ -36,9 +36,6 @@
       <div class="nav-item" onclick="showSection('archive')" id="navArchive" data-section="archive">
         <span class="nav-icon">📦</span><span>Archivo Anual</span>
       </div>
-      <div class="nav-item" onclick="showSection('settings')" id="navSettings" data-section="settings">
-        <span class="nav-icon">⚙️</span><span>Configuración</span>
-      </div>
     </nav>
     <div class="sidebar-footer">
       <div class="admin-info">
@@ -472,13 +469,13 @@
               <div class="loading" style="grid-column:span 7"><div class="spinner"></div>Cargando calendario...</div>
             </div>
           </div>
-          <div style="margin-top:20px;display:flex;gap:15px;flex-wrap:wrap;font-size:12px">
-            <span>🟡 Festivo/Puente</span>
-            <span>🔵 Vacaciones</span>
-            <span>🟣 D.R. Empleado</span>
-            <span>🔴 Médico</span>
-            <span>🟢 D.R. Empresa</span>
-            <span style="color:var(--teal)">🟦 Permiso</span>
+          <div style="margin-top:20px;display:flex;gap:20px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#fef3c7;border:2px solid #f59e0b;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Festivo/Puente</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#dbeafe;border:2px solid #3b82f6;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Vacaciones</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#ede9fe;border:2px solid #8b5cf6;border-radius:4px"></div><span style="font-size:13px;color:#64748b">D.R. Empleado</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#fee2e2;border:2px solid #ef4444;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Médico</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#d1fae5;border:2px solid #10b981;border-radius:4px"></div><span style="font-size:13px;color:#64748b">D.R. Empresa</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;background:#ccfbf1;border:2px solid #14b8a6;border-radius:4px"></div><span style="font-size:13px;color:#64748b">Permiso</span></div>
           </div>
         </div>
       </div>
@@ -613,22 +610,6 @@
             <button class="submit-btn" onclick="performArchive()" id="archiveBtn" style="margin-top:20px">📦 Archivar Año</button>
             <div id="archiveResult" style="margin-top:20px"></div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================ -->
-    <!-- SECTION 4: Configuración -->
-    <!-- ============================================ -->
-    <div id="section-settings" class="content-section">
-      <div class="page-header">
-        <div class="page-title">Configuración</div>
-      </div>
-      <div class="card" style="padding:20px">
-        <div class="empty-state">
-          <div class="empty-state-icon">⚙️</div>
-          <div class="empty-state-text">Configuración del sistema</div>
-          <p style="color:var(--gray-400);margin-top:10px">Próximamente: ajustes generales del panel de administración.</p>
         </div>
       </div>
     </div>
