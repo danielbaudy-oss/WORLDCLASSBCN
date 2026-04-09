@@ -311,7 +311,9 @@ async function deletePunch(id) {
 // ========================================
 
 async function loadPrepTimeStatus(dateStr) {
-  if (currentProfile.prep_time_yearly <= 0) {
+  // Admins don't have prep time, only teachers
+  var isTeacher = currentProfile.role === 'teacher';
+  if (!isTeacher || currentProfile.prep_time_yearly <= 0) {
     document.getElementById('prepTimeSection').style.display = 'none';
     return;
   }
