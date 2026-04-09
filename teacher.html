@@ -137,94 +137,87 @@
     <!-- HOLIDAYS TAB -->
     <div id="holidaysTab" class="tab-content">
       <!-- Holiday Summary -->
-      <div class="holiday-summary-section">
-        <div class="holiday-summary-header">
-          <span class="holiday-summary-title">📊 Tu Saldo</span>
-        </div>
-        <div class="holiday-stats">
-          <div class="holiday-stat">
-            <div class="holiday-stat-value"><span id="annualUsed">0</span><span id="annualTotal">/31</span></div>
-            <div class="holiday-stat-label">Vacaciones</div>
+      <div style="background:linear-gradient(135deg,var(--primary) 0%,#1e3a5f 100%);border-radius:14px;padding:16px;margin-bottom:12px;color:#fff">
+        <div style="margin-bottom:12px;font-size:14px;font-weight:700">📊 Tu Saldo</div>
+        <div class="holiday-stats" style="gap:8px">
+          <div class="holiday-stat" style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 8px">
+            <div class="holiday-stat-value" style="color:#fff"><span id="annualUsed">0</span><span style="opacity:0.6" id="annualTotal">/31</span></div>
+            <div class="holiday-stat-label" style="color:rgba(255,255,255,0.7)">Vacaciones</div>
           </div>
-          <div class="holiday-stat">
-            <div class="holiday-stat-value"><span id="personalUsed">0</span><span id="personalTotal">/3</span></div>
-            <div class="holiday-stat-label">D.R. Empleado</div>
+          <div class="holiday-stat" style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 8px">
+            <div class="holiday-stat-value" style="color:#fff"><span id="personalUsed">0</span><span style="opacity:0.6" id="personalTotal">/3</span></div>
+            <div class="holiday-stat-label" style="color:rgba(255,255,255,0.7)">D.R. Empleado</div>
           </div>
-          <div class="holiday-stat">
-            <div class="holiday-stat-value"><span id="schoolUsed">0</span><span id="schoolTotal">/4</span></div>
-            <div class="holiday-stat-label">D.R. Empresa</div>
+          <div class="holiday-stat" style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 8px">
+            <div class="holiday-stat-value" style="color:#fff"><span id="schoolUsed">0</span><span style="opacity:0.6" id="schoolTotal">/4</span></div>
+            <div class="holiday-stat-label" style="color:rgba(255,255,255,0.7)">D.R. Empresa</div>
           </div>
-          <div class="holiday-stat">
-            <div class="holiday-stat-value"><span id="medApptUsed">0</span>h<span id="medApptTotal">/20h</span></div>
-            <div class="holiday-stat-label">Visita Médica</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Puente Days Info -->
-      <div class="holiday-card" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:2px solid #f59e0b">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:24px">🗓️</span>
-          <div>
-            <div style="font-weight:700;color:#92400e">Días de Puente 2026</div>
-            <div style="font-size:13px;color:#b45309;margin-top:2px" id="puenteInfo">Tienes <span id="puenteDays">9</span> días de puente ya asignados en el calendario escolar.</div>
+          <div class="holiday-stat" style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 8px">
+            <div class="holiday-stat-value" style="color:#fff"><span id="medApptUsed">0</span>h<span style="opacity:0.6" id="medApptTotal">/20h</span></div>
+            <div class="holiday-stat-label" style="color:rgba(255,255,255,0.7)">Visita Médica</div>
           </div>
         </div>
       </div>
 
       <!-- Holiday Request Form -->
-      <div class="holiday-card" style="margin-top:12px">
+      <div class="holiday-card">
         <div class="section-title">📝 Nueva Solicitud</div>
         <div style="font-size:13px;color:var(--gray-500);margin-bottom:12px">Tipo de Permiso</div>
-
         <div class="holiday-type-btn-group">
-          <button class="holiday-type-btn" data-type="Annual" onclick="selectHolidayType(this,'Annual')">
-            <div class="holiday-type-icon">🏖️</div>
-            <div class="holiday-type-name">Vacaciones</div>
-          </button>
-          <button class="holiday-type-btn" data-type="Personal" onclick="selectHolidayType(this,'Personal')">
-            <div class="holiday-type-icon">👤</div>
-            <div class="holiday-type-name">D.R. Empleado</div>
-          </button>
-          <button class="holiday-type-btn" data-type="Medical" onclick="selectHolidayType(this,'Medical')">
-            <div class="holiday-type-icon">🏥</div>
-            <div class="holiday-type-name">Baja Médica</div>
-          </button>
-          <button class="holiday-type-btn" data-type="MedAppt" onclick="selectHolidayType(this,'MedAppt')">
-            <div class="holiday-type-icon">⚕️</div>
-            <div class="holiday-type-name">Visita Médica</div>
-          </button>
-          <button class="holiday-type-btn" data-type="Permiso" onclick="selectHolidayType(this,'Permiso')">
-            <div class="holiday-type-icon">📋</div>
-            <div class="holiday-type-name">Permiso Retribuido</div>
-            <div class="holiday-type-desc">Requiere motivo</div>
-          </button>
+          <button class="holiday-type-btn" data-type="Annual" onclick="selectHolidayType(this,'Annual')"><div class="holiday-type-icon">🏖️</div><div class="holiday-type-name">Vacaciones</div></button>
+          <button class="holiday-type-btn" data-type="Personal" onclick="selectHolidayType(this,'Personal')"><div class="holiday-type-icon">👤</div><div class="holiday-type-name">D.R. Empleado</div></button>
+          <button class="holiday-type-btn" data-type="Medical" onclick="selectHolidayType(this,'Medical')"><div class="holiday-type-icon">🏥</div><div class="holiday-type-name">Baja Médica</div></button>
+          <button class="holiday-type-btn" data-type="MedAppt" onclick="selectHolidayType(this,'MedAppt')"><div class="holiday-type-icon">⚕️</div><div class="holiday-type-name">Visita Médica</div></button>
+          <button class="holiday-type-btn" data-type="Permiso" onclick="selectHolidayType(this,'Permiso')"><div class="holiday-type-icon">📋</div><div class="holiday-type-name">Permiso Retribuido</div><div class="holiday-type-desc">Requiere motivo</div></button>
         </div>
-
-        <div class="form-group" style="margin-top:16px">
-          <label class="form-label" for="holidayStartDate">Fecha Inicio</label>
-          <input type="date" class="form-input" id="holidayStartDate">
+        <div id="dateRangeGroup">
+          <div class="form-group" style="margin-top:16px">
+            <label class="form-label" id="dateLabel">Fecha Inicio</label>
+            <input type="date" class="form-input" id="holidayStartDate">
+          </div>
+          <div class="form-group" id="endDateGroup">
+            <label class="form-label">Fecha Fin</label>
+            <input type="date" class="form-input" id="holidayEndDate">
+          </div>
+        </div>
+        <div id="medApptGroup" style="display:none">
+          <div class="form-group" style="margin-top:16px">
+            <label class="form-label">Fecha de la Visita</label>
+            <input type="date" class="form-input" id="medApptDate">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Horario de la Visita</label>
+            <div style="display:flex;gap:12px;align-items:center">
+              <div style="flex:1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Desde</div><input type="time" class="form-input" id="medApptStartTime" value="09:00" onchange="updateMedApptHours()" style="font-size:20px;text-align:center;font-weight:600"></div>
+              <div style="font-size:20px;color:var(--gray-400);padding-top:20px">→</div>
+              <div style="flex:1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Hasta</div><input type="time" class="form-input" id="medApptEndTime" value="10:00" onchange="updateMedApptHours()" style="font-size:20px;text-align:center;font-weight:600"></div>
+            </div>
+            <div id="medApptHoursPreview" style="margin-top:12px;text-align:center;font-size:22px;font-weight:700;color:var(--primary)">1.0h</div>
+          </div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="holidayEndDate">Fecha Fin</label>
-          <input type="date" class="form-input" id="holidayEndDate">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="holidayReason">Motivo (opcional)</label>
+          <label class="form-label">Motivo (opcional)</label>
           <textarea class="form-textarea" id="holidayReason" rows="2" placeholder="Motivo de la solicitud..."></textarea>
         </div>
-
         <button class="submit-btn" onclick="submitHolidayRequest()">Enviar Solicitud</button>
+      </div>
+
+      <!-- Puente Days Info -->
+      <div class="holiday-card" style="margin-top:12px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:2px solid #f59e0b">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:24px">🗓️</span>
+          <div>
+            <div style="font-weight:700;color:#92400e">Días de Puente 2026</div>
+            <div style="font-size:13px;color:#b45309;margin-top:2px">Tienes <span id="puenteDays">9</span> días de puente ya asignados en el calendario escolar.</div>
+          </div>
+        </div>
       </div>
 
       <!-- Requests List -->
       <div class="holiday-card" style="margin-top:12px">
         <div class="section-title">Mis Solicitudes</div>
         <div id="requestsList">
-          <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <div class="empty-state-text">Sin solicitudes</div>
-          </div>
+          <div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">Sin solicitudes</div></div>
         </div>
       </div>
     </div>

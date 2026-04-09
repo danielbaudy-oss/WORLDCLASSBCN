@@ -497,38 +497,64 @@ function renderHolidayRequests(requests) {
 
 async function submitHolidayRequest() {
   const type = document.querySelector('.holiday-type-btn.selected')?.dataset.type;
-  const startDate = document.getElementById('holidayStartDate').value;
-  const endDate = document.getElementById('holidayEndDate').value;
+  if (!type) { showToast('Selecciona un tipo', 'error'); return; }
+
   const reason = document.getElementById('holidayReason')?.value || '';
 
-  if (!type) { showToast('Selecciona un tipo', 'error'); return; }
-  if (!startDate || !endDate) { showToast('Selecciona las fechas', 'error'); return; }
-  if (endDate < startDate) { showToast('La fecha fin debe ser posterior', 'error'); return; }
+  if (type === 'MedAppt') {
+    // Hour-based request
+    var medDate = document.getElementById('medApptDate').value;
+    var startTime = document.getElementById('medApptStartTime').value;
+    var endTime = document.getElementById('medApptEndTime').value;
+    if (!medDate) { showToast('Selecciona la fecha', 'error'); return; }
+    if (!startTime || !endTime) { showToast('Selecciona el horario', 'error'); return; }
+    var sh = startTime.split(':').map(Number);
+    var eh = endTime.split(':').map(Number);
+    var hours = (eh[0] * 60 + eh[1] - sh[0] * 60 - sh[1]) / 60;
+    if (hours <= 0) { showToast('El horario fin debe ser posterior', 'error'); return; }
+    hours = Math.round(hours * 10) / 10;
 
-  // Calculate working days
-  const days = calculateWorkingDays(startDate, endDate);
+    const { error } = await db.from('holiday_requests').insert({
+      user_id: currentProfile.id,
+      start_date: medDate,
+      end_date: medDate,
+      days: hours,
+      type: 'MedAppt',
+      reason: startTime + ' → ' + endTime + (reason ? ' • ' + reason : ''),
+      status: 'Pending'
+    });
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast('Visita Médica enviada: ' + startTime + ' → ' + endTime + ' (' + hours + 'h) ✓');
+  } else {
+    // Day-based request
+    const startDate = document.getElementById('holidayStartDate').value;
+    const endDate = type === 'Medical' ? startDate : document.getElementById('holidayEndDate').value;
+    if (!startDate) { showToast('Selecciona la fecha', 'error'); return; }
+    if (!endDate) { showToast('Selecciona la fecha fin', 'error'); return; }
+    if (endDate < startDate) { showToast('La fecha fin debe ser posterior', 'error'); return; }
+    const days = calculateWorkingDays(startDate, endDate);
 
-  const { error } = await db.from('holiday_requests').insert({
-    user_id: currentProfile.id,
-    start_date: startDate,
-    end_date: endDate,
-    days: days,
-    type: type,
-    reason: reason,
-    status: 'Pending'
-  });
-
-  if (error) {
-    showToast('Error: ' + error.message, 'error');
-    return;
+    const { error } = await db.from('holiday_requests').insert({
+      user_id: currentProfile.id,
+      start_date: startDate,
+      end_date: endDate,
+      days: days,
+      type: type,
+      reason: reason,
+      status: 'Pending'
+    });
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast('Solicitud enviada ✓');
   }
 
-  showToast('Solicitud enviada ✓');
   await loadHolidaySummary();
   // Reset form
   document.querySelectorAll('.holiday-type-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('holidayStartDate').value = '';
   document.getElementById('holidayEndDate').value = '';
+  document.getElementById('medApptDate').value = '';
+  document.getElementById('dateRangeGroup').style.display = 'block';
+  document.getElementById('medApptGroup').style.display = 'none';
 }
 
 function calculateWorkingDays(startDate, endDate) {
@@ -747,7 +773,33 @@ function switchTab(tab) {
 
 function selectHolidayType(btn, type) {
   document.querySelectorAll('.holiday-type-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected', HOLIDAY_TYPES[type]?.color || '');
+  btn.classList.add('selected');
+
+  var dateGroup = document.getElementById('dateRangeGroup');
+  var medApptGroup = document.getElementById('medApptGroup');
+  var endDateGroup = document.getElementById('endDateGroup');
+
+  if (type === 'MedAppt') {
+    dateGroup.style.display = 'none';
+    medApptGroup.style.display = 'block';
+  } else {
+    dateGroup.style.display = 'block';
+    medApptGroup.style.display = 'none';
+    // For Medical, hide end date (single day)
+    endDateGroup.style.display = type === 'Medical' ? 'none' : 'block';
+  }
+}
+
+function updateMedApptHours() {
+  var startTime = document.getElementById('medApptStartTime').value;
+  var endTime = document.getElementById('medApptEndTime').value;
+  var preview = document.getElementById('medApptHoursPreview');
+  if (!startTime || !endTime) { preview.textContent = '0h'; return; }
+  var sh = startTime.split(':').map(Number);
+  var eh = endTime.split(':').map(Number);
+  var hours = (eh[0] * 60 + eh[1] - sh[0] * 60 - sh[1]) / 60;
+  if (hours <= 0) hours = 0;
+  preview.textContent = (Math.round(hours * 10) / 10) + 'h';
 }
 
 function setCurrentTime() {
