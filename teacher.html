@@ -46,7 +46,7 @@
     <!-- HOURS TAB -->
     <div id="hoursTab" class="tab-content active">
       <!-- Date Card -->
-      <div class="date-card">
+      <div class="date-card" onclick="openCalendar()" style="cursor:pointer">
         <div class="date-nav">
           <button class="date-nav-btn" onclick="prevDay()">‹</button>
           <div class="date-center">
@@ -213,6 +213,28 @@
             <div class="empty-state-text">Sin solicitudes</div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Modal -->
+  <div class="overlay" id="calendarOverlay">
+    <div class="calendar-modal" onclick="event.stopPropagation()">
+      <div class="modal-header"><h3>📅 Elige un Día</h3><button class="modal-close" onclick="closeCalendar()">✕</button></div>
+      <div class="calendar-nav">
+        <button class="calendar-nav-btn" onclick="calendarChangeMonth(-1)">‹</button>
+        <span class="calendar-month" id="calendarMonth"></span>
+        <button class="calendar-nav-btn" id="calendarNextMonthBtn" onclick="calendarChangeMonth(1)">›</button>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+      <div class="calendar-legend">
+        <div class="legend-item"><div class="legend-dot punches"></div> Fichajes</div>
+        <div class="legend-item"><div class="legend-dot school-holiday"></div> Festivo</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1px solid #3b82f6"></div> Vacaciones</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);border:1px solid #8b5cf6"></div> D.R. Emp.</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#fee2e2,#fecaca);border:1px solid #ef4444"></div> Médico</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b"></div> Visita Méd.</div>
+        <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);border:1px solid #10b981"></div> D.R. Empr.</div>
       </div>
     </div>
   </div>

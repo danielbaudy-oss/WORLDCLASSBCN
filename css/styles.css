@@ -234,3 +234,44 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; }
   .holiday-stats { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .holiday-type-btn-group { grid-template-columns: 1fr 1fr; gap: 8px; }
 }
+
+/* Calendar Modal */
+.calendar-modal { background: #fff; border-radius: 20px; width: 100%; max-width: 400px; padding: 20px; max-height: 90vh; overflow-y: auto; }
+.calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.calendar-nav-btn { width: 40px; height: 40px; border: none; border-radius: 10px; background: var(--gray-100); cursor: pointer; font-weight: 700; font-size: 18px; color: var(--primary); display: flex; align-items: center; justify-content: center; }
+.calendar-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+.calendar-month { font-size: 16px; font-weight: 700; color: var(--primary); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.calendar-day-header { text-align: center; font-size: 11px; font-weight: 700; color: var(--gray-400); padding: 8px 0; }
+.calendar-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 14px; color: var(--gray-700); position: relative; }
+.calendar-day.empty { cursor: default; }
+.calendar-day.future { opacity: .2; cursor: not-allowed; }
+.calendar-day.today { border: 2px solid var(--primary); }
+.calendar-day.selected { background: var(--primary); color: #fff; }
+.calendar-day.has-punches { background: var(--accent); color: var(--primary); }
+.calendar-day.selected.has-punches { background: var(--primary); color: #fff; }
+.calendar-day.school-holiday { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; position: relative; }
+.calendar-day.school-holiday::after { content: '🏢'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.selected.school-holiday { background: var(--primary); color: #fff; }
+.calendar-day.selected.school-holiday::after { display: none; }
+.calendar-day.holiday-annual { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 2px solid #3b82f6; }
+.calendar-day.holiday-annual::after { content: '🏖️'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.holiday-personal { background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); color: #5b21b6; border: 2px solid #8b5cf6; }
+.calendar-day.holiday-personal::after { content: '👤'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.holiday-medical { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; border: 2px solid #ef4444; }
+.calendar-day.holiday-medical::after { content: '🏥'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.holiday-medappt { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border: 2px solid #f59e0b; }
+.calendar-day.holiday-medappt::after { content: '⚕️'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.holiday-school-day { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; border: 2px solid #10b981; }
+.calendar-day.holiday-school-day::after { content: '🏢'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.holiday-permiso { background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%); color: #0f766e; border: 2px solid #14b8a6; }
+.calendar-day.holiday-permiso::after { content: '📋'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.selected.holiday-annual, .calendar-day.selected.holiday-personal, .calendar-day.selected.holiday-medical,
+.calendar-day.selected.holiday-medappt, .calendar-day.selected.holiday-school-day, .calendar-day.selected.holiday-permiso { background: var(--primary); color: #fff; }
+.calendar-day.selected.holiday-annual::after, .calendar-day.selected.holiday-personal::after, .calendar-day.selected.holiday-medical::after,
+.calendar-day.selected.holiday-medappt::after, .calendar-day.selected.holiday-school-day::after, .calendar-day.selected.holiday-permiso::after { display: none; }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--gray-100); }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gray-500); }
+.legend-dot { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+.legend-dot.punches { background: var(--accent); }
+.legend-dot.school-holiday { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #f59e0b; }

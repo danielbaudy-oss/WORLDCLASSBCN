@@ -710,6 +710,144 @@ function setCurrentTime() {
   document.getElementById('timeInput').value = h + ':' + m;
 }
 
+// ========================================
+// CALENDAR
+// ========================================
+
+var calendarDate = new Date();
+var calendarPunchedDays = {};
+var calendarSchoolHolidays = {};
+var calendarTeacherHolidays = {};
+
+function openCalendar() {
+  calendarDate = new Date(selectedDate);
+  loadCalendarMonth();
+  document.getElementById('calendarOverlay').classList.add('active');
+}
+
+function closeCalendar() {
+  document.getElementById('calendarOverlay').classList.remove('active');
+}
+
+// Close on backdrop click
+document.addEventListener('click', function(e) {
+  var overlay = document.getElementById('calendarOverlay');
+  if (e.target === overlay) closeCalendar();
+});
+
+function calendarChangeMonth(dir) {
+  if (dir > 0) {
+    var next = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
+    var today = new Date();
+    if (next > new Date(today.getFullYear(), today.getMonth() + 1, 0)) return;
+  }
+  calendarDate.setMonth(calendarDate.getMonth() + dir);
+  loadCalendarMonth();
+}
+
+async function loadCalendarMonth() {
+  var y = calendarDate.getFullYear();
+  var m = calendarDate.getMonth() + 1;
+  var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('calendarMonth').textContent = monthNames[m - 1] + ' ' + y;
+
+  var isCurrentMonth = y === new Date().getFullYear() && m === new Date().getMonth() + 1;
+  document.getElementById('calendarNextMonthBtn').disabled = isCurrentMonth;
+
+  var startDate = y + '-' + String(m).padStart(2, '0') + '-01';
+  var daysInMonth = new Date(y, m, 0).getDate();
+  var endDate = y + '-' + String(m).padStart(2, '0') + '-' + String(daysInMonth).padStart(2, '0');
+
+  // Load punched days
+  var { data: punches } = await db.from('time_punches').select('date')
+    .eq('user_id', currentProfile.id).in('punch_type', ['IN', 'OUT'])
+    .gte('date', startDate).lte('date', endDate);
+  calendarPunchedDays = {};
+  (punches || []).forEach(function(p) {
+    calendarPunchedDays[p.date] = (calendarPunchedDays[p.date] || 0) + 1;
+  });
+
+  // Load school holidays
+  var { data: schoolHols } = await db.from('school_holidays').select('*');
+  calendarSchoolHolidays = {};
+  (schoolHols || []).forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      calendarSchoolHolidays[formatDate(cur)] = h.name;
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  // Load teacher holidays
+  var { data: holidays } = await db.from('holiday_requests').select('*')
+    .eq('user_id', currentProfile.id).eq('status', 'Approved')
+    .lte('start_date', endDate).gte('end_date', startDate);
+  calendarTeacherHolidays = {};
+  (holidays || []).forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      var ds = formatDate(cur);
+      if (ds >= startDate && ds <= endDate) {
+        calendarTeacherHolidays[ds] = h.type;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  renderCalendar();
+}
+
+function renderCalendar() {
+  var y = calendarDate.getFullYear();
+  var m = calendarDate.getMonth();
+  var first = new Date(y, m, 1);
+  var last = new Date(y, m + 1, 0);
+  var startDay = first.getDay();
+  var todayStr = formatDate(new Date());
+  var selStr = formatDate(selectedDate);
+
+  var html = '';
+  ['D','L','M','X','J','V','S'].forEach(function(n) {
+    html += '<div class="calendar-day-header">' + n + '</div>';
+  });
+  for (var i = 0; i < startDay; i++) html += '<div class="calendar-day empty"></div>';
+
+  for (var d = 1; d <= last.getDate(); d++) {
+    var date = new Date(y, m, d);
+    var ds = formatDate(date);
+    var isFut = date > new Date();
+    var isSchoolHol = calendarSchoolHolidays[ds];
+    var teacherHolType = calendarTeacherHolidays[ds];
+    var hasP = calendarPunchedDays[ds] > 0;
+
+    var cls = ['calendar-day'];
+    if (ds === todayStr) cls.push('today');
+    if (ds === selStr) cls.push('selected');
+    if (isFut) cls.push('future');
+
+    if (teacherHolType) {
+      var holClass = teacherHolType === 'School' ? 'holiday-school-day' : 'holiday-' + teacherHolType.toLowerCase();
+      cls.push(holClass);
+    } else if (isSchoolHol && !hasP) {
+      cls.push('school-holiday');
+    } else if (hasP) {
+      cls.push('has-punches');
+    }
+
+    html += '<div class="' + cls.join(' ') + '"' + (isFut ? '' : ' onclick="calendarSelectDate(' + y + ',' + m + ',' + d + ')"') + '>' + d + '</div>';
+  }
+
+  document.getElementById('calendarGrid').innerHTML = html;
+}
+
+function calendarSelectDate(y, m, d) {
+  var date = new Date(y, m, d);
+  closeCalendar();
+  loadDay(date);
+}
+
 // Set current time on load
 document.addEventListener('DOMContentLoaded', () => {
   setCurrentTime();
