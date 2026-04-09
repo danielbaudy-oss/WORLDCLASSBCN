@@ -1402,7 +1402,6 @@ async function openEditTeacherModal(userId) {
   // Save button
   html += '<div class="btn-row">' +
     '<button class="submit-btn" onclick="saveTeacherSettings(\'' + userId + '\')">💾 Guardar Cambios</button>' +
-    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
   '</div>';
 
   // Deactivate button
@@ -1511,7 +1510,6 @@ async function openEditAdminModal(userId) {
   // Save button
   html += '<div class="btn-row">' +
     '<button class="submit-btn" onclick="saveAdminSettings(\'' + userId + '\')">💾 Guardar Cambios</button>' +
-    '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
   '</div>';
 
   // Deactivate button
