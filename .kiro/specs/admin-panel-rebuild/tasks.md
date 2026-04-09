@@ -20,7 +20,7 @@
 - [x] 5.1 Implement loadAdminWorkersTable() with same pattern as teachers but for admin/super_admin roles, without prep time column, and with admin-specific defaults (1500h expected)
 
 ## Task 6: Teacher Calendar Modal
-- [-] 6.1 Implement openCalendarModal(userId, userName) that renders a monthly calendar grid with punch data, day click handler showing day detail with punch list, and month navigation
+- [x] 6.1 Implement openCalendarModal(userId, userName) that renders a monthly calendar grid with punch data, day click handler showing day detail with punch list, and month navigation
 - [ ] 6.2 Implement Super Admin punch CRUD in day detail: add punch form, edit punch inline, delete punch with immediate feedback
 
 ## Task 7: Edit Teacher / Edit Admin Settings Modals

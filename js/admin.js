@@ -465,7 +465,7 @@ async function loadStatsGrid(teacherData, adminData) {
     if (!cachedPunches) {
       var pRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
         .in('punch_type', ['IN', 'OUT'])
-        .gte('date', yearStart).lte('date', today);
+        .gte('date', yearStart).lte('date', today).limit(10000);
       cachedPunches = pRes.data || [];
     }
 
@@ -568,7 +568,7 @@ async function loadTeachersTable() {
 
     // Load all punches for the year (IN/OUT + PREP)
     var pRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
-      .gte('date', yearStart).lte('date', today);
+      .gte('date', yearStart).lte('date', today).limit(10000);
     var allPunches = pRes.data || [];
     cachedPunches = allPunches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
 
@@ -743,7 +743,7 @@ async function loadAdminWorkersTable() {
     if (!cachedPunches) {
       var pRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
         .in('punch_type', ['IN', 'OUT'])
-        .gte('date', yearStart).lte('date', today);
+        .gte('date', yearStart).lte('date', today).limit(10000);
       cachedPunches = pRes.data || [];
     }
 
