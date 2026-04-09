@@ -2903,10 +2903,7 @@ async function exportCSV() {
     return a.name.localeCompare(b.name);
   });
 
-  if (!allProfiles.length) {
-    showToast('No hay datos para exportar', 'error');
-    return;
-  }
+  if (!allProfiles.length) { showToast('No hay datos para exportar', 'error'); return; }
 
   var schoolHolidayDates = buildSchoolHolidayDateSet(cachedSchoolHolidays || []);
   var year = new Date().getFullYear();
@@ -2916,21 +2913,53 @@ async function exportCSV() {
   var cutoffDate = periodRange.end < today ? periodRange.end : today;
   var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
   var punches = cachedPunches || [];
+  var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var monthRange = getMonthRange();
+  var periodLabel = monthNames[monthRange.month] + ' ' + monthRange.year;
 
-  // Load ALL punches including PREP for prep time calculation
   var allPunchRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
     .gte('date', yearStart).lte('date', cutoffDate).limit(10000);
   var allPunches = allPunchRes.data || [];
-
-  // Load ALL holiday requests (not just approved) for time off columns
   var allHolidayRes = await db.from('holiday_requests').select('*');
   var allHolidays = allHolidayRes.data || [];
   var approvedHolidays = allHolidays.filter(function(h) { return h.status === 'Approved'; });
-
   var paidHours = cachedPaidHours || [];
 
-  var headers = ['Tipo', 'Nombre', 'Email', 'Horas Periodo', 'Horas Totales', 'Pagadas', 'Médicas', 'Progreso %', 'Esperado/Año', 'H.No Lectivas', 'Vac. Usadas', 'Vac. Total', 'D.R.Emp Usados', 'D.R.Emp Total', 'D.R.Empr Usados', 'D.R.Empr Total', 'Baja Médica', 'Visita Méd.', 'Permiso'];
-  var csvRows = [headers.join(',')];
+  // Build HTML table
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">' +
+    '<head><meta charset="utf-8"><style>' +
+    'td,th{font-family:Arial;font-size:11px;padding:6px 8px;border:1px solid #e2e8f0}' +
+    'th{font-weight:700}' +
+    '.title{background:#092b50;color:#fff;font-size:16px;font-weight:700;text-align:center;padding:12px}' +
+    '.subtitle{background:#f1f5f9;color:#334155;font-size:12px;padding:8px}' +
+    '.header{background:#092b50;color:#fff;text-align:center}' +
+    '.header-hours{background:#1e3a5f;color:#fff;text-align:center}' +
+    '.header-holidays{background:#3b82f6;color:#fff;text-align:center}' +
+    '.prof{background:#f0fdf4}' +
+    '.adm{background:#eff6ff}' +
+    '.on-track{color:#059669;font-weight:700}' +
+    '.warning{color:#d97706;font-weight:700}' +
+    '.behind{color:#dc2626;font-weight:700}' +
+    '.num{text-align:center}' +
+    '.total-row{background:#59d2ff;color:#092b50;font-weight:700}' +
+    '</style></head><body>';
+
+  html += '<table><tr><td colspan="19" class="title">📊 INFORME MENSUAL — ' + periodLabel.toUpperCase() + '</td></tr>';
+  html += '<tr><td class="subtitle" colspan="2">Exportado: ' + new Date().toLocaleString('es-ES') + '</td>' +
+    '<td class="subtitle" colspan="2">Empleados: ' + allProfiles.length + '</td><td colspan="15"></td></tr>';
+
+  // Headers
+  html += '<tr>' +
+    '<th class="header">Tipo</th><th class="header">Nombre</th><th class="header">Email</th>' +
+    '<th class="header-hours">H. Periodo</th><th class="header-hours">H. Totales</th><th class="header-hours">Pagadas</th><th class="header-hours">Médicas</th>' +
+    '<th class="header-hours">Progreso</th><th class="header-hours">Esperado</th><th class="header-hours">H.No Lect.</th>' +
+    '<th class="header-holidays">Vac.</th><th class="header-holidays">Vac.Tot</th>' +
+    '<th class="header-holidays">D.R.Emp</th><th class="header-holidays">D.R.Emp Tot</th>' +
+    '<th class="header-holidays">D.R.Empr</th><th class="header-holidays">D.R.Empr Tot</th>' +
+    '<th class="header-holidays">Médico</th><th class="header-holidays">Vis.Méd</th><th class="header-holidays">Permiso</th>' +
+    '</tr>';
+
+  var totals = { period: 0, total: 0, paid: 0, medical: 0 };
 
   allProfiles.forEach(function(p) {
     var isAdmin = p.role === 'admin' || p.role === 'super_admin';
@@ -2943,7 +2972,6 @@ async function exportCSV() {
     var userPunches = punches.filter(function(pu) { return pu.user_id === p.id; });
     var periodHours = calculateHoursFromPunches(userPunches, periodRange.start, periodRange.end);
     var yearlyHours = calculateHoursFromPunches(userPunches, yearStart, cutoffDate);
-
     var userPaid = paidHours.filter(function(ph) { return ph.user_id === p.id; });
     var paidTotal = userPaid.reduce(function(s, ph) { return s + (parseFloat(ph.hours) || 0); }, 0);
 
@@ -2957,73 +2985,73 @@ async function exportCSV() {
     userMedical.forEach(function(h) {
       var medStart = h.start_date > yearStart ? h.start_date : yearStart;
       var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
-      if (medStart <= medEnd) {
-        medicalHours += countWorkingDays(medStart, medEnd, schoolHolidayDates) * hoursPerWorkingDay;
-      }
+      if (medStart <= medEnd) medicalHours += countWorkingDays(medStart, medEnd, schoolHolidayDates) * hoursPerWorkingDay;
     });
 
     var totalHours = yearlyHours - paidTotal + medicalHours;
     var expectedToDate = expectedYearly * progress.progressRatio;
-    var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+    var pct = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+    var pctClass = pct >= 98 ? 'on-track' : pct >= 80 ? 'warning' : 'behind';
 
-    // Actual prep time from PREP punches
     var prepTotal = 0;
     allPunches.filter(function(pu) { return pu.user_id === p.id && pu.punch_type === 'PREP'; }).forEach(function(pu) {
       var match = (pu.notes || '').match(/Hours:\s*([\d.]+)/);
       if (match) prepTotal += parseFloat(match[1]);
     });
-    prepTotal = Math.round(prepTotal * 10) / 10;
 
-    // Time off summary
-    var userHolidays = allHolidays.filter(function(h) { return h.user_id === p.id; });
-    var annualUsed = 0, personalUsed = 0, schoolUsed = 0, medicalDays = 0, medApptUsed = 0, permisoUsed = 0;
-    userHolidays.forEach(function(h) {
-      if (h.status !== 'Approved') return;
-      var days = parseFloat(h.days) || 0;
-      if (h.type === 'Annual') annualUsed += days;
-      else if (h.type === 'Personal') personalUsed += days;
-      else if (h.type === 'School') schoolUsed += days;
-      else if (h.type === 'Medical') medicalDays += days;
-      else if (h.type === 'MedAppt') medApptUsed += days;
-      else if (h.type === 'Permiso') permisoUsed += days;
+    var userHols = allHolidays.filter(function(h) { return h.user_id === p.id && h.status === 'Approved'; });
+    var au = 0, pu2 = 0, su = 0, md = 0, ma = 0, pe = 0;
+    userHols.forEach(function(h) {
+      var d = parseFloat(h.days) || 0;
+      if (h.type === 'Annual') au += d; else if (h.type === 'Personal') pu2 += d;
+      else if (h.type === 'School') su += d; else if (h.type === 'Medical') md += d;
+      else if (h.type === 'MedAppt') ma += d; else if (h.type === 'Permiso') pe += d;
     });
 
-    var row = [
-      isAdmin ? 'Admin' : 'Profesor',
-      '"' + (p.name || '').replace(/"/g, '""') + '"',
-      '"' + (p.email || '').replace(/"/g, '""') + '"',
-      periodHours.toFixed(2),
-      totalHours.toFixed(2),
-      paidTotal.toFixed(2),
-      medicalHours.toFixed(2),
-      progressPercent.toFixed(1),
-      expectedYearly,
-      prepTotal,
-      annualUsed,
-      annualDays,
-      personalUsed,
-      personalDays,
-      schoolUsed,
-      schoolDays,
-      medicalDays,
-      medApptUsed,
-      permisoUsed
-    ];
-    csvRows.push(row.join(','));
+    totals.period += periodHours; totals.total += totalHours; totals.paid += paidTotal; totals.medical += medicalHours;
+    var rc = isAdmin ? 'adm' : 'prof';
+
+    html += '<tr>' +
+      '<td class="' + rc + ' num">' + (isAdmin ? 'Admin' : 'Profesor') + '</td>' +
+      '<td class="' + rc + '">' + (p.name || '') + '</td>' +
+      '<td class="' + rc + '">' + (p.email || '') + '</td>' +
+      '<td class="' + rc + ' num">' + periodHours.toFixed(2) + '</td>' +
+      '<td class="' + rc + ' num">' + totalHours.toFixed(2) + '</td>' +
+      '<td class="' + rc + ' num">' + paidTotal.toFixed(2) + '</td>' +
+      '<td class="' + rc + ' num">' + (medicalHours > 0 ? medicalHours.toFixed(2) : '') + '</td>' +
+      '<td class="' + rc + ' num ' + pctClass + '">' + pct.toFixed(1) + '%</td>' +
+      '<td class="' + rc + ' num">' + expectedYearly + '</td>' +
+      '<td class="' + rc + ' num">' + (prepTotal > 0 ? prepTotal : (isAdmin ? '-' : '0')) + '</td>' +
+      '<td class="' + rc + ' num">' + (au || '') + '</td><td class="' + rc + ' num">' + annualDays + '</td>' +
+      '<td class="' + rc + ' num">' + (pu2 || '') + '</td><td class="' + rc + ' num">' + personalDays + '</td>' +
+      '<td class="' + rc + ' num">' + (su || '') + '</td><td class="' + rc + ' num">' + schoolDays + '</td>' +
+      '<td class="' + rc + ' num">' + (md || '') + '</td>' +
+      '<td class="' + rc + ' num">' + (ma || '') + '</td>' +
+      '<td class="' + rc + ' num">' + (pe || '') + '</td>' +
+      '</tr>';
   });
 
-  var csvContent = csvRows.join('\n');
-  var blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  // Totals row
+  html += '<tr>' +
+    '<td class="total-row" colspan="3">TOTAL (' + teachers.length + ' Prof + ' + admins.length + ' Admin)</td>' +
+    '<td class="total-row num">' + totals.period.toFixed(2) + '</td>' +
+    '<td class="total-row num">' + totals.total.toFixed(2) + '</td>' +
+    '<td class="total-row num">' + totals.paid.toFixed(2) + '</td>' +
+    '<td class="total-row num">' + (totals.medical > 0 ? totals.medical.toFixed(2) : '') + '</td>' +
+    '<td class="total-row" colspan="12"></td></tr>';
+
+  html += '</table></body></html>';
+
+  var blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   var url = URL.createObjectURL(blob);
   var link = document.createElement('a');
   link.href = url;
-  var monthRange = getMonthRange();
-  link.download = 'informe_horas_' + monthRange.monthName + '_' + monthRange.year + '.csv';
+  link.download = 'informe_horas_' + monthRange.monthName + '_' + monthRange.year + '.xls';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast('CSV exportado', 'success');
+  showToast('Informe exportado', 'success');
 }
 
 
