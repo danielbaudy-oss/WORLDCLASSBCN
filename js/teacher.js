@@ -217,7 +217,7 @@ async function submitPunch() {
     return;
   }
 
-  const { error } = await supabase.from('time_punches').insert({
+  const { error } = await db.from('time_punches').insert({
     user_id: currentProfile.id,
     date: dateStr,
     time: timeStr + ':00',
@@ -332,7 +332,7 @@ async function togglePrepTime() {
     return;
   }
 
-  const { error } = await supabase.from('time_punches').insert({
+  const { error } = await db.from('time_punches').insert({
     user_id: currentProfile.id,
     date: dateStr,
     time: '00:00:00',
@@ -466,7 +466,7 @@ async function submitHolidayRequest() {
   // Calculate working days
   const days = calculateWorkingDays(startDate, endDate);
 
-  const { error } = await supabase.from('holiday_requests').insert({
+  const { error } = await db.from('holiday_requests').insert({
     user_id: currentProfile.id,
     start_date: startDate,
     end_date: endDate,

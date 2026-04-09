@@ -2,7 +2,7 @@
 const SUPABASE_URL = 'https://ruytavhodexoxkejrgyb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_gfNxT6X2meKFQQhS1jHA3Q_BIcTTYJ5';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // App defaults (matching existing Code.js DEFAULTS)
 const DEFAULTS = {

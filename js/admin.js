@@ -431,7 +431,7 @@ async function addSchoolHoliday() {
 
   if (!name || !startDate || !endDate) { showToast('Rellena todos los campos', 'error'); return; }
 
-  const { error } = await supabase.from('school_holidays').insert({ name, type, start_date: startDate, end_date: endDate });
+  const { error } = await db.from('school_holidays').insert({ name, type, start_date: startDate, end_date: endDate });
 
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   closeModal();
@@ -441,7 +441,7 @@ async function addSchoolHoliday() {
 
 async function deleteSchoolHoliday(id) {
   if (!confirm('¿Eliminar este festivo?')) return;
-  const { error } = await supabase.from('school_holidays').delete().eq('id', id);
+  const { error } = await db.from('school_holidays').delete().eq('id', id);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Festivo eliminado');
   loadSchoolHolidays();
