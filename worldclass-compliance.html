@@ -3,30 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WorldClass BCN — Cumplimiento Legal</title>
+<title>WorldClass BCN — Registro Horario Digital</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#334155;line-height:1.7;max-width:780px;margin:0 auto;padding:40px 30px}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#334155;line-height:1.8;max-width:780px;margin:0 auto;padding:40px 30px}
   .header{text-align:center;margin-bottom:40px;padding-bottom:24px;border-bottom:3px solid #092b50}
   .header img{height:60px;margin-bottom:10px}
   h1{color:#092b50;font-size:22px;margin-bottom:4px}
   .subtitle{color:#64748b;font-size:14px}
   .date{color:#94a3b8;font-size:12px;margin-top:8px}
   h2{color:#092b50;font-size:17px;margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid #f1f5f9}
-  p{margin-bottom:12px;font-size:14px}
+  p{margin-bottom:14px;font-size:14px}
+  .highlight{background:#fffbeb;border-left:4px solid #f59e0b;padding:14px 18px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14px}
+  .highlight b{color:#92400e}
   .check{background:#f8fafc;border-radius:10px;padding:14px 18px;margin-bottom:10px;border-left:4px solid #10b981;font-size:14px}
   .check b{color:#092b50}
   .check b::before{content:'✅ '}
-  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
-  th{background:#092b50;color:#fff;padding:8px 12px;text-align:left}
-  td{padding:8px 12px;border-bottom:1px solid #f1f5f9}
-  tr:nth-child(even){background:#f8fafc}
-  .old{color:#dc2626}.new{color:#10b981;font-weight:600}
-  .summary{background:linear-gradient(135deg,#092b50,#1e3a5f);color:#fff;border-radius:12px;padding:20px;margin:24px 0;font-size:14px}
+  .summary{background:linear-gradient(135deg,#092b50,#1e3a5f);color:rgba(255,255,255,0.92);border-radius:12px;padding:20px;margin:24px 0;font-size:14px}
   .summary strong{color:#fff}
-  .tech{background:#f8fafc;border-radius:10px;padding:16px 18px;margin:16px 0;font-size:12px;columns:2;column-gap:24px}
-  .tech p{margin:4px 0;break-inside:avoid}
-  .tech b{color:#092b50}
   .footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:32px;padding-top:16px;border-top:1px solid #f1f5f9}
   .print-btn{background:#092b50;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:16px}
   @media print{.print-btn{display:none}body{padding:20px;font-size:11px}}
@@ -36,51 +30,64 @@
 
 <div class="header">
   <img src="https://i0.wp.com/worldclassbcn.com/wp-content/uploads/2025/05/worldclass_logo.png?fit=368%2C396&ssl=1" alt="WorldClass BCN">
-  <h1>Sistema de Control de Fichaje</h1>
-  <div class="subtitle">Informe de Cumplimiento Legal</div>
+  <h1>Registro Horario Digital</h1>
+  <div class="subtitle">Adaptación al marco legal vigente</div>
   <div class="date">WorldClass BCN, Barcelona — Abril 2026</div>
 </div>
 
-<h2>Por Qué el Cambio</h2>
-<p>El Real Decreto-ley 8/2019, con requisitos digitales actualizados para 2026, exige un sistema de fichaje digital que cumpla estándares técnicos específicos. El sistema anterior (Google Sheets) no cumplía varios de estos requisitos.</p>
+<h2>Situación Legal Actual</h2>
 
-<table>
-  <tr><th>Aspecto</th><th>Antes</th><th>Ahora</th></tr>
-  <tr><td>Base de datos</td><td class="old">Google Sheets</td><td class="new">PostgreSQL</td></tr>
-  <tr><td>Auditoría</td><td class="old">Sin registro</td><td class="new">Automática e inalterable</td></tr>
-  <tr><td>GPS</td><td class="old">No</td><td class="new">Cada fichaje</td></tr>
-  <tr><td>Velocidad</td><td class="old">3-8 seg</td><td class="new">~50 ms</td></tr>
-  <tr><td>Alta empleados</td><td class="old">Edición manual</td><td class="new">Formulario + login automático</td></tr>
-  <tr><td>Acceso inspector</td><td class="old">Exportación manual</td><td class="new">Tiempo real</td></tr>
-</table>
+<p>Desde mayo de 2019, todas las empresas en España están obligadas a registrar la jornada laboral de sus empleados (Real Decreto-ley 8/2019). La normativa se ha ido endureciendo progresivamente, y los nuevos requisitos técnicos que se esperan plenamente exigibles en 2026 establecen condiciones más estrictas sobre <b>cómo</b> debe realizarse ese registro.</p>
 
-<h2>Cumplimiento Normativo</h2>
+<p>Los puntos clave de la normativa actualizada son:</p>
 
-<div class="check"><b>Sistema digital</b> — PostgreSQL, no hoja de cálculo. Las hojas de cálculo no son conformes según la normativa actualizada.</div>
-<div class="check"><b>Accesibilidad remota</b> — Aplicación web accesible desde cualquier dispositivo con navegador.</div>
-<div class="check"><b>Inalterabilidad</b> — Triggers de PostgreSQL registran cada inserción, modificación y eliminación en una tabla de auditoría. No se puede eludir desde la aplicación.</div>
-<div class="check"><b>GPS</b> — Coordenadas capturadas en cada fichaje vía API de Geolocalización del navegador.</div>
-<div class="check"><b>Acceso inmediato para inspectores</b> — Consulta en tiempo real de todos los registros, correcciones y coordenadas.</div>
-<div class="check"><b>Retención 4 años</b> — PostgreSQL con backups automáticos, sin eliminación automática.</div>
-<div class="check"><b>Empleado registra, responsable supervisa</b> — Fichaje con cuenta Google, administración separada con permisos por rol.</div>
-<div class="check"><b>Sin biometría</b> — Autenticación Google OAuth, sin huellas ni reconocimiento facial.</div>
+<div class="highlight"><b>⚠️ Las hojas de cálculo y los registros en papel dejan de ser válidos.</b> El sistema debe ser digital, con una base de datos profesional que garantice la integridad de los datos.</div>
+
+<div class="highlight"><b>⚠️ Debe existir un registro de auditoría inalterable.</b> Cada modificación o corrección de un fichaje debe quedar documentada automáticamente, sin posibilidad de ser borrada o manipulada.</div>
+
+<div class="highlight"><b>⚠️ Los datos deben ser accesibles de forma inmediata.</b> Ante una inspección de trabajo, la empresa debe poder mostrar los registros en tiempo real, no mediante exportaciones manuales que pueden tardar horas o días.</div>
+
+<div class="highlight"><b>⚠️ Se recomienda el registro de geolocalización.</b> Aunque no es obligatorio en todos los casos, la captura de coordenadas GPS en cada fichaje refuerza significativamente la validez del registro ante una inspección.</div>
+
+<div class="highlight"><b>⚠️ Los datos deben conservarse durante 4 años.</b> Con copias de seguridad automáticas y sin riesgo de pérdida accidental.</div>
+
+<p>Las sanciones por incumplimiento van desde 751€ hasta 7.500€ por infracción, y pueden aplicarse por cada empleado afectado. En inspecciones recientes en el sector educativo y hostelería de Barcelona, se ha observado un aumento significativo de las revisiones.</p>
+
+<h2>Situación Anterior de WorldClass BCN</h2>
+
+<p>El sistema de fichaje anterior de WorldClass BCN funcionaba sobre Google Sheets (hojas de cálculo de Google) con Google Apps Script. Aunque era funcional en el día a día, presentaba carencias importantes frente a los nuevos requisitos:</p>
+
+<p>— No existía ningún registro de auditoría. Cualquier persona con acceso podía modificar o eliminar fichajes sin dejar rastro.<br>
+— No se capturaban coordenadas GPS.<br>
+— El acceso a los datos para una inspección requería exportaciones manuales.<br>
+— Google Sheets es una hoja de cálculo, no una base de datos profesional, lo que la normativa actualizada considera insuficiente.<br>
+— El sistema tardaba entre 3 y 8 segundos en responder, generando fricciones en el uso diario.</p>
+
+<h2>Sistema Actual</h2>
+
+<p>WorldClass BCN ha migrado a un sistema de registro horario digital que cumple todos los requisitos normativos vigentes:</p>
+
+<div class="check"><b>Base de datos profesional</b> — Los registros se almacenan en PostgreSQL, una base de datos relacional utilizada por empresas de todos los tamaños en todo el mundo.</div>
+
+<div class="check"><b>Auditoría automática e inalterable</b> — Cada fichaje, corrección o eliminación genera automáticamente un registro de auditoría que no puede ser modificado ni borrado desde la aplicación.</div>
+
+<div class="check"><b>Geolocalización GPS</b> — Cada fichaje de entrada y salida registra las coordenadas del empleado.</div>
+
+<div class="check"><b>Acceso inmediato</b> — Todos los registros son consultables en tiempo real. Ante una inspección, se puede conceder acceso de lectura en minutos.</div>
+
+<div class="check"><b>Conservación de datos</b> — Los datos se almacenan con copias de seguridad automáticas y sin caducidad. Cumple sobradamente el requisito de 4 años.</div>
+
+<div class="check"><b>Sin biometría</b> — La identificación se realiza mediante cuenta de Google, evitando las restricciones de la AEPD sobre datos biométricos.</div>
+
+<div class="check"><b>Gestión simplificada</b> — Dar de alta a un nuevo empleado es inmediato desde el panel de administración. El empleado accede con su cuenta de Google sin configuraciones adicionales.</div>
 
 <div class="summary">
-  <strong>En resumen:</strong> No existe certificación gubernamental obligatoria para fichaje en España. Lo que importa es cumplir los requisitos técnicos. WorldClass BCN los cumple todos: base de datos profesional, auditoría inalterable, GPS, acceso inspector en tiempo real y retención de 4 años.
-</div>
-
-<h2>Detalles Técnicos</h2>
-<div class="tech">
-  <p><b>Base de datos:</b> PostgreSQL vía Supabase (UE)</p>
-  <p><b>Frontend:</b> HTML/JS en GitHub Pages</p>
-  <p><b>Auth:</b> Google OAuth</p>
-  <p><b>Auditoría:</b> Triggers AFTER → audit_log</p>
-  <p><b>Datos:</b> UTC, ISO 8601</p>
-  <p><b>GPS:</b> Geolocation API por fichaje</p>
+  <strong>Conclusión:</strong> El nuevo sistema de WorldClass BCN cumple todos los requisitos técnicos establecidos por la normativa española de registro horario. La migración desde Google Sheets era necesaria para garantizar la conformidad legal, la trazabilidad de los datos y la protección de la empresa ante posibles inspecciones.
 </div>
 
 <div class="footer">
-  <p>WorldClass BCN — Barcelona, España | Abril 2026 | v2.0</p>
+  <p>WorldClass BCN — Barcelona, España</p>
+  <p>Abril 2026</p>
   <button class="print-btn" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
 </div>
 
