@@ -850,7 +850,7 @@ async function loadTeachersTable() {
       // Progress percent using Code.js formula
       var expectedToDate = expectedYearly * progress.progressRatio;
       var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
-      progressPercent = Math.round(progressPercent * 10) / 10;
+      progressPercent = Math.round(progressPercent);
 
       // Prep time: from PREP punches
       var prepPunches = userAllPunches.filter(function(p) { return p.punch_type === 'PREP'; });
@@ -1049,7 +1049,7 @@ async function loadAdminWorkersTable() {
       // Progress using Code.js formula
       var expectedToDate = expectedYearly * progress.progressRatio;
       var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
-      progressPercent = Math.round(progressPercent * 10) / 10;
+      progressPercent = Math.round(progressPercent);
 
       var status = getProgressStatus(progressPercent);
 
