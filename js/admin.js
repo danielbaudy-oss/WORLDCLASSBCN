@@ -781,7 +781,7 @@ async function loadTeachersTable() {
     var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
 
     if (!teachers.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay profesores activos</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay profesores activos</td></tr>';
       return;
     }
 
@@ -891,13 +891,12 @@ async function loadTeachersTable() {
         '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
         '<td>' + totalHours.toFixed(1) + 'h' + (medicalHours > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + medicalHours.toFixed(1) + 'h méd.</div>' : '') + '</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
-        '<td>' + medicalHours.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
           '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
         '</div></td>' +
-        '<td><span class="hours-badge ' + prepColor + '">' + prepTimeTotal + 'h / ' + prepTimeYearly + 'h</span>' +
-          '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">' + prepWeeksLogged.size + ' semanas</div></td>' +
+        '<td style="font-size:12px;white-space:nowrap"><span class="' + prepColor + '" style="font-weight:600">' + prepTimeTotal + 'h</span><span style="color:var(--gray-400)"> / ' + prepTimeYearly + 'h</span>' +
+          (prepWeeksLogged.size > 0 ? '<div style="font-size:10px;color:var(--gray-400);margin-top:2px">' + prepWeeksLogged.size + ' sem</div>' : '') + '</td>' +
         '<td>' + expectedYearly + 'h</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
@@ -986,7 +985,7 @@ async function loadAdminWorkersTable() {
     var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
 
     if (!admins.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay administradores activos</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay administradores activos</td></tr>';
       return;
     }
 
@@ -1075,7 +1074,6 @@ async function loadAdminWorkersTable() {
         '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
         '<td>' + totalHours.toFixed(1) + 'h' + (medicalHours > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + medicalHours.toFixed(1) + 'h méd.</div>' : '') + '</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
-        '<td>' + medicalHours.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
           '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
