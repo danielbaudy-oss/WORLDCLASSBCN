@@ -173,7 +173,7 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; }
 .holiday-type-btn-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .holiday-type-btn { padding: 14px 10px; border: 2px solid var(--gray-200); border-radius: var(--radius); background: #fff; cursor: pointer; text-align: center; transition: all .2s; }
 .holiday-type-btn:hover { border-color: var(--accent); background: var(--gray-50); }
-.holiday-type-btn.selected { border-color: #1e1b4b; background: #818cf8; transform: scale(1.18); box-shadow: 0 4px 16px rgba(30,27,75,0.35); }
+.holiday-type-btn.selected { border-color: #1e1b4b !important; background: #818cf8 !important; transform: scale(1.18); box-shadow: 0 4px 16px rgba(30,27,75,0.35) !important; }
 .holiday-type-icon { font-size: 24px; margin-bottom: 6px; }
 .holiday-type-name { font-size: 11px; font-weight: 600; color: var(--primary); line-height: 1.2; }
 
