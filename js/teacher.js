@@ -67,6 +67,7 @@ async function loadDay(date) {
   if (isToday(date)) {
     badge.textContent = 'HOY';
     badge.style.display = 'inline-block';
+    setCurrentTime();
   } else {
     badge.style.display = 'none';
   }

@@ -46,15 +46,15 @@
     <!-- HOURS TAB -->
     <div id="hoursTab" class="tab-content active">
       <!-- Date Card -->
-      <div class="date-card" onclick="openCalendar()" style="cursor:pointer">
+      <div class="date-card">
         <div class="date-nav">
-          <button class="date-nav-btn" onclick="prevDay()">‹</button>
-          <div class="date-center">
+          <button class="date-nav-btn" onclick="event.stopPropagation();prevDay()">‹</button>
+          <div class="date-center" onclick="openCalendar()" style="cursor:pointer">
             <div class="date-number" id="dateNumber">--</div>
             <div class="date-text" id="dateText">Cargando...</div>
             <span class="date-badge" id="dateBadge" style="display:none">HOY</span>
           </div>
-          <button class="date-nav-btn" id="nextDayBtn" onclick="nextDay()">›</button>
+          <button class="date-nav-btn" id="nextDayBtn" onclick="event.stopPropagation();nextDay()">›</button>
         </div>
       </div>
 
