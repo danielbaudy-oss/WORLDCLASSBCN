@@ -970,6 +970,13 @@ function switchTab(tab) {
 }
 
 function selectHolidayType(btn, type) {
+  if (btn.classList.contains('selected')) {
+    btn.classList.remove('selected');
+    // Reset form to default (date range)
+    document.getElementById('dateRangeGroup').style.display = 'block';
+    document.getElementById('medApptGroup').style.display = 'none';
+    return;
+  }
   document.querySelectorAll('.holiday-type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
 
