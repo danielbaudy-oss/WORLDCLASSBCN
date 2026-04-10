@@ -1943,9 +1943,9 @@ async function loadFreezeTab() {
   freezeActions.innerHTML =
     '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
       '<input type="date" id="freezeDatePicker" class="form-input" value="' + freezeDate + '" max="' + maxDate + '" style="flex:1;min-width:180px;padding:10px;font-size:14px">' +
-      '<button class="freeze-btn freeze" onclick="applyFreezeDate()" style="min-width:180px">🔒 Aplicar</button>' +
-    '</div>' +
-    (freezeDate ? '<button class="freeze-btn unfreeze" onclick="clearFreezeDate()" style="margin-top:10px;width:100%">🔓 Descongelar todo</button>' : '');
+      '<button class="freeze-btn freeze" onclick="applyFreezeDate()" style="min-width:140px">🔒 Aplicar</button>' +
+      (freezeDate ? '<button class="freeze-btn unfreeze" onclick="clearFreezeDate()" style="min-width:140px">🔓 Descongelar</button>' : '') +
+    '</div>';
 }
 
 async function applyFreezeDate() {
