@@ -463,9 +463,9 @@ function showMissedWeeks() {
     var d = new Date(ws + 'T12:00:00');
     var end = new Date(d); end.setDate(d.getDate() + 6);
     var label = d.getDate() + ' ' + monthNames[d.getMonth()] + ' - ' + end.getDate() + ' ' + monthNames[end.getMonth()];
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border-radius:8px;margin-bottom:6px;border:1px solid #e0e7ff">' +
+    return '<div id="missedRow-' + ws + '" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border-radius:8px;margin-bottom:6px;border:1px solid #e0e7ff;transition:all 0.4s">' +
       '<span style="font-size:13px;color:var(--primary);font-weight:600">' + label + '</span>' +
-      '<button onclick="logMissedWeek(\'' + ws + '\')" style="padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">' + weeklyHours + 'h ✓</button>' +
+      '<button id="missedBtn-' + ws + '" onclick="logMissedWeek(\'' + ws + '\')" style="padding:6px 14px;background:#f59e0b;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.3s;min-width:60px">' + weeklyHours + 'h</button>' +
     '</div>';
   }).join('');
 
@@ -475,8 +475,12 @@ function showMissedWeeks() {
 
 async function logMissedWeek(weekStart) {
   var weeklyHours = Math.round((currentProfile.prep_time_yearly / DEFAULTS.WORKING_WEEKS_PER_YEAR) * 10) / 10;
+  var btn = document.getElementById('missedBtn-' + weekStart);
+  var row = document.getElementById('missedRow-' + weekStart);
 
-  // Find a valid date in that week (the Monday)
+  // Disable button while saving
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
   var { error } = await db.from('time_punches').insert({
     user_id: currentProfile.id,
     date: weekStart,
@@ -485,15 +489,52 @@ async function logMissedWeek(weekStart) {
     notes: 'Week: ' + weekStart + ' | Hours: ' + weeklyHours
   });
 
-  if (error) { showToast('Error: ' + error.message, 'error'); return; }
-  showToast('Semana registrada: ' + weeklyHours + 'h ✓');
-
-  // Remove from missed list
-  if (window._missedPrepWeeks) {
-    window._missedPrepWeeks = window._missedPrepWeeks.filter(function(w) { return w !== weekStart; });
+  if (error) {
+    showToast('Error: ' + error.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = weeklyHours + 'h'; }
+    return;
   }
 
-  await loadPrepTimeStatus(formatDate(selectedDate));
+  // Turn green, show check
+  if (btn) {
+    btn.style.background = '#10b981';
+    btn.textContent = '✓';
+  }
+  if (row) {
+    row.style.borderColor = '#10b981';
+    row.style.background = '#d1fae5';
+  }
+
+  // Fade out and remove after a moment
+  setTimeout(function() {
+    if (row) {
+      row.style.opacity = '0';
+      row.style.maxHeight = '0';
+      row.style.padding = '0 12px';
+      row.style.marginBottom = '0';
+      row.style.overflow = 'hidden';
+    }
+    // Update missed list and alert
+    if (window._missedPrepWeeks) {
+      window._missedPrepWeeks = window._missedPrepWeeks.filter(function(w) { return w !== weekStart; });
+      var alertEl = document.getElementById('prepMissedAlert');
+      var textEl = document.getElementById('prepMissedText');
+      if (window._missedPrepWeeks.length === 0) {
+        alertEl.style.display = 'none';
+        document.getElementById('prepMissedList').style.display = 'none';
+      } else {
+        textEl.textContent = window._missedPrepWeeks.length + ' semana' + (window._missedPrepWeeks.length > 1 ? 's' : '') + ' sin registrar horas no lectivas (' + (window._missedPrepWeeks.length * weeklyHours).toFixed(1) + 'h)';
+      }
+    }
+    // Update year progress
+    var yearProgress = document.getElementById('prepYearProgress');
+    if (yearProgress) {
+      var current = parseFloat(yearProgress.textContent) || 0;
+      yearProgress.textContent = (current + weeklyHours).toFixed(1) + 'h / ' + currentProfile.prep_time_yearly + 'h';
+    }
+  }, 600);
+
+  showToast('Semana registrada: ' + weeklyHours + 'h ✓');
 }
 
 async function togglePrepTime() {
