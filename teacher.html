@@ -102,13 +102,32 @@
 
         <!-- Prep Time -->
         <div class="prep-time-section" id="prepTimeSection" style="display:none">
-          <div class="prep-time-checkbox-wrapper" id="prepTimeWrapper" onclick="togglePrepTime()">
-            <div class="prep-time-checkbox" id="prepTimeCheckbox"></div>
-            <div class="prep-time-info">
-              <span class="prep-time-title">📚 Horas No Lectivas</span>
-              <span class="prep-time-badge" id="prepTimeBadge">1.5h</span>
+          <!-- Missed weeks alert -->
+          <div id="prepMissedAlert" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick="showMissedWeeks()">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:20px">⚠️</span>
+              <div>
+                <div style="font-weight:700;color:#92400e;font-size:13px" id="prepMissedText">-- semanas sin registrar</div>
+                <div style="font-size:11px;color:#b45309;margin-top:2px">Toca para registrar</div>
+              </div>
             </div>
-            <button class="prep-time-undo" id="prepTimeUndo" onclick="event.stopPropagation();undoPrepTime()" style="display:none" aria-label="Deshacer horas no lectivas">↩️</button>
+          </div>
+          <!-- Missed weeks list (hidden by default) -->
+          <div id="prepMissedList" style="display:none;margin-bottom:12px"></div>
+          <!-- Current week -->
+          <div style="background:linear-gradient(135deg,#f0f9ff,#dbeafe);border:2px solid #3b82f6;border-radius:12px;padding:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-weight:700;color:#1e40af;font-size:13px">📚 Horas No Lectivas</span>
+              <span style="font-size:12px;color:#3b82f6;font-weight:600" id="prepYearProgress">--h / --h</span>
+            </div>
+            <div class="prep-time-checkbox-wrapper" id="prepTimeWrapper" onclick="togglePrepTime()">
+              <div class="prep-time-checkbox" id="prepTimeCheckbox"></div>
+              <div class="prep-time-info">
+                <span class="prep-time-title" id="prepWeekLabel">Semana actual</span>
+                <span class="prep-time-badge" id="prepTimeBadge">1.5h</span>
+              </div>
+              <button class="prep-time-undo" id="prepTimeUndo" onclick="event.stopPropagation();undoPrepTime()" style="display:none" aria-label="Deshacer">↩️</button>
+            </div>
           </div>
         </div>
 

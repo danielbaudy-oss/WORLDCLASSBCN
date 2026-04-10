@@ -311,7 +311,6 @@ async function deletePunch(id) {
 // ========================================
 
 async function loadPrepTimeStatus(dateStr) {
-  // Admins don't have prep time, only teachers
   var isTeacher = currentProfile.role === 'teacher';
   if (!isTeacher || currentProfile.prep_time_yearly <= 0) {
     document.getElementById('prepTimeSection').style.display = 'none';
@@ -339,7 +338,162 @@ async function loadPrepTimeStatus(dateStr) {
   badge.textContent = weeklyHours + 'h';
   checkbox.textContent = logged ? '✓' : '';
 
+  // Week label
+  var weekLabel = document.getElementById('prepWeekLabel');
+  if (weekLabel) {
+    var ws = new Date(weekStart + 'T12:00:00');
+    var we = new Date(ws); we.setDate(ws.getDate() + 6);
+    var monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    weekLabel.textContent = 'Sem ' + ws.getDate() + ' ' + monthNames[ws.getMonth()] + ' - ' + we.getDate() + ' ' + monthNames[we.getMonth()];
+  }
+
   document.getElementById('prepTimeUndo').style.display = logged ? 'inline-flex' : 'none';
+
+  // Year progress
+  var { data: allPrep } = await db.from('time_punches').select('notes')
+    .eq('user_id', currentProfile.id).eq('punch_type', 'PREP');
+  var totalLogged = 0;
+  (allPrep || []).forEach(function(p) {
+    var match = (p.notes || '').match(/Hours:\s*([\d.]+)/);
+    if (match) totalLogged += parseFloat(match[1]);
+  });
+  var yearProgress = document.getElementById('prepYearProgress');
+  if (yearProgress) yearProgress.textContent = Math.round(totalLogged * 10) / 10 + 'h / ' + currentProfile.prep_time_yearly + 'h';
+
+  // Check for missed weeks (smart: exclude holiday/school holiday weeks)
+  await checkMissedPrepWeeks(allPrep || []);
+}
+
+async function checkMissedPrepWeeks(allPrepPunches) {
+  var year = new Date().getFullYear();
+  var yearStart = year + '-01-01';
+  var today = formatDate(new Date());
+  var weeklyHours = Math.round((currentProfile.prep_time_yearly / DEFAULTS.WORKING_WEEKS_PER_YEAR) * 10) / 10;
+
+  // Load school holidays
+  var { data: schoolHols } = await db.from('school_holidays').select('*');
+  var schoolHolidayDates = new Set();
+  (schoolHols || []).forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      schoolHolidayDates.add(formatDate(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  // Load teacher's approved holidays
+  var { data: holidays } = await db.from('holiday_requests').select('start_date, end_date')
+    .eq('user_id', currentProfile.id).eq('status', 'Approved');
+  var teacherOffDates = new Set();
+  (holidays || []).forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      teacherOffDates.add(formatDate(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  // Build set of already logged week starts
+  var loggedWeeks = new Set();
+  allPrepPunches.forEach(function(p) {
+    var match = (p.notes || '').match(/Week:\s*(\S+)/);
+    if (match) loggedWeeks.add(match[1]);
+  });
+
+  // Iterate weeks from Jan 1 to current week
+  var missedWeeks = [];
+  var cur = new Date(year, 0, 1);
+  // Move to first Monday
+  while (cur.getDay() !== 1) cur.setDate(cur.getDate() + 1);
+
+  var currentWeekStart = getWeekStart(today);
+
+  while (formatDate(cur) <= currentWeekStart) {
+    var ws = formatDate(cur);
+    var we = new Date(cur); we.setDate(cur.getDate() + 4); // Friday
+
+    // Check if this week has at least 1 working day (not school holiday AND not teacher off)
+    var hasWorkingDay = false;
+    var dayCheck = new Date(cur);
+    for (var i = 0; i < 5; i++) { // Mon-Fri
+      var ds = formatDate(dayCheck);
+      if (!schoolHolidayDates.has(ds) && !teacherOffDates.has(ds) && ds <= today) {
+        hasWorkingDay = true;
+        break;
+      }
+      dayCheck.setDate(dayCheck.getDate() + 1);
+    }
+
+    // If eligible week and not logged and not current week (current week shown separately)
+    if (hasWorkingDay && !loggedWeeks.has(ws) && ws !== currentWeekStart && ws >= yearStart) {
+      missedWeeks.push(ws);
+    }
+
+    cur.setDate(cur.getDate() + 7);
+  }
+
+  // Show/hide missed alert
+  var alertEl = document.getElementById('prepMissedAlert');
+  var textEl = document.getElementById('prepMissedText');
+  if (missedWeeks.length > 0) {
+    alertEl.style.display = 'block';
+    textEl.textContent = missedWeeks.length + ' semana' + (missedWeeks.length > 1 ? 's' : '') + ' sin registrar (' + (missedWeeks.length * weeklyHours).toFixed(1) + 'h)';
+    // Store for the list
+    window._missedPrepWeeks = missedWeeks;
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
+function showMissedWeeks() {
+  var listEl = document.getElementById('prepMissedList');
+  if (!listEl || !window._missedPrepWeeks) return;
+
+  if (listEl.style.display === 'block') {
+    listEl.style.display = 'none';
+    return;
+  }
+
+  var weeklyHours = Math.round((currentProfile.prep_time_yearly / DEFAULTS.WORKING_WEEKS_PER_YEAR) * 10) / 10;
+  var monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+  var html = window._missedPrepWeeks.map(function(ws) {
+    var d = new Date(ws + 'T12:00:00');
+    var end = new Date(d); end.setDate(d.getDate() + 6);
+    var label = d.getDate() + ' ' + monthNames[d.getMonth()] + ' - ' + end.getDate() + ' ' + monthNames[end.getMonth()];
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border-radius:8px;margin-bottom:6px;border:1px solid #e0e7ff">' +
+      '<span style="font-size:13px;color:var(--primary);font-weight:600">' + label + '</span>' +
+      '<button onclick="logMissedWeek(\'' + ws + '\')" style="padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">' + weeklyHours + 'h ✓</button>' +
+    '</div>';
+  }).join('');
+
+  listEl.innerHTML = html;
+  listEl.style.display = 'block';
+}
+
+async function logMissedWeek(weekStart) {
+  var weeklyHours = Math.round((currentProfile.prep_time_yearly / DEFAULTS.WORKING_WEEKS_PER_YEAR) * 10) / 10;
+
+  // Find a valid date in that week (the Monday)
+  var { error } = await db.from('time_punches').insert({
+    user_id: currentProfile.id,
+    date: weekStart,
+    time: '00:00:00',
+    punch_type: 'PREP',
+    notes: 'Week: ' + weekStart + ' | Hours: ' + weeklyHours
+  });
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Semana registrada: ' + weeklyHours + 'h ✓');
+
+  // Remove from missed list
+  if (window._missedPrepWeeks) {
+    window._missedPrepWeeks = window._missedPrepWeeks.filter(function(w) { return w !== weekStart; });
+  }
+
+  await loadPrepTimeStatus(formatDate(selectedDate));
 }
 
 async function togglePrepTime() {
