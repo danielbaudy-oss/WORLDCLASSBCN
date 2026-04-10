@@ -1922,45 +1922,45 @@ async function loadFreezeTab() {
 
   if (!freezeCard || !freezeActions) return;
 
-  var yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  var yesterdayStr = formatDate(yesterday);
-
   if (freezeDate) {
     freezeCard.classList.add('active');
     freezeIcon.textContent = '🔒';
     freezeTitle.textContent = 'Fichajes Congelados';
     freezeStatusValue.textContent = 'Congelado hasta: ' + new Date(freezeDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     freezeStatusValue.classList.add('frozen');
-
-    var btns = '';
-    if (freezeDate < yesterdayStr) {
-      btns += '<button class="freeze-btn freeze" onclick="freezePunches()">🔒 Extender hasta ayer</button>';
-    }
-    btns += '<button class="freeze-btn unfreeze" onclick="unfreezePunches()">🔓 Descongelar todo</button>';
-    freezeActions.innerHTML = btns;
   } else {
     freezeCard.classList.remove('active');
     freezeIcon.textContent = '🔓';
     freezeTitle.textContent = 'Sin Congelación';
-    freezeStatusValue.textContent = 'No hay fichajes congelados';
+    freezeStatusValue.textContent = 'Los profesores pueden editar todos sus fichajes';
     freezeStatusValue.classList.remove('frozen');
-    freezeActions.innerHTML = '<button class="freeze-btn freeze" onclick="freezePunches()">🔒 Congelar hasta ayer</button>';
   }
-}
 
-async function freezePunches() {
   var yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  var yesterdayStr = formatDate(yesterday);
+  var maxDate = formatDate(yesterday);
 
-  var { error } = await db.from('app_config').upsert({ key: 'FreezeDate', value: yesterdayStr, description: 'Last frozen date (inclusive)' });
+  freezeActions.innerHTML =
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+      '<input type="date" id="freezeDatePicker" class="form-input" value="' + freezeDate + '" max="' + maxDate + '" style="flex:1;min-width:180px;padding:10px;font-size:14px">' +
+      '<button class="freeze-btn freeze" onclick="applyFreezeDate()" style="min-width:180px">🔒 Aplicar</button>' +
+    '</div>' +
+    (freezeDate ? '<button class="freeze-btn unfreeze" onclick="clearFreezeDate()" style="margin-top:10px;width:100%">🔓 Descongelar todo</button>' : '');
+}
+
+async function applyFreezeDate() {
+  var dateVal = document.getElementById('freezeDatePicker').value;
+  if (!dateVal) { showToast('Selecciona una fecha', 'error'); return; }
+
+  var { error } = await db.from('app_config').upsert({ key: 'FreezeDate', value: dateVal, description: 'Last frozen date (inclusive)' });
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
-  showToast('Fichajes congelados hasta ' + yesterdayStr, 'success');
+
+  var dateDisplay = new Date(dateVal + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+  showToast('Fichajes congelados hasta ' + dateDisplay, 'success');
   await loadFreezeTab();
 }
 
-async function unfreezePunches() {
+async function clearFreezeDate() {
   var { error } = await db.from('app_config').upsert({ key: 'FreezeDate', value: '', description: 'Last frozen date (inclusive)' });
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Fichajes descongelados', 'success');
