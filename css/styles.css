@@ -109,7 +109,7 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; }
 .prep-time-checkbox-wrapper { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--gray-50); border: 2px solid var(--gray-200); border-radius: 12px; cursor: pointer; transition: all .2s; }
 .prep-time-checkbox-wrapper:hover:not(.disabled):not(.checked) { background: var(--gray-100); border-color: var(--gray-300); }
 .prep-time-checkbox-wrapper.checked { background: #d1fae5; border-color: var(--success); }
-.prep-time-checkbox { width: 20px; height: 20px; border: 2px solid var(--gray-300); border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff; font-size: 12px; font-weight: 700; transition: all .2s; }
+.prep-time-checkbox { width: 32px; height: 32px; border: 3px solid var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff; font-size: 18px; font-weight: 700; transition: all .2s; }
 .prep-time-checkbox-wrapper.checked .prep-time-checkbox { background: var(--success); border-color: var(--success); color: #fff; }
 .prep-time-info { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .prep-time-title { font-weight: 600; color: var(--primary); font-size: 14px; display: flex; align-items: center; gap: 6px; }

@@ -439,7 +439,7 @@ async function checkMissedPrepWeeks(allPrepPunches) {
   var textEl = document.getElementById('prepMissedText');
   if (missedWeeks.length > 0) {
     alertEl.style.display = 'block';
-    textEl.textContent = missedWeeks.length + ' semana' + (missedWeeks.length > 1 ? 's' : '') + ' sin registrar (' + (missedWeeks.length * weeklyHours).toFixed(1) + 'h)';
+    textEl.textContent = missedWeeks.length + ' semana' + (missedWeeks.length > 1 ? 's' : '') + ' sin registrar horas no lectivas (' + (missedWeeks.length * weeklyHours).toFixed(1) + 'h)';
     // Store for the list
     window._missedPrepWeeks = missedWeeks;
   } else {
