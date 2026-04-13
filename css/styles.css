@@ -31,8 +31,7 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; }
 
 .teacher-body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-  background-attachment: fixed;
+  background: var(--primary);
   min-height: 100vh;
   width: 100%;
   padding: 12px;
