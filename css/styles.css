@@ -280,8 +280,3 @@ html { width: 100%; height: 100%; overflow: hidden; touch-action: manipulation; 
 
 /* Holiday type button description */
 .holiday-type-desc { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
-
-/* Custom tooltip for holiday type buttons */
-.holiday-type-btn[title] { position: relative; }
-.holiday-type-btn[title]:hover::after { content: attr(title); position: absolute; bottom: -24px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; white-space: nowrap; z-index: 10; pointer-events: none; }
-.holiday-type-btn[title]:hover::before { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-bottom-color: var(--primary); z-index: 10; }
