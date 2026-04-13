@@ -33,6 +33,7 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; }
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   padding: 12px;
   margin: 0;
