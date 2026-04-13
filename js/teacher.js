@@ -730,6 +730,7 @@ async function submitHolidayRequest() {
     if (!startDate) { showToast('Selecciona la fecha', 'error'); return; }
     if (!endDate) { showToast('Selecciona la fecha fin', 'error'); return; }
     if (endDate < startDate) { showToast('La fecha fin debe ser posterior', 'error'); return; }
+    if (type === 'Permiso' && !reason.trim()) { showToast('El motivo es obligatorio para Permiso', 'error'); return; }
     const days = calculateWorkingDays(startDate, endDate);
 
     const { error } = await db.from('holiday_requests').insert({
@@ -985,7 +986,7 @@ function selectHolidayType(btn, type) {
 
   var dateGroup = document.getElementById('dateRangeGroup');
   var medApptGroup = document.getElementById('medApptGroup');
-  var endDateGroup = document.getElementById('endDateGroup');
+  var reasonLabel = document.querySelector('label[for="holidayReason"], .form-label:last-of-type');
 
   if (type === 'MedAppt') {
     dateGroup.style.display = 'none';
@@ -993,6 +994,18 @@ function selectHolidayType(btn, type) {
   } else {
     dateGroup.style.display = 'block';
     medApptGroup.style.display = 'none';
+  }
+
+  // Update reason field label for Permiso
+  var reasonEl = document.getElementById('holidayReason');
+  if (reasonEl) {
+    if (type === 'Permiso') {
+      reasonEl.placeholder = 'Motivo del permiso (obligatorio)';
+      reasonEl.previousElementSibling.textContent = 'Motivo *';
+    } else {
+      reasonEl.placeholder = 'Motivo de la solicitud...';
+      reasonEl.previousElementSibling.textContent = 'Motivo (opcional)';
+    }
   }
 }
 
