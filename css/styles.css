@@ -23,7 +23,7 @@
   --radius: 12px;
 }
 
-html { width: 100%; min-height: 100%; overflow-x: hidden; }
+html { width: 100%; min-height: 100%; overflow-x: hidden; overscroll-behavior: none; }
 
 /* ========================================
    TEACHER BODY
@@ -37,6 +37,7 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; }
   width: 100%;
   padding: 12px;
   margin: 0;
+  overscroll-behavior-y: none;
 }
 
 .teacher-body .container { width: 100%; }
