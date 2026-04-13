@@ -970,15 +970,19 @@ function switchTab(tab) {
 }
 
 function selectHolidayType(btn, type) {
+  var label = document.getElementById('selectedTypeLabel');
+  var typeNames = {Annual:'Vacaciones',Personal:'D.R.\nEmpleado',Medical:'Baja\nMédica',MedAppt:'Visita\nMédica',Permiso:'Permiso\nRetribuido'};
+
   if (btn.classList.contains('selected')) {
     btn.classList.remove('selected');
-    // Reset form to default (date range)
+    if (label) label.innerHTML = 'Selecciona<br>tipo';
     document.getElementById('dateRangeGroup').style.display = 'block';
     document.getElementById('medApptGroup').style.display = 'none';
     return;
   }
   document.querySelectorAll('.holiday-type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
+  if (label) label.innerHTML = '<span style="color:var(--primary);font-size:12px">' + (typeNames[type] || type).replace('\n','<br>') + '</span>';
 
   var dateGroup = document.getElementById('dateRangeGroup');
   var medApptGroup = document.getElementById('medApptGroup');
