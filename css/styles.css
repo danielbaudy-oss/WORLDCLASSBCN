@@ -23,7 +23,7 @@
   --radius: 12px;
 }
 
-html { width: 100%; min-height: 100%; overflow-x: hidden; overscroll-behavior: none; }
+html { width: 100%; min-height: 100%; overflow-x: hidden; }
 
 /* ========================================
    TEACHER BODY
@@ -32,12 +32,11 @@ html { width: 100%; min-height: 100%; overflow-x: hidden; overscroll-behavior: n
 .teacher-body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  background-attachment: fixed;
   min-height: 100vh;
-  min-height: 100dvh;
   width: 100%;
   padding: 12px;
   margin: 0;
-  overscroll-behavior-y: none;
 }
 
 .teacher-body .container { width: 100%; }
