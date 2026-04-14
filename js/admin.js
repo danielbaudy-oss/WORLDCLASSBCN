@@ -3060,6 +3060,102 @@ async function exportCSV() {
 
 
 // ========================================
+// AUDIT REPORT EXPORT
+// ========================================
+
+async function exportAuditReport() {
+  showToast('Generando informe de auditoría...', 'success');
+
+  try {
+    // Load all punches with profile names
+    var { data: punches } = await db.from('time_punches').select('*, profiles!time_punches_user_id_fkey(name, email)')
+      .order('date', { ascending: false }).order('time', { ascending: false });
+    punches = punches || [];
+
+    // Load audit log
+    var { data: auditLog } = await db.from('audit_log').select('*').order('changed_at', { ascending: false });
+    auditLog = auditLog || [];
+
+    // Load profiles for audit log names
+    var { data: profiles } = await db.from('profiles').select('id, name, email');
+    var profileMap = {};
+    (profiles || []).forEach(function(p) { profileMap[p.id] = p; });
+
+    var now = new Date().toLocaleString('es-ES');
+
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">' +
+      '<head><meta charset="utf-8"><style>' +
+      'td,th{font-family:Arial;font-size:11px;padding:5px 8px;border:1px solid #e2e8f0}' +
+      'th{font-weight:700}' +
+      '.title{background:#092b50;color:#fff;font-size:16px;font-weight:700;text-align:center;padding:12px}' +
+      '.header{background:#092b50;color:#fff;text-align:center}' +
+      '.header2{background:#8b5cf6;color:#fff;text-align:center}' +
+      '.insert{background:#d1fae5}' +
+      '.update{background:#fef3c7}' +
+      '.delete{background:#fee2e2}' +
+      '</style></head><body>';
+
+    // Sheet 1: All Punches
+    html += '<table><tr><td colspan="8" class="title">📊 REGISTRO DE FICHAJES — WorldClass BCN</td></tr>';
+    html += '<tr><td colspan="4" style="background:#f1f5f9;font-size:12px">Exportado: ' + now + '</td><td colspan="4" style="background:#f1f5f9;font-size:12px">Total registros: ' + punches.length + '</td></tr>';
+    html += '<tr><th class="header">Empleado</th><th class="header">Email</th><th class="header">Fecha</th><th class="header">Hora</th><th class="header">Tipo</th><th class="header">GPS Lat</th><th class="header">GPS Lng</th><th class="header">Creado</th></tr>';
+
+    punches.forEach(function(p) {
+      var name = p.profiles ? p.profiles.name : '?';
+      var email = p.profiles ? p.profiles.email : '?';
+      html += '<tr>' +
+        '<td>' + name + '</td>' +
+        '<td>' + email + '</td>' +
+        '<td>' + p.date + '</td>' +
+        '<td>' + (p.time || '').substring(0, 5) + '</td>' +
+        '<td>' + p.punch_type + '</td>' +
+        '<td>' + (p.latitude || '') + '</td>' +
+        '<td>' + (p.longitude || '') + '</td>' +
+        '<td>' + new Date(p.created_at).toLocaleString('es-ES') + '</td>' +
+      '</tr>';
+    });
+
+    html += '</table><br><br>';
+
+    // Sheet 2: Audit Trail
+    html += '<table><tr><td colspan="6" class="title">🔍 REGISTRO DE AUDITORÍA — Cambios y Modificaciones</td></tr>';
+    html += '<tr><td colspan="3" style="background:#f1f5f9;font-size:12px">Total cambios registrados: ' + auditLog.length + '</td><td colspan="3" style="background:#f1f5f9;font-size:12px">Este registro es automático e inalterable</td></tr>';
+    html += '<tr><th class="header2">Fecha/Hora</th><th class="header2">Tabla</th><th class="header2">Acción</th><th class="header2">Realizado por</th><th class="header2">Datos anteriores</th><th class="header2">Datos nuevos</th></tr>';
+
+    auditLog.forEach(function(a) {
+      var who = profileMap[a.changed_by] ? profileMap[a.changed_by].name : (a.changed_by || 'Sistema');
+      var actionClass = a.action === 'INSERT' ? 'insert' : a.action === 'UPDATE' ? 'update' : 'delete';
+      var actionLabel = a.action === 'INSERT' ? '➕ Inserción' : a.action === 'UPDATE' ? '✏️ Modificación' : '🗑️ Eliminación';
+
+      html += '<tr class="' + actionClass + '">' +
+        '<td>' + new Date(a.changed_at).toLocaleString('es-ES') + '</td>' +
+        '<td>' + a.table_name + '</td>' +
+        '<td>' + actionLabel + '</td>' +
+        '<td>' + who + '</td>' +
+        '<td style="font-size:9px;max-width:300px;word-wrap:break-word">' + (a.old_data ? JSON.stringify(a.old_data) : '') + '</td>' +
+        '<td style="font-size:9px;max-width:300px;word-wrap:break-word">' + (a.new_data ? JSON.stringify(a.new_data) : '') + '</td>' +
+      '</tr>';
+    });
+
+    html += '</table></body></html>';
+
+    var blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'auditoria_worldclass_' + formatDate(new Date()) + '.xls';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Informe de auditoría exportado', 'success');
+  } catch (err) {
+    console.error('Error exporting audit report:', err);
+    showToast('Error al exportar: ' + err.message, 'error');
+  }
+}
+
+// ========================================
 // INIT ON DOM READY
 // ========================================
 
