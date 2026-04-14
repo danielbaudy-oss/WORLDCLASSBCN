@@ -13,7 +13,7 @@ async function initTeacher() {
   currentProfile = await requireAuth();
   if (!currentProfile) return;
 
-  document.getElementById('teacherName').textContent = (currentProfile.name || '').split(' ')[0];
+  document.getElementById('teacherName').textContent = 'Hola ' + (currentProfile.name || '').split(' ')[0];
 
   // Show admin button if admin
   if (currentProfile.role === 'admin' || currentProfile.role === 'super_admin') {
