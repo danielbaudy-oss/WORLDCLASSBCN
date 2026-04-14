@@ -3072,7 +3072,6 @@ async function exportAuditReport() {
     punches = punches || [];
 
     var { data: auditLog } = await db.from('audit_log').select('*').order('changed_at', { ascending: false });
-    // Filter client-side to only edits and deletes
     var changes = (auditLog || []).filter(function(a) { return a.action === 'UPDATE' || a.action === 'DELETE'; });
 
     var { data: profiles } = await db.from('profiles').select('id, name, email');
@@ -3080,57 +3079,59 @@ async function exportAuditReport() {
     (profiles || []).forEach(function(p) { profileMap[p.id] = p; });
 
     var now = new Date().toLocaleString('es-ES');
-    var styles = '<style>td,th{font-family:Arial;font-size:11px;padding:5px 8px;border:1px solid #e2e8f0}th{font-weight:700}.title{background:#092b50;color:#fff;font-size:14px;font-weight:700;text-align:center;padding:10px}.header{background:#092b50;color:#fff;text-align:center}.header2{background:#8b5cf6;color:#fff;text-align:center}.update{background:#fef3c7}.delete{background:#fee2e2}</style>';
 
-    // Build two separate HTML files for two sheets
-    var sheet1 = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">' + styles + '</head><body>' +
-      '<table><tr><td colspan="8" class="title">📊 REGISTRO DE FICHAJES — WorldClass BCN</td></tr>' +
-      '<tr><td colspan="4" style="background:#f1f5f9;font-size:11px">Exportado: ' + now + '</td><td colspan="4" style="background:#f1f5f9;font-size:11px">Total: ' + punches.length + ' registros</td></tr>' +
-      '<tr><th class="header">Empleado</th><th class="header">Email</th><th class="header">Fecha</th><th class="header">Hora</th><th class="header">Tipo</th><th class="header">GPS Lat</th><th class="header">GPS Lng</th><th class="header">Creado</th></tr>';
+    // Build single XLS with two worksheets using Excel XML
+    var xml = '<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>' +
+      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+      '<Styles>' +
+        '<Style ss:ID="title"><Font ss:Bold="1" ss:Size="14" ss:Color="#FFFFFF"/><Interior ss:Color="#092b50" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' +
+        '<Style ss:ID="header"><Font ss:Bold="1" ss:Size="10" ss:Color="#FFFFFF"/><Interior ss:Color="#092b50" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' +
+        '<Style ss:ID="header2"><Font ss:Bold="1" ss:Size="10" ss:Color="#FFFFFF"/><Interior ss:Color="#8b5cf6" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' +
+        '<Style ss:ID="update"><Interior ss:Color="#fef3c7" ss:Pattern="Solid"/></Style>' +
+        '<Style ss:ID="delete"><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/></Style>' +
+        '<Style ss:ID="info"><Interior ss:Color="#f1f5f9" ss:Pattern="Solid"/><Font ss:Size="9"/></Style>' +
+        '<Style ss:ID="small"><Font ss:Size="8"/></Style>' +
+      '</Styles>';
+
+    // Sheet 1: Fichajes
+    xml += '<Worksheet ss:Name="Fichajes"><Table>';
+    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="7"><Data ss:Type="String">📊 REGISTRO DE FICHAJES — WorldClass BCN</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="3"><Data ss:Type="String">Exportado: ' + now + '</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="3"><Data ss:Type="String">Total: ' + punches.length + ' registros</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="header"><Data ss:Type="String">Empleado</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Email</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Fecha</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Hora</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Tipo</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">GPS Lat</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">GPS Lng</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Creado</Data></Cell></Row>';
 
     punches.forEach(function(p) {
-      html = '<tr><td>' + (p.profiles ? p.profiles.name : '?') + '</td><td>' + (p.profiles ? p.profiles.email : '?') + '</td><td>' + p.date + '</td><td>' + (p.time || '').substring(0, 5) + '</td><td>' + p.punch_type + '</td><td>' + (p.latitude || '') + '</td><td>' + (p.longitude || '') + '</td><td>' + new Date(p.created_at).toLocaleString('es-ES') + '</td></tr>';
-      sheet1 += html;
+      xml += '<Row><Cell><Data ss:Type="String">' + (p.profiles ? p.profiles.name : '?') + '</Data></Cell><Cell><Data ss:Type="String">' + (p.profiles ? p.profiles.email : '?') + '</Data></Cell><Cell><Data ss:Type="String">' + p.date + '</Data></Cell><Cell><Data ss:Type="String">' + (p.time || '').substring(0, 5) + '</Data></Cell><Cell><Data ss:Type="String">' + p.punch_type + '</Data></Cell><Cell><Data ss:Type="String">' + (p.latitude || '') + '</Data></Cell><Cell><Data ss:Type="String">' + (p.longitude || '') + '</Data></Cell><Cell><Data ss:Type="String">' + new Date(p.created_at).toLocaleString('es-ES') + '</Data></Cell></Row>';
     });
-    sheet1 += '</table></body></html>';
+    xml += '</Table></Worksheet>';
 
-    var sheet2 = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">' + styles + '</head><body>' +
-      '<table><tr><td colspan="6" class="title">🔍 REGISTRO DE AUDITORÍA — Cambios y Eliminaciones</td></tr>' +
-      '<tr><td colspan="3" style="background:#f1f5f9;font-size:11px">Total: ' + changes.length + ' cambios</td><td colspan="3" style="background:#f1f5f9;font-size:11px">Registro automático e inalterable</td></tr>' +
-      '<tr><th class="header2">Fecha/Hora</th><th class="header2">Tabla</th><th class="header2">Acción</th><th class="header2">Realizado por</th><th class="header2">Datos anteriores</th><th class="header2">Datos nuevos</th></tr>';
+    // Sheet 2: Auditoría
+    xml += '<Worksheet ss:Name="Auditoría"><Table>';
+    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="5"><Data ss:Type="String">🔍 REGISTRO DE AUDITORÍA — Cambios y Eliminaciones</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="2"><Data ss:Type="String">Total: ' + changes.length + ' cambios</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="2"><Data ss:Type="String">Registro automático e inalterable</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="header2"><Data ss:Type="String">Fecha/Hora</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Tabla</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Acción</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Realizado por</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Datos anteriores</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Datos nuevos</Data></Cell></Row>';
 
-    changes.forEach(function(a) {
-      var who = profileMap[a.changed_by] ? profileMap[a.changed_by].name : (a.changed_by || 'Sistema');
-      var cls = a.action === 'UPDATE' ? 'update' : 'delete';
-      var label = a.action === 'UPDATE' ? '✏️ Modificación' : '🗑️ Eliminación';
-      sheet2 += '<tr class="' + cls + '"><td>' + new Date(a.changed_at).toLocaleString('es-ES') + '</td><td>' + a.table_name + '</td><td>' + label + '</td><td>' + who + '</td><td style="font-size:9px;max-width:300px;word-wrap:break-word">' + (a.old_data ? JSON.stringify(a.old_data) : '') + '</td><td style="font-size:9px;max-width:300px;word-wrap:break-word">' + (a.new_data ? JSON.stringify(a.new_data) : '') + '</td></tr>';
-    });
-
-    if (!changes.length) {
-      sheet2 += '<tr><td colspan="6" style="text-align:center;padding:20px;color:#64748b">✅ No se han registrado modificaciones ni eliminaciones</td></tr>';
+    if (changes.length) {
+      changes.forEach(function(a) {
+        var who = profileMap[a.changed_by] ? profileMap[a.changed_by].name : (a.changed_by || 'Sistema');
+        var sid = a.action === 'UPDATE' ? 'update' : 'delete';
+        var label = a.action === 'UPDATE' ? '✏️ Modificación' : '🗑️ Eliminación';
+        xml += '<Row><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + new Date(a.changed_at).toLocaleString('es-ES') + '</Data></Cell><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + a.table_name + '</Data></Cell><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + label + '</Data></Cell><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + who + '</Data></Cell><Cell ss:StyleID="small"><Data ss:Type="String">' + (a.old_data ? JSON.stringify(a.old_data).substring(0, 500) : '') + '</Data></Cell><Cell ss:StyleID="small"><Data ss:Type="String">' + (a.new_data ? JSON.stringify(a.new_data).substring(0, 500) : '') + '</Data></Cell></Row>';
+      });
+    } else {
+      xml += '<Row><Cell ss:MergeAcross="5"><Data ss:Type="String">✅ No se han registrado modificaciones ni eliminaciones</Data></Cell></Row>';
     }
-    sheet2 += '</table></body></html>';
+    xml += '</Table></Worksheet></Workbook>';
 
-    // Download both files
-    var dateStr = formatDate(new Date());
-
-    var blob1 = new Blob(['\ufeff' + sheet1], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    var url1 = URL.createObjectURL(blob1);
-    var link1 = document.createElement('a');
-    link1.href = url1; link1.download = 'fichajes_worldclass_' + dateStr + '.xls';
-    document.body.appendChild(link1); link1.click(); document.body.removeChild(link1);
-    URL.revokeObjectURL(url1);
-
-    setTimeout(function() {
-      var blob2 = new Blob(['\ufeff' + sheet2], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-      var url2 = URL.createObjectURL(blob2);
-      var link2 = document.createElement('a');
-      link2.href = url2; link2.download = 'auditoria_worldclass_' + dateStr + '.xls';
-      document.body.appendChild(link2); link2.click(); document.body.removeChild(link2);
-      URL.revokeObjectURL(url2);
-    }, 500);
-
-    showToast('2 informes exportados', 'success');
+    var blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'auditoria_completa_worldclass_' + formatDate(new Date()) + '.xls';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Informe de auditoría exportado', 'success');
   } catch (err) {
     console.error('Error exporting audit report:', err);
     showToast('Error al exportar: ' + err.message, 'error');
