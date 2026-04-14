@@ -3072,8 +3072,10 @@ async function exportAuditReport() {
       .order('date', { ascending: false }).order('time', { ascending: false });
     punches = punches || [];
 
-    // Load audit log
-    var { data: auditLog } = await db.from('audit_log').select('*').order('changed_at', { ascending: false });
+    // Load audit log — only changes and deletions (not inserts, those are in the punches table)
+    var { data: auditLog } = await db.from('audit_log').select('*')
+      .in('action', ['UPDATE', 'DELETE'])
+      .order('changed_at', { ascending: false });
     auditLog = auditLog || [];
 
     // Load profiles for audit log names
