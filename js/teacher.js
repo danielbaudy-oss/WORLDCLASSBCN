@@ -15,7 +15,7 @@ async function initTeacher() {
 
   var firstName = (currentProfile.name || '').split(' ')[0];
   firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
-  document.getElementById('teacherName').textContent = 'Hola ' + firstName;
+  document.getElementById('teacherName').textContent = firstName;
 
   // Show admin button if admin
   if (currentProfile.role === 'admin' || currentProfile.role === 'super_admin') {
