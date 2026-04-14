@@ -151,16 +151,27 @@ function renderPunches(punches, isFrozen) {
     const timeDisplay = p.time.substring(0, 5);
     const frozenClass = isFrozen ? ' frozen' : '';
 
-    // Teachers: read-only always. Admins: can edit unless frozen.
+    // Edit/delete: admins always (not frozen), teachers within 12h of creation (not frozen)
     let actionsHtml = '';
-    if (isAdmin && !isFrozen) {
+    if (isFrozen) {
+      actionsHtml = '<span class="frozen-lock">🔒</span>';
+    } else if (isAdmin) {
       actionsHtml = `
         <div class="punch-actions">
           <button class="punch-action-btn edit" onclick="openEditPunch('${p.id}', '${timeDisplay}', '${p.notes || ''}')" aria-label="Editar fichaje">✏️</button>
           <button class="punch-action-btn delete" onclick="confirmDeletePunch('${p.id}')" aria-label="Eliminar fichaje">🗑️</button>
         </div>`;
-    } else if (isFrozen) {
-      actionsHtml = '<span class="frozen-lock">🔒</span>';
+    } else {
+      // Teachers: show edit/delete only within 12 hours of punch creation
+      const createdAt = p.created_at ? new Date(p.created_at) : null;
+      const hoursSinceCreation = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60) : 999;
+      if (hoursSinceCreation < 12) {
+        actionsHtml = `
+          <div class="punch-actions">
+            <button class="punch-action-btn edit" onclick="openEditPunch('${p.id}', '${timeDisplay}', '${p.notes || ''}')" aria-label="Editar fichaje">✏️</button>
+            <button class="punch-action-btn delete" onclick="confirmDeletePunch('${p.id}')" aria-label="Eliminar fichaje">🗑️</button>
+          </div>`;
+      }
     }
 
     return `
