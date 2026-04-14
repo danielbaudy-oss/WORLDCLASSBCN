@@ -53,6 +53,7 @@ async function main() {
     var date = (parts[3] || '').trim();
     var time = (parts[4] || '').trim();
     var punchType = (parts[5] || '').trim().toUpperCase();
+    var createdAt = (parts[6] || '').trim();
     var notes = (parts[8] || '').trim();
 
     if (!email || !date || !punchType) { skipped++; continue; }
@@ -70,12 +71,23 @@ async function main() {
     var tp = timeStr.split(':');
     timeStr = tp[0].padStart(2, '0') + ':' + (tp[1] || '00').padStart(2, '0') + ':00';
 
+    // Parse created_at timestamp
+    var createdAtTs = null;
+    if (createdAt) {
+      // Format: "2026-04-13 21:44:44" or "4/13/2026, 21:44:44" etc
+      var parsed = new Date(createdAt);
+      if (!isNaN(parsed.getTime())) {
+        createdAtTs = parsed.toISOString();
+      }
+    }
+
     punches.push({
       user_id: userId,
       date: date,
       time: timeStr,
       punch_type: punchType,
-      notes: notes || null
+      notes: notes || null,
+      created_at: createdAtTs || new Date(date + 'T' + timeStr).toISOString()
     });
   }
 
