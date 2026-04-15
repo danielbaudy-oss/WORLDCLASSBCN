@@ -888,8 +888,8 @@ async function loadTeachersTable() {
 
       return '<tr onclick="if(typeof openEditTeacherModal===\'function\')openEditTeacherModal(\'' + t.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + t.name + '</div><div class="teacher-email">' + (t.email || '') + '</div></td>' +
-        '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
-        '<td>' + totalHours.toFixed(1) + 'h' + (medicalHours > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + medicalHours.toFixed(1) + 'h méd.</div>' : '') + '</td>' +
+        '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span></td>' +
+        '<td>' + totalHours.toFixed(1) + 'h</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
@@ -1071,8 +1071,8 @@ async function loadAdminWorkersTable() {
 
       return '<tr onclick="if(typeof openEditAdminModal===\'function\')openEditAdminModal(\'' + a.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + a.name + '</div><div class="teacher-email">' + (a.email || '') + '</div></td>' +
-        '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
-        '<td>' + totalHours.toFixed(1) + 'h' + (medicalHours > 0 ? '<div style="font-size:10px;color:#991b1b">🏥 ' + medicalHours.toFixed(1) + 'h méd.</div>' : '') + '</td>' +
+        '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span></td>' +
+        '<td>' + totalHours.toFixed(1) + 'h</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
