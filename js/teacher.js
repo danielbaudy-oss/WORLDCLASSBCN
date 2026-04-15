@@ -13,6 +13,9 @@ async function initTeacher() {
   currentProfile = await requireAuth();
   if (!currentProfile) return;
 
+  // Dev role switcher (localhost only, test account only)
+  initDevRoleSwitcher(currentProfile);
+
   var firstName = (currentProfile.name || '').split(' ')[0];
   firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
   document.getElementById('teacherName').textContent = firstName;

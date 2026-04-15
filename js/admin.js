@@ -29,6 +29,9 @@ async function initAdmin() {
   adminProfile = await requireAuth(['admin', 'super_admin']);
   if (!adminProfile) return;
 
+  // Dev role switcher (localhost only, test account only)
+  initDevRoleSwitcher(adminProfile);
+
   // Set admin info in sidebar
   document.getElementById('adminName').textContent = (adminProfile.name || 'Admin').split(' ')[0];
   document.getElementById('adminEmail').textContent = adminProfile.email || '--';

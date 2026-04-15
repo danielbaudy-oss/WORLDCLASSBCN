@@ -216,6 +216,7 @@
       }
 
       // Active user - route based on role
+      initDevRoleSwitcher(profile);
       if (profile.role === 'admin' || profile.role === 'super_admin') {
         document.getElementById('welcomeName').textContent = '👋 ¡Hola, ' + profile.name + '!';
         roleSelection.style.display = 'block';
