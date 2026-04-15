@@ -219,12 +219,19 @@ function calculateDayHours(punches) {
 // PUNCH ACTIONS
 // ========================================
 
+var isPunching = false;
 async function submitPunch() {
+  if (isPunching) return;
+  isPunching = true;
+  const btn = document.getElementById('punchBtn');
+  btn.disabled = true;
+
   const timeInput = document.getElementById('timeInput');
   const timeStr = timeInput.value;
 
   if (!timeStr || !/^\d{2}:\d{2}$/.test(timeStr)) {
     showToast('Formato de hora inválido', 'error');
+    isPunching = false; btn.disabled = false;
     return;
   }
 
@@ -239,6 +246,7 @@ async function submitPunch() {
 
   if (existing) {
     showToast('Ya existe un fichaje a esta hora', 'error');
+    isPunching = false; btn.disabled = false;
     return;
   }
 
@@ -267,11 +275,13 @@ async function submitPunch() {
 
   if (error) {
     showToast('Error: ' + error.message, 'error');
+    isPunching = false; btn.disabled = false;
     return;
   }
 
   showToast(`Fichaje ${punchType === 'IN' ? 'Entrada' : 'Salida'} a las ${timeStr} ✓`);
   await loadDay(selectedDate);
+  isPunching = false;
 }
 
 function timeToMinutes(t) {
