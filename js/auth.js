@@ -126,10 +126,7 @@ async function initDevRoleSwitcher(profile) {
 }
 
 async function switchDevRole(newRole) {
-  var { error } = await db
-    .from('profiles')
-    .update({ role: newRole })
-    .eq('email', TEST_ACCOUNT_EMAIL);
+  var { error } = await db.rpc('switch_dev_role', { new_role: newRole });
 
   if (error) {
     showToast('Error switching role: ' + error.message, 'error');
@@ -137,7 +134,7 @@ async function switchDevRole(newRole) {
   }
 
   showToast('Switched to ' + newRole + ' — reloading...');
-  setTimeout(function() { window.location.reload(); }, 500);
+  setTimeout(function() { window.location.href = 'index.html'; }, 500);
 }
 
 // ========================================
