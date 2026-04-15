@@ -176,6 +176,18 @@
       const pendingState = document.getElementById('pendingState');
       const roleSelection = document.getElementById('roleSelection');
 
+      // Check for OAuth errors in URL
+      const params = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const error = params.get('error') || hashParams.get('error');
+      const errorDesc = params.get('error_description') || hashParams.get('error_description');
+      if (error) {
+        console.error('OAuth error:', error, errorDesc);
+        loginState.classList.remove('hidden');
+        loginState.innerHTML += '<div style="background:#fee2e2;border:2px solid #ef4444;border-radius:12px;padding:16px;margin-top:20px;text-align:left"><strong style="color:#991b1b">Error: ' + error + '</strong><p style="color:#991b1b;font-size:12px;margin-top:4px">' + (errorDesc || '') + '</p></div>';
+        return;
+      }
+
       // Show loading while checking session
       loginState.classList.add('hidden');
       loadingState.classList.add('active');
