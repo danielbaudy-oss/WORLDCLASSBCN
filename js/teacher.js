@@ -782,15 +782,10 @@ async function submitHolidayRequest() {
 }
 
 function calculateWorkingDays(startDate, endDate) {
-  let count = 0;
-  const current = new Date(startDate);
+  // Count natural/calendar days (including weekends) — vacaciones are natural days
+  const start = new Date(startDate);
   const end = new Date(endDate);
-  while (current <= end) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) count++;
-    current.setDate(current.getDate() + 1);
-  }
-  return count;
+  return Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
 }
 
 // ========================================
