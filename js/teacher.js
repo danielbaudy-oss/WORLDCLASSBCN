@@ -424,11 +424,28 @@ async function checkMissedPrepWeeks(allPrepPunches) {
     }
   });
 
-  // Build set of already logged week starts
+  // Build set of weeks that have PREP punches (by checking which Monday the punch date falls in)
   var loggedWeeks = new Set();
   allPrepPunches.forEach(function(p) {
+    // Get the Monday of the week this PREP punch's date falls in
+    if (p.date) {
+      var d = new Date(p.date + 'T12:00:00');
+      var day = d.getDay();
+      var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      var monday = new Date(d);
+      monday.setDate(diff);
+      loggedWeeks.add(formatDate(monday));
+    }
+    // Also check the Week: field in notes as fallback
     var match = (p.notes || '').match(/Week:\s*(\S+)/);
-    if (match) loggedWeeks.add(match[1]);
+    if (match) {
+      var wd = new Date(match[1] + 'T12:00:00');
+      var wday = wd.getDay();
+      var wdiff = wd.getDate() - wday + (wday === 0 ? -6 : 1);
+      var wmonday = new Date(wd);
+      wmonday.setDate(wdiff);
+      loggedWeeks.add(formatDate(wmonday));
+    }
   });
 
   // Iterate weeks from Jan 1 to current week
