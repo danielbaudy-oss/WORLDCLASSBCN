@@ -22,7 +22,7 @@ async function main() {
   if (delErr) console.error('Delete error:', delErr.message);
 
   // 3. Read CSV
-  var csv = fs.readFileSync('WorldCLassBCNpunch V1.03ES - Time_Punches.csv', 'utf8');
+  var csv = fs.readFileSync('WorldCLassBCNpunch V1.03ES - Time_Punches (1).csv', 'utf8');
   var lines = csv.split('\n').filter(function(l) { return l.trim().length > 0; });
   
   // Skip header
@@ -71,13 +71,18 @@ async function main() {
     var tp = timeStr.split(':');
     timeStr = tp[0].padStart(2, '0') + ':' + (tp[1] || '00').padStart(2, '0') + ':00';
 
-    // Parse created_at timestamp
+    // Parse created_at timestamp — CSV times are in Spain (Europe/Madrid) time
     var createdAtTs = null;
     if (createdAt) {
-      // Format: "2026-04-13 21:44:44" or "4/13/2026, 21:44:44" etc
+      // Append Madrid timezone offset to preserve the original time
       var parsed = new Date(createdAt);
       if (!isNaN(parsed.getTime())) {
-        createdAtTs = parsed.toISOString();
+        // Re-parse as Madrid time by appending the offset
+        // Spain is UTC+2 in summer (CEST), UTC+1 in winter (CET)
+        // Simplest: store the raw string with a +02:00 offset for CEST
+        var month = parsed.getMonth();
+        var offset = (month >= 2 && month <= 9) ? '+02:00' : '+01:00'; // rough CEST/CET
+        createdAtTs = createdAt.replace(/\s+/g, 'T') + offset;
       }
     }
 

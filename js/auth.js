@@ -44,7 +44,10 @@ async function signInWithGoogle() {
   const { error } = await db.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: 'https://danielbaudy-oss.github.io/WORLDCLASSBCN/index.html'
+      redirectTo: 'https://danielbaudy-oss.github.io/WORLDCLASSBCN/index.html',
+      queryParams: {
+        prompt: 'select_account'
+      }
     }
   });
   if (error) {
