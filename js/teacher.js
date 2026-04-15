@@ -33,7 +33,10 @@ async function initTeacher() {
 // ========================================
 
 function formatDate(d) {
-  return d.toISOString().split('T')[0];
+  var year = d.getFullYear();
+  var month = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return year + '-' + month + '-' + day;
 }
 
 function formatDateDisplay(d) {
