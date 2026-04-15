@@ -192,6 +192,8 @@ function updatePunchButton(punches) {
   const isIn = punches.length % 2 === 0;
   btn.className = 'punch-btn ' + (isIn ? 'in' : 'out');
   btn.textContent = 'Fichar ' + (isIn ? 'Entrada' : 'Salida');
+  btn.disabled = false;
+  isPunching = false;
 }
 
 function updateDayHours(punches) {
