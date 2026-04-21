@@ -1098,9 +1098,11 @@ document.addEventListener('click', function(e) {
 
 function calendarChangeMonth(dir) {
   if (dir > 0) {
+    // Allow navigating up to 12 months into the future (to see upcoming vacations/holidays)
     var next = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
     var today = new Date();
-    if (next > new Date(today.getFullYear(), today.getMonth() + 1, 0)) return;
+    var maxFuture = new Date(today.getFullYear(), today.getMonth() + 13, 0);
+    if (next > maxFuture) return;
   }
   calendarDate.setMonth(calendarDate.getMonth() + dir);
   loadCalendarMonth();
@@ -1112,8 +1114,11 @@ async function loadCalendarMonth() {
   var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('calendarMonth').textContent = monthNames[m - 1] + ' ' + y;
 
-  var isCurrentMonth = y === new Date().getFullYear() && m === new Date().getMonth() + 1;
-  document.getElementById('calendarNextMonthBtn').disabled = isCurrentMonth;
+  // Disable next button only when we're at the 12-month future limit
+  var today = new Date();
+  var maxFuture = new Date(today.getFullYear(), today.getMonth() + 12, 1);
+  var currentView = new Date(y, m - 1, 1);
+  document.getElementById('calendarNextMonthBtn').disabled = currentView >= maxFuture;
 
   var startDate = y + '-' + String(m).padStart(2, '0') + '-01';
   var daysInMonth = new Date(y, m, 0).getDate();
@@ -1197,7 +1202,7 @@ function renderCalendar() {
       cls.push('has-punches');
     }
 
-    html += '<div class="' + cls.join(' ') + '"' + (isFut ? '' : ' onclick="calendarSelectDate(' + y + ',' + m + ',' + d + ')"') + '>' + d + '</div>';
+    html += '<div class="' + cls.join(' ') + '" onclick="calendarSelectDate(' + y + ',' + m + ',' + d + ')">' + d + '</div>';
   }
 
   document.getElementById('calendarGrid').innerHTML = html;

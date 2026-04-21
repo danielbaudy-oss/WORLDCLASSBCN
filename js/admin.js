@@ -2190,26 +2190,45 @@ function renderApprovedRequests(items) {
 }
 
 async function deleteApprovedRequest(id) {
-  var html = '<div style="text-align:center;padding:20px">' +
-    '<div style="font-size:48px;margin-bottom:15px">⚠️</div>' +
-    '<div style="font-size:18px;font-weight:700;color:var(--danger);margin-bottom:10px">¿Eliminar solicitud aprobada?</div>' +
-    '<p style="color:var(--gray-500);margin-bottom:20px">Los días se restaurarán al saldo del empleado.</p>' +
+  var html = '<div style="padding:10px">' +
+    '<div style="text-align:center;margin-bottom:20px">' +
+      '<div style="font-size:48px;margin-bottom:10px">⚠️</div>' +
+      '<div style="font-size:18px;font-weight:700;color:var(--danger);margin-bottom:8px">¿Eliminar solicitud aprobada?</div>' +
+      '<p style="color:var(--gray-500);font-size:14px">Los días se restaurarán al saldo del empleado. Esta acción se registrará en el log de auditoría.</p>' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label class="form-label">Motivo de la eliminación <span style="color:var(--danger)">*</span></label>' +
+      '<textarea id="deleteReasonInput" class="form-input" rows="3" placeholder="Explica por qué eliminas esta solicitud..." style="resize:vertical;min-height:70px"></textarea>' +
+    '</div>' +
     '<div class="btn-row">' +
       '<button class="submit-btn" style="background:var(--danger)" onclick="confirmDeleteApproved(\'' + id + '\')">Sí, Eliminar</button>' +
       '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
     '</div>' +
   '</div>';
   openModal('Confirmar Eliminación', html);
+  setTimeout(function() {
+    var ta = document.getElementById('deleteReasonInput');
+    if (ta) ta.focus();
+  }, 100);
 }
 
 async function confirmDeleteApproved(id) {
-  var { error } = await db.from('holiday_requests').delete().eq('id', id);
+  var reasonEl = document.getElementById('deleteReasonInput');
+  var reason = reasonEl ? (reasonEl.value || '').trim() : '';
+  if (!reason) {
+    showToast('El motivo es obligatorio', 'error');
+    if (reasonEl) reasonEl.focus();
+    return;
+  }
+
+  var { error } = await db.rpc('delete_holiday_with_reason', { request_id: id, reason: reason });
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Solicitud eliminada', 'success');
   closeModal();
   cachedHolidays = null;
   await loadApprovedRequests();
   await loadHolidayData();
+  if (typeof loadHolidayCalendar === 'function') await loadHolidayCalendar();
 }
 
 function filterApprovedRequests() {
@@ -2374,7 +2393,8 @@ async function loadHolidayCalendar() {
       (calendarViewOffset === 0 ? ' <span class="actual-badge">ACTUAL</span>' : '');
   }
   var nextBtn = document.getElementById('calendarNextBtn');
-  if (nextBtn) nextBtn.disabled = calendarViewOffset >= 0;
+  // Allow navigating up to 12 months into the future
+  if (nextBtn) nextBtn.disabled = calendarViewOffset >= 12;
 
   var startDate = year + '-' + String(month + 1).padStart(2, '0') + '-01';
   var endDate = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(daysInMonth).padStart(2, '0');
@@ -2470,9 +2490,10 @@ async function loadHolidayCalendar() {
 }
 
 function changeCalendarMonth(delta) {
-  if (delta > 0 && calendarViewOffset >= 0) return;
+  // Allow navigating up to 12 months into the future
+  if (delta > 0 && calendarViewOffset >= 12) return;
   calendarViewOffset += delta;
-  if (calendarViewOffset > 0) calendarViewOffset = 0;
+  if (calendarViewOffset > 12) calendarViewOffset = 12;
   loadHolidayCalendar();
 }
 
