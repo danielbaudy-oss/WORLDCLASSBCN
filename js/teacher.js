@@ -1152,7 +1152,14 @@ async function loadCalendarMonth() {
   var y = calendarDate.getFullYear();
   var m = calendarDate.getMonth() + 1;
   var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  document.getElementById('calendarMonth').textContent = monthNames[m - 1] + ' ' + y;
+  var nowDate = new Date();
+  var isCurrentMonth = y === nowDate.getFullYear() && m === nowDate.getMonth() + 1;
+  var monthEl = document.getElementById('calendarMonth');
+  monthEl.innerHTML = monthNames[m - 1] + ' ' + y +
+    (isCurrentMonth ? '' : ' <span style="font-size:11px;color:#3b82f6;margin-left:6px;text-decoration:underline">↺ Hoy</span>');
+  monthEl.style.cursor = isCurrentMonth ? 'default' : 'pointer';
+  monthEl.title = isCurrentMonth ? '' : 'Volver al mes actual';
+  monthEl.onclick = isCurrentMonth ? null : function() { calendarDate = new Date(); loadCalendarMonth(); };
 
   // Disable next button only when we're at the 12-month future limit
   var today = new Date();

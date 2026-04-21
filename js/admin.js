@@ -1146,8 +1146,11 @@ async function renderCalendarModal() {
   var html = '<div style="margin-bottom:20px">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
       '<button class="month-nav-btn" onclick="calendarMonthOffset--;renderCalendarModal()" ' + prevDisabled + '>‹</button>' +
-      '<div style="font-size:18px;font-weight:700;color:var(--primary)">' + monthNames[month] + ' ' + year +
-        (calendarMonthOffset === 0 ? ' <span class="actual-badge">ACTUAL</span>' : '') + '</div>' +
+      '<div style="font-size:18px;font-weight:700;color:var(--primary);cursor:' + (calendarMonthOffset === 0 ? 'default' : 'pointer') + '"' +
+        (calendarMonthOffset === 0 ? '' : ' onclick="calendarMonthOffset=0;renderCalendarModal()" title="Volver al mes actual"') + '>' +
+        monthNames[month] + ' ' + year +
+        (calendarMonthOffset === 0 ? ' <span class="actual-badge">ACTUAL</span>' : ' <span style="font-size:11px;color:#3b82f6;margin-left:6px;text-decoration:underline">↺ Hoy</span>') +
+      '</div>' +
       '<button class="month-nav-btn" onclick="calendarMonthOffset++;renderCalendarModal()" ' + nextDisabled + '>›</button>' +
     '</div>' +
     '<div class="calendar-grid">';
@@ -2434,8 +2437,12 @@ async function loadHolidayCalendar() {
 
   var titleEl = document.getElementById('calendarMonthTitle');
   if (titleEl) {
+    var isCurrent = calendarViewOffset === 0;
     titleEl.innerHTML = monthNames[month] + ' ' + year +
-      (calendarViewOffset === 0 ? ' <span class="actual-badge">ACTUAL</span>' : '');
+      (isCurrent ? ' <span class="actual-badge">ACTUAL</span>' : ' <span style="font-size:11px;color:#3b82f6;margin-left:6px;text-decoration:underline">↺ Hoy</span>');
+    titleEl.style.cursor = isCurrent ? 'default' : 'pointer';
+    titleEl.title = isCurrent ? '' : 'Volver al mes actual';
+    titleEl.onclick = isCurrent ? null : function() { calendarViewOffset = 0; loadHolidayCalendar(); };
   }
   var nextBtn = document.getElementById('calendarNextBtn');
   // Allow navigating up to 12 months into the future
