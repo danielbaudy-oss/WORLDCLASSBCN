@@ -719,9 +719,32 @@ async function loadHolidaySummary() {
   renderHolidayRequests(holidays || []);
 }
 
+function getDismissedRequestIds() {
+  if (!currentProfile) return [];
+  try {
+    var raw = localStorage.getItem('dismissedRequests_' + currentProfile.id);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function dismissRequest(id) {
+  if (!currentProfile) return;
+  var dismissed = getDismissedRequestIds();
+  if (dismissed.indexOf(id) === -1) {
+    dismissed.push(id);
+    localStorage.setItem('dismissedRequests_' + currentProfile.id, JSON.stringify(dismissed));
+  }
+  loadHolidaySummary();
+}
+
 function renderHolidayRequests(requests) {
   const container = document.getElementById('requestsList');
-  const sorted = [...requests].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const dismissed = getDismissedRequestIds();
+  // Hide dismissed requests from employee view (they still exist in DB)
+  const visible = requests.filter(function(r) { return dismissed.indexOf(r.id) === -1; });
+  const sorted = [...visible].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   if (!sorted.length) {
     container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">Sin solicitudes</div></div>';
@@ -733,9 +756,12 @@ function renderHolidayRequests(requests) {
     const statusClass = r.status.toLowerCase();
     const startDate = new Date(r.start_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
     const endDate = new Date(r.end_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    // Only allow dismissing Approved/Rejected requests — keep Pending visible so the employee tracks them
+    const canDismiss = r.status !== 'Pending';
 
     return `
-      <div class="request-item ${statusClass}">
+      <div class="request-item ${statusClass}" style="position:relative">
+        ${canDismiss ? `<button onclick="dismissRequest('${r.id}')" title="Ocultar de mi vista" aria-label="Ocultar" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(0,0,0,0.08);color:#64748b;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>` : ''}
         <div class="request-header">
           <span class="request-type">${typeConfig.emoji} ${typeConfig.shortName}</span>
           <span class="request-status ${statusClass}">${r.status === 'Approved' ? '✓ Aprobado' : r.status === 'Pending' ? '⏳ Pendiente' : '✗ Rechazado'}</span>

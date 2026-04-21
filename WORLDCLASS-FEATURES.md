@@ -181,6 +181,7 @@ Triggers are attached to: time_punches, holiday_requests, paid_hours, profiles.
 - Per-employee view of used vs allocated days for each type
 - Pending requests shown separately
 - Request history list sorted by date
+- **Dismiss from view**: Each Approved/Rejected request has a small ✕ in the top-right. Clicking it hides the request from the employee's view only (stored in localStorage per user: `dismissedRequests_<userId>`). The database record stays intact for the audit trail, and admins still see everything. Pending requests can't be dismissed so employees don't lose track of them. Clearing browser storage restores all dismissed items.
 
 ### 6. Admin Dashboard — Stats Grid (UNIVERSAL)
 - Total active employees count
