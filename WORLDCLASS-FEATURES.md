@@ -245,6 +245,8 @@ Triggers are attached to: time_punches, holiday_requests, paid_hours, profiles.
 - Monthly calendar view from employee dashboard
 - Color-coded days: punched, school holiday, teacher holiday (by type)
 - Click to navigate to that day's punch view
+- Navigate up to 12 months in the future (view-only; punching blocked on future dates)
+- Click the month title to jump back to the current month ("↺ Hoy" link when away from today)
 
 ### 14. GPS Compliance (UNIVERSAL)
 - Captures latitude/longitude on each punch
@@ -257,6 +259,7 @@ Triggers are attached to: time_punches, holiday_requests, paid_hours, profiles.
 - Stores old and new data as JSON
 - Records who made the change and when
 - Only accessible by admins (via RLS)
+- **Deletion reasons required**: Both punch and holiday deletions prompt for a mandatory reason, which is stored in the audit log's `new_data` field as `{"deletion_reason": "..."}`. Implemented via `delete_punch_with_reason` and `delete_holiday_with_reason` RPC functions with SECURITY DEFINER.
 
 ### 16. PWA / Mobile Support (UNIVERSAL)
 - manifest.json for "Add to Home Screen"
