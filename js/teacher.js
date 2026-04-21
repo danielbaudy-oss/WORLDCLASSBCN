@@ -323,17 +323,22 @@ async function savePunchEdit() {
 }
 
 async function deletePunch(id) {
-  const { error } = await db
-    .from('time_punches')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', currentProfile.id);
+  var reasonEl = document.getElementById('deletePunchReasonInput');
+  var reason = reasonEl ? (reasonEl.value || '').trim() : '';
+  if (!reason) {
+    showToast('El motivo es obligatorio', 'error');
+    if (reasonEl) reasonEl.focus();
+    return;
+  }
+
+  const { error } = await db.rpc('delete_punch_with_reason', { punch_id: id, reason: reason });
 
   if (error) {
     showToast('Error: ' + error.message, 'error');
     return;
   }
 
+  closeEditModal();
   showToast('Fichaje eliminado');
   await loadDay(selectedDate);
 }
@@ -993,14 +998,49 @@ function openEditPunch(id, time, notes) {
   document.getElementById('editOverlay').classList.add('active');
 }
 
-function closeEditModal() {
-  document.getElementById('editOverlay').classList.remove('active');
+function confirmDeletePunch(id) {
+  // Build a modal asking for a deletion reason
+  var overlay = document.getElementById('editOverlay');
+  var modal = overlay ? overlay.querySelector('.edit-modal, [class*="modal"]') : null;
+
+  // Use a simple inline prompt modal — reuse the edit overlay since it's already available
+  var existing = document.getElementById('deletePunchOverlay');
+  if (existing) existing.remove();
+
+  var modalHtml =
+    '<div class="overlay active" id="deletePunchOverlay" style="display:flex;align-items:center;justify-content:center;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:3000" onclick="if(event.target===this)closeDeletePunchModal()">' +
+      '<div style="background:#fff;border-radius:16px;padding:24px;max-width:440px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">' +
+        '<div style="text-align:center;margin-bottom:18px">' +
+          '<div style="font-size:42px;margin-bottom:8px">⚠️</div>' +
+          '<div style="font-size:17px;font-weight:700;color:#ef4444;margin-bottom:6px">¿Eliminar este fichaje?</div>' +
+          '<div style="color:#64748b;font-size:13px">Esta acción se registrará en el log de auditoría.</div>' +
+        '</div>' +
+        '<div style="margin-bottom:16px">' +
+          '<label style="display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:6px">Motivo <span style="color:#ef4444">*</span></label>' +
+          '<textarea id="deletePunchReasonInput" rows="3" placeholder="Explica por qué eliminas este fichaje..." style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;min-height:70px;box-sizing:border-box"></textarea>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px">' +
+          '<button onclick="deletePunch(\'' + id + '\')" style="flex:1;padding:12px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">Eliminar</button>' +
+          '<button onclick="closeDeletePunchModal()" style="flex:1;padding:12px;background:#f1f5f9;color:#334155;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">Cancelar</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  setTimeout(function() {
+    var ta = document.getElementById('deletePunchReasonInput');
+    if (ta) ta.focus();
+  }, 100);
 }
 
-function confirmDeletePunch(id) {
-  if (confirm('¿Eliminar este fichaje?')) {
-    deletePunch(id);
-  }
+function closeDeletePunchModal() {
+  var o = document.getElementById('deletePunchOverlay');
+  if (o) o.remove();
+}
+
+function closeEditModal() {
+  document.getElementById('editOverlay').classList.remove('active');
+  closeDeletePunchModal();
 }
 
 function switchTab(tab) {

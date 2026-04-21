@@ -1330,16 +1330,61 @@ async function saveEditPunch(punchId, dateStr) {
 }
 
 async function deletePunch(punchId, dateStr) {
+  // Show confirmation modal asking for a reason
+  var existing = document.getElementById('adminDeletePunchOverlay');
+  if (existing) existing.remove();
+
+  var modalHtml =
+    '<div id="adminDeletePunchOverlay" style="display:flex;align-items:center;justify-content:center;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:3000" onclick="if(event.target===this)closeAdminDeletePunchModal()">' +
+      '<div style="background:#fff;border-radius:16px;padding:24px;max-width:440px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">' +
+        '<div style="text-align:center;margin-bottom:18px">' +
+          '<div style="font-size:42px;margin-bottom:8px">⚠️</div>' +
+          '<div style="font-size:17px;font-weight:700;color:#ef4444;margin-bottom:6px">¿Eliminar este fichaje?</div>' +
+          '<div style="color:#64748b;font-size:13px">Esta acción se registrará en el log de auditoría.</div>' +
+        '</div>' +
+        '<div style="margin-bottom:16px">' +
+          '<label style="display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:6px">Motivo <span style="color:#ef4444">*</span></label>' +
+          '<textarea id="adminDeletePunchReasonInput" rows="3" placeholder="Explica por qué eliminas este fichaje..." style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;min-height:70px;box-sizing:border-box"></textarea>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px">' +
+          '<button onclick="confirmDeletePunchAdmin(\'' + punchId + '\',\'' + dateStr + '\')" style="flex:1;padding:12px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">Eliminar</button>' +
+          '<button onclick="closeAdminDeletePunchModal()" style="flex:1;padding:12px;background:#f1f5f9;color:#334155;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">Cancelar</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  setTimeout(function() {
+    var ta = document.getElementById('adminDeletePunchReasonInput');
+    if (ta) ta.focus();
+  }, 100);
+}
+
+function closeAdminDeletePunchModal() {
+  var o = document.getElementById('adminDeletePunchOverlay');
+  if (o) o.remove();
+}
+
+async function confirmDeletePunchAdmin(punchId, dateStr) {
+  var reasonEl = document.getElementById('adminDeletePunchReasonInput');
+  var reason = reasonEl ? (reasonEl.value || '').trim() : '';
+  if (!reason) {
+    showToast('El motivo es obligatorio', 'error');
+    if (reasonEl) reasonEl.focus();
+    return;
+  }
+
   var el = document.getElementById('punch-' + punchId);
   if (el) el.style.opacity = '0.4';
 
-  var { error } = await db.from('time_punches').delete().eq('id', punchId);
+  var { error } = await db.rpc('delete_punch_with_reason', { punch_id: punchId, reason: reason });
   if (error) {
     if (el) el.style.opacity = '1';
     showToast('Error al eliminar: ' + error.message, 'error');
     return;
   }
   showToast('Fichaje eliminado', 'success');
+  closeAdminDeletePunchModal();
   await showDayDetail(dateStr);
   await renderCalendarModal();
 }
