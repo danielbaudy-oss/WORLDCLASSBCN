@@ -761,8 +761,8 @@ function renderHolidayRequests(requests) {
 
     return `
       <div class="request-item ${statusClass}" style="position:relative">
-        ${canDismiss ? `<button onclick="dismissRequest('${r.id}')" title="Ocultar de mi vista" aria-label="Ocultar" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(0,0,0,0.08);color:#64748b;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>` : ''}
-        <div class="request-header">
+        ${canDismiss ? `<button onclick="dismissRequest('${r.id}')" title="Ocultar de mi vista" aria-label="Ocultar" style="position:absolute;top:8px;right:10px;width:auto;height:auto;border:none;background:transparent;color:#94a3b8;font-size:14px;line-height:1;cursor:pointer;padding:2px;font-weight:400">✕</button>` : ''}
+        <div class="request-header" style="${canDismiss ? 'padding-right:24px' : ''}">
           <span class="request-type">${typeConfig.emoji} ${typeConfig.shortName}</span>
           <span class="request-status ${statusClass}">${r.status === 'Approved' ? '✓ Aprobado' : r.status === 'Pending' ? '⏳ Pendiente' : '✗ Rechazado'}</span>
         </div>
