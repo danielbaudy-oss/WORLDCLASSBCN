@@ -3141,60 +3141,174 @@ async function exportCSV() {
 
 async function exportAuditReport() {
   showToast('Generando informe de auditoría...', 'success');
-
   try {
-    var { data: punches } = await db.from('time_punches').select('*, profiles!time_punches_user_id_fkey(name, email)')
-      .order('date', { ascending: false }).order('time', { ascending: false });
-    punches = punches || [];
-
-    var { data: auditLog } = await db.from('audit_log').select('*').order('changed_at', { ascending: false });
-    var changes = (auditLog || []).filter(function(a) { return a.action === 'UPDATE' || a.action === 'DELETE'; });
-
-    var { data: profiles } = await db.from('profiles').select('id, name, email');
+    var pR, aR, proR;
+    var results = await Promise.all([
+      db.from('time_punches').select('*, profiles!time_punches_user_id_fkey(name, email)')
+        .order('date', { ascending: false }).order('time', { ascending: false }),
+      db.from('audit_log').select('*').order('changed_at', { ascending: false }),
+      db.from('profiles').select('id, name, email')
+    ]);
+    pR = results[0]; aR = results[1]; proR = results[2];
+    var punches = pR.data || [];
     var profileMap = {};
-    (profiles || []).forEach(function(p) { profileMap[p.id] = p; });
-
+    (proR.data || []).forEach(function (p) { profileMap[p.id] = p; });
     var now = new Date().toLocaleString('es-ES');
 
-    // Build single XLS with two worksheets using Excel XML
-    var xml = '<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>' +
-      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
-      '<Styles>' +
-        '<Style ss:ID="title"><Font ss:Bold="1" ss:Size="14" ss:Color="#FFFFFF"/><Interior ss:Color="#092b50" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' +
-        '<Style ss:ID="header"><Font ss:Bold="1" ss:Size="10" ss:Color="#FFFFFF"/><Interior ss:Color="#092b50" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' +
-        '<Style ss:ID="header2"><Font ss:Bold="1" ss:Size="10" ss:Color="#FFFFFF"/><Interior ss:Color="#8b5cf6" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' +
-        '<Style ss:ID="update"><Interior ss:Color="#fef3c7" ss:Pattern="Solid"/></Style>' +
-        '<Style ss:ID="delete"><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/></Style>' +
-        '<Style ss:ID="info"><Interior ss:Color="#f1f5f9" ss:Pattern="Solid"/><Font ss:Size="9"/></Style>' +
-        '<Style ss:ID="small"><Font ss:Size="8"/></Style>' +
-      '</Styles>';
+    // Map: record_id -> { by, at } for the first INSERT, and the latest UPDATE
+    // Resolve uuid-style changed_by values to names using profileMap
+    function resolveActor(changedBy) {
+      if (!changedBy) return '';
+      // UUID pattern
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(changedBy)) {
+        return profileMap[changedBy] ? profileMap[changedBy].name : changedBy;
+      }
+      // 'auth:<uuid>' fallback from the new trigger when profile lookup failed
+      if (changedBy.indexOf('auth:') === 0) {
+        var uid = changedBy.substring(5);
+        return profileMap[uid] ? profileMap[uid].name : changedBy;
+      }
+      return changedBy;
+    }
 
-    // Sheet 1: Fichajes
+    var creatorMap = {}, lastEditMap = {};
+    (aR.data || []).forEach(function (a) {
+      if (a.table_name !== 'time_punches') return;
+      if (a.action === 'INSERT' && !creatorMap[a.record_id]) {
+        creatorMap[a.record_id] = { by: resolveActor(a.changed_by), at: a.changed_at };
+      }
+      if (a.action === 'UPDATE') {
+        var prev = lastEditMap[a.record_id];
+        if (!prev || a.changed_at > prev.at) {
+          lastEditMap[a.record_id] = { by: resolveActor(a.changed_by), at: a.changed_at };
+        }
+      }
+    });
+
+    // Audit trail: edits and deletions only (INSERTs are already on the Fichajes sheet)
+    var auditRows = (aR.data || []).filter(function (a) {
+      if (a.action === 'INSERT') return false;
+      if (a.action === 'DELETE') return true;
+      // UPDATE: drop rows where only timestamps changed
+      if (a.action === 'UPDATE' && a.old_data && a.new_data) {
+        var keys = {};
+        Object.keys(a.old_data).forEach(function(k){ keys[k] = 1; });
+        Object.keys(a.new_data).forEach(function(k){ keys[k] = 1; });
+        var meaningful = false;
+        Object.keys(keys).forEach(function (k) {
+          if (k === 'updated_at' || k === 'created_at' || k === 'edited_at') return;
+          if (JSON.stringify(a.old_data[k]) !== JSON.stringify(a.new_data[k])) meaningful = true;
+        });
+        return meaningful;
+      }
+      return true;
+    });
+
+    // Human-readable change summary
+    function summarize(a) {
+      if (a.action === 'INSERT') {
+        var n = a.new_data || {};
+        if (a.table_name === 'time_punches') return { what: (n.punch_type || '') + ' fichaje creado', before: '—', after: n.date + ' ' + (n.time || '').substring(0, 5) };
+        if (a.table_name === 'holiday_requests') return { what: 'Solicitud creada (' + (n.type || '') + ')', before: '—', after: n.start_date + ' → ' + n.end_date };
+        return { what: 'Registro creado', before: '—', after: '' };
+      }
+      if (a.action === 'DELETE') {
+        var o = a.old_data || {};
+        var n = a.new_data || {};
+        var reason = n && n.deletion_reason ? ' — motivo: "' + n.deletion_reason + '"' : '';
+        if (a.table_name === 'time_punches') {
+          return { what: 'Fichaje eliminado' + reason, before: o.date + ' ' + (o.time || '').substring(0, 5) + ' (' + (o.punch_type || '') + ')', after: '—' };
+        }
+        if (a.table_name === 'holiday_requests') {
+          return { what: 'Solicitud eliminada' + reason, before: (o.type || '') + ' ' + o.start_date + ' → ' + o.end_date, after: '—' };
+        }
+        return { what: 'Eliminado permanentemente' + reason, before: JSON.stringify({ id: o.id, name: o.user_name || o.name }), after: '—' };
+      }
+      // UPDATE — surface the single most important changed field
+      var o = a.old_data || {}, n = a.new_data || {};
+      if (o.time != null && n.time != null && o.time !== n.time) {
+        return { what: 'Hora de fichaje editada', before: (o.time || '').substring(0, 5), after: (n.time || '').substring(0, 5) };
+      }
+      if (o.punch_type && n.punch_type && o.punch_type !== n.punch_type) {
+        return { what: 'Tipo cambiado', before: o.punch_type, after: n.punch_type };
+      }
+      if (o.status && n.status && o.status !== n.status) {
+        return { what: 'Estado cambiado', before: o.status, after: n.status };
+      }
+      if (o.name && n.name && o.name !== n.name) return { what: 'Usuario renombrado', before: o.name, after: n.name };
+      if ((o.email || '') !== (n.email || '')) return { what: 'Email cambiado', before: o.email || '(ninguno)', after: n.email || '(ninguno)' };
+      if (o.role && n.role && o.role !== n.role) return { what: 'Rol cambiado', before: o.role, after: n.role };
+      return { what: 'Modificado', before: JSON.stringify(o).substring(0, 200), after: JSON.stringify(n).substring(0, 200) };
+    }
+
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function cell(v, style) { return '<Cell' + (style ? ' ss:StyleID="' + style + '"' : '') + '><Data ss:Type="String">' + esc(v) + '</Data></Cell>'; }
+
+    var xml = '<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>'
+      + '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
+      + '<Styles>'
+      +   '<Style ss:ID="title"><Font ss:Bold="1" ss:Size="14" ss:Color="#FFFFFF"/><Interior ss:Color="#092b50" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>'
+      +   '<Style ss:ID="header"><Font ss:Bold="1" ss:Size="10" ss:Color="#FFFFFF"/><Interior ss:Color="#092b50" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>'
+      +   '<Style ss:ID="header2"><Font ss:Bold="1" ss:Size="10" ss:Color="#FFFFFF"/><Interior ss:Color="#8b5cf6" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>'
+      +   '<Style ss:ID="edited"><Interior ss:Color="#fef3c7" ss:Pattern="Solid"/></Style>'
+      +   '<Style ss:ID="deleted"><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Font ss:Italic="1"/></Style>'
+      +   '<Style ss:ID="info"><Interior ss:Color="#f1f5f9" ss:Pattern="Solid"/><Font ss:Size="9"/></Style>'
+      +   '<Style ss:ID="small"><Font ss:Size="9"/><Alignment ss:WrapText="1" ss:Vertical="Top"/></Style>'
+      + '</Styles>';
+
+    // === FICHAJES SHEET =================================================
     xml += '<Worksheet ss:Name="Fichajes"><Table>';
-    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="7"><Data ss:Type="String">📊 REGISTRO DE FICHAJES — WorldClass BCN</Data></Cell></Row>';
-    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="3"><Data ss:Type="String">Exportado: ' + now + '</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="3"><Data ss:Type="String">Total: ' + punches.length + ' registros</Data></Cell></Row>';
-    xml += '<Row><Cell ss:StyleID="header"><Data ss:Type="String">Empleado</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Email</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Fecha</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Hora</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Tipo</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">GPS Lat</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">GPS Lng</Data></Cell><Cell ss:StyleID="header"><Data ss:Type="String">Creado</Data></Cell></Row>';
-
-    punches.forEach(function(p) {
-      xml += '<Row><Cell><Data ss:Type="String">' + (p.profiles ? p.profiles.name : '?') + '</Data></Cell><Cell><Data ss:Type="String">' + (p.profiles ? p.profiles.email : '?') + '</Data></Cell><Cell><Data ss:Type="String">' + p.date + '</Data></Cell><Cell><Data ss:Type="String">' + (p.time || '').substring(0, 5) + '</Data></Cell><Cell><Data ss:Type="String">' + p.punch_type + '</Data></Cell><Cell><Data ss:Type="String">' + (p.latitude || '') + '</Data></Cell><Cell><Data ss:Type="String">' + (p.longitude || '') + '</Data></Cell><Cell><Data ss:Type="String">' + new Date(p.created_at).toLocaleString('es-ES') + '</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="10"><Data ss:Type="String">📊 REGISTRO DE FICHAJES — WorldClass BCN</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="5"><Data ss:Type="String">Exportado: ' + esc(now) + '</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="4"><Data ss:Type="String">Total: ' + punches.length + ' registros</Data></Cell></Row>';
+    var headers1 = ['Empleado', 'Email', 'Fecha', 'Hora', 'Tipo', 'Estado', 'GPS Lat', 'GPS Lng', 'Fichado por', 'Creado', 'Última modificación'];
+    xml += '<Row>' + headers1.map(function (h) { return '<Cell ss:StyleID="header"><Data ss:Type="String">' + h + '</Data></Cell>'; }).join('') + '</Row>';
+    punches.forEach(function (p) {
+      var isEdited = !!p.edited_at;
+      var status = isEdited ? 'Editado' : 'Activo';
+      var style = isEdited ? 'edited' : '';
+      var creator = (creatorMap[p.id] && creatorMap[p.id].by) || (p.profiles ? p.profiles.name : '') || '';
+      var lastEdit = lastEditMap[p.id];
+      var lastEditStr = lastEdit ? new Date(lastEdit.at).toLocaleString('es-ES') + ' — ' + (lastEdit.by || '?') : '';
+      xml += '<Row>'
+        + cell(p.profiles ? p.profiles.name : '?', style)
+        + cell(p.profiles ? p.profiles.email : '', style)
+        + cell(p.date, style)
+        + cell((p.time || '').substring(0, 5), style)
+        + cell(p.punch_type, style)
+        + cell(status, style)
+        + cell(p.latitude, style)
+        + cell(p.longitude, style)
+        + cell(creator, style)
+        + cell(new Date(p.created_at).toLocaleString('es-ES'), style)
+        + cell(lastEditStr, style)
+        + '</Row>';
     });
     xml += '</Table></Worksheet>';
 
-    // Sheet 2: Auditoría
+    // === AUDITORIA SHEET ================================================
     xml += '<Worksheet ss:Name="Auditoría"><Table>';
-    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="5"><Data ss:Type="String">🔍 REGISTRO DE AUDITORÍA — Cambios y Eliminaciones</Data></Cell></Row>';
-    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="2"><Data ss:Type="String">Total: ' + changes.length + ' cambios</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="2"><Data ss:Type="String">Registro automático e inalterable</Data></Cell></Row>';
-    xml += '<Row><Cell ss:StyleID="header2"><Data ss:Type="String">Fecha/Hora</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Tabla</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Acción</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Realizado por</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Datos anteriores</Data></Cell><Cell ss:StyleID="header2"><Data ss:Type="String">Datos nuevos</Data></Cell></Row>';
-
-    if (changes.length) {
-      changes.forEach(function(a) {
-        var who = profileMap[a.changed_by] ? profileMap[a.changed_by].name : (a.changed_by || 'Sistema');
-        var sid = a.action === 'UPDATE' ? 'update' : 'delete';
-        var label = a.action === 'UPDATE' ? '✏️ Modificación' : '🗑️ Eliminación';
-        xml += '<Row><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + new Date(a.changed_at).toLocaleString('es-ES') + '</Data></Cell><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + a.table_name + '</Data></Cell><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + label + '</Data></Cell><Cell ss:StyleID="' + sid + '"><Data ss:Type="String">' + who + '</Data></Cell><Cell ss:StyleID="small"><Data ss:Type="String">' + (a.old_data ? JSON.stringify(a.old_data).substring(0, 500) : '') + '</Data></Cell><Cell ss:StyleID="small"><Data ss:Type="String">' + (a.new_data ? JSON.stringify(a.new_data).substring(0, 500) : '') + '</Data></Cell></Row>';
-      });
+    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="6"><Data ss:Type="String">🔍 REGISTRO DE AUDITORÍA — Inalterable</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="3"><Data ss:Type="String">Total: ' + auditRows.length + ' eventos</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="2"><Data ss:Type="String">Generado por triggers de Postgres</Data></Cell></Row>';
+    var headers2 = ['Fecha/Hora', 'Tabla', 'Evento', 'Realizado por', 'Qué cambió', 'Antes', 'Después'];
+    xml += '<Row>' + headers2.map(function (h) { return '<Cell ss:StyleID="header2"><Data ss:Type="String">' + h + '</Data></Cell>'; }).join('') + '</Row>';
+    if (!auditRows.length) {
+      xml += '<Row><Cell ss:MergeAcross="6"><Data ss:Type="String">✅ No se han registrado modificaciones ni eliminaciones</Data></Cell></Row>';
     } else {
-      xml += '<Row><Cell ss:MergeAcross="5"><Data ss:Type="String">✅ No se han registrado modificaciones ni eliminaciones</Data></Cell></Row>';
+      auditRows.forEach(function (a) {
+        var style = a.action === 'DELETE' ? 'deleted' : 'edited';
+        var who = resolveActor(a.changed_by) || 'Sistema';
+        var label = a.action === 'UPDATE' ? 'Modificado' : 'Eliminado';
+        var s = summarize(a);
+        xml += '<Row>'
+          + cell(new Date(a.changed_at).toLocaleString('es-ES'), style)
+          + cell(a.table_name, style)
+          + cell(label, style)
+          + cell(who, style)
+          + cell(s.what, style || 'small')
+          + cell(s.before, style || 'small')
+          + cell(s.after, style || 'small')
+          + '</Row>';
+      });
     }
     xml += '</Table></Worksheet></Workbook>';
 
@@ -3202,15 +3316,14 @@ async function exportAuditReport() {
     var url = URL.createObjectURL(blob);
     var link = document.createElement('a');
     link.href = url;
-    link.download = 'auditoria_completa_worldclass_' + formatDate(new Date()) + '.xls';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    var d = new Date();
+    link.download = 'WorldClass_audit_' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + '.xls';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast('Informe de auditoría exportado', 'success');
+    showToast('Informe exportado', 'success');
   } catch (err) {
     console.error('Error exporting audit report:', err);
-    showToast('Error al exportar: ' + err.message, 'error');
+    showToast('Error: ' + err.message, 'error');
   }
 }
 
