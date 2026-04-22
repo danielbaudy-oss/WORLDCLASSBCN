@@ -1,10 +1,15 @@
 name: Supabase Keep-Alive
 
-# Runs every 3 days to prevent Supabase free-tier auto-pause (happens after 7 days inactivity)
+# Runs every 3 days to:
+#  1. Ping Supabase so the DB doesn't pause after 7 days inactivity
+#  2. Self-refresh the workflow so GitHub doesn't disable the schedule after 60 days
 on:
   schedule:
     - cron: '0 9 */3 * *'  # 09:00 UTC every 3 days
   workflow_dispatch:       # allow manual trigger
+
+permissions:
+  actions: write           # needed for the self-refresh step
 
 jobs:
   ping:
@@ -32,3 +37,15 @@ jobs:
             -H "Authorization: Bearer $MIKAN_KEY" \
             "$MIKAN_URL/rest/v1/$MIKAN_TABLE?select=*&limit=1" \
             > /dev/null && echo "✓ MIKAN responded"
+
+      - name: Self-refresh schedule (prevents 60-day auto-disable)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Touching Actions API to reset the 60-day inactivity clock..."
+          curl -sS -f \
+            -X GET \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows" \
+            > /dev/null && echo "✓ Schedule refreshed"
