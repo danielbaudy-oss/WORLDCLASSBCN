@@ -1243,12 +1243,14 @@ function renderCalendar() {
   var m = calendarDate.getMonth();
   var first = new Date(y, m, 1);
   var last = new Date(y, m + 1, 0);
+  // Monday-first week: convert Sun=0..Sat=6 to Mon=0..Sun=6
   var startDay = first.getDay();
+  startDay = (startDay === 0 ? 6 : startDay - 1);
   var todayStr = formatDate(new Date());
   var selStr = formatDate(selectedDate);
 
   var html = '';
-  ['D','L','M','X','J','V','S'].forEach(function(n) {
+  ['L','M','X','J','V','S','D'].forEach(function(n) {
     html += '<div class="calendar-day-header">' + n + '</div>';
   });
   for (var i = 0; i < startDay; i++) html += '<div class="calendar-day empty"></div>';

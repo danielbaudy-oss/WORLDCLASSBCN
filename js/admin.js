@@ -1120,7 +1120,9 @@ async function renderCalendarModal() {
   var monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   var daysInMonth = new Date(year, month + 1, 0).getDate();
-  var firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
+  // Monday-first week: convert Sun=0..Sat=6 to Mon=0..Sun=6
+  var firstDayOfWeek = new Date(year, month, 1).getDay();
+  firstDayOfWeek = (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1);
 
   // Query punches for this user for this month
   var startDate = year + '-' + String(month + 1).padStart(2, '0') + '-01';
@@ -1197,7 +1199,7 @@ async function renderCalendarModal() {
     '<div class="calendar-grid">';
 
   // Day headers
-  var dayHeaders = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  var dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   dayHeaders.forEach(function(dh) {
     html += '<div class="calendar-header-cell">' + dh + '</div>';
   });
@@ -2530,7 +2532,9 @@ async function loadHolidayCalendar() {
   var monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   var daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Monday-first week: convert Sun=0..Sat=6 to Mon=0..Sun=6
   var firstDayOfWeek = new Date(year, month, 1).getDay();
+  firstDayOfWeek = (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1);
 
   var titleEl = document.getElementById('calendarMonthTitle');
   if (titleEl) {
@@ -2590,7 +2594,7 @@ async function loadHolidayCalendar() {
 
   // Render grid
   var html = '';
-  var dayHeaders = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  var dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   dayHeaders.forEach(function(dh) {
     html += '<div class="calendar-view-header">' + dh + '</div>';
   });
