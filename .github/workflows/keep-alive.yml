@@ -1,0 +1,34 @@
+name: Supabase Keep-Alive
+
+# Runs every 3 days to prevent Supabase free-tier auto-pause (happens after 7 days inactivity)
+on:
+  schedule:
+    - cron: '0 9 */3 * *'  # 09:00 UTC every 3 days
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping WorldClass BCN
+        run: |
+          echo "Pinging WorldClass BCN Supabase..."
+          curl -sS -f \
+            -H "apikey: sb_publishable_gfNxT6X2meKFQQhS1jHA3Q_BIcTTYJ5" \
+            -H "Authorization: Bearer sb_publishable_gfNxT6X2meKFQQhS1jHA3Q_BIcTTYJ5" \
+            "https://ruytavhodexoxkejrgyb.supabase.co/rest/v1/app_config?select=key&limit=1" \
+            > /dev/null && echo "✓ WorldClass BCN responded"
+
+      - name: Ping MIKAN Restaurant
+        if: env.MIKAN_URL != ''
+        env:
+          MIKAN_URL: ${{ secrets.MIKAN_SUPABASE_URL }}
+          MIKAN_KEY: ${{ secrets.MIKAN_SUPABASE_ANON_KEY }}
+          MIKAN_TABLE: ${{ secrets.MIKAN_PING_TABLE }}
+        run: |
+          echo "Pinging MIKAN Supabase..."
+          curl -sS -f \
+            -H "apikey: $MIKAN_KEY" \
+            -H "Authorization: Bearer $MIKAN_KEY" \
+            "$MIKAN_URL/rest/v1/$MIKAN_TABLE?select=*&limit=1" \
+            > /dev/null && echo "✓ MIKAN responded"
