@@ -1126,17 +1126,49 @@ async function renderCalendarModal() {
   var startDate = year + '-' + String(month + 1).padStart(2, '0') + '-01';
   var endDate = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(daysInMonth).padStart(2, '0');
 
-  var { data: punches } = await db.from('time_punches').select('*')
-    .eq('user_id', calendarUserId)
-    .gte('date', startDate).lte('date', endDate)
-    .order('date').order('time');
-  punches = punches || [];
+  // Fetch punches, school holidays, and this teacher's approved holidays in parallel
+  var results = await Promise.all([
+    db.from('time_punches').select('*')
+      .eq('user_id', calendarUserId)
+      .gte('date', startDate).lte('date', endDate)
+      .order('date').order('time'),
+    db.from('school_holidays').select('*')
+      .lte('start_date', endDate).gte('end_date', startDate),
+    db.from('holiday_requests').select('*')
+      .eq('user_id', calendarUserId)
+      .eq('status', 'Approved')
+      .lte('start_date', endDate).gte('end_date', startDate)
+  ]);
+  var punches = results[0].data || [];
+  var schoolHols = results[1].data || [];
+  var teacherHols = results[2].data || [];
 
   // Group punches by date
   var byDate = {};
   punches.forEach(function(p) {
     if (!byDate[p.date]) byDate[p.date] = [];
     byDate[p.date].push(p);
+  });
+
+  // Build date maps for school holidays and teacher holidays
+  var schoolHolidayMap = {};  // dateStr -> name
+  schoolHols.forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      schoolHolidayMap[formatDate(cur)] = h.name;
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+
+  var teacherHolidayMap = {};  // dateStr -> {type, reason}
+  teacherHols.forEach(function(h) {
+    var cur = new Date(h.start_date + 'T12:00:00');
+    var end = new Date(h.end_date + 'T12:00:00');
+    while (cur <= end) {
+      teacherHolidayMap[formatDate(cur)] = { type: h.type, reason: h.reason };
+      cur.setDate(cur.getDate() + 1);
+    }
   });
 
   var isCurrentMonth = calendarMonthOffset >= 0;
@@ -1153,6 +1185,15 @@ async function renderCalendarModal() {
       '</div>' +
       '<button class="month-nav-btn" onclick="calendarMonthOffset++;renderCalendarModal()" ' + nextDisabled + '>›</button>' +
     '</div>' +
+    // Legend
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:#64748b">' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px"></span>Festivo/Puente</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#dbeafe;border:1px solid #3b82f6;border-radius:3px"></span>Vacaciones</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#ede9fe;border:1px solid #8b5cf6;border-radius:3px"></span>D.R. Empleado</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fce7f3;border:1px solid #ec4899;border-radius:3px"></span>D.R. Empresa</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px"></span>Médico</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#ccfbf1;border:1px solid #14b8a6;border-radius:3px"></span>Permiso</span>' +
+    '</div>' +
     '<div class="calendar-grid">';
 
   // Day headers
@@ -1168,6 +1209,16 @@ async function renderCalendarModal() {
 
   var todayStr = formatDate(new Date());
 
+  // Holiday color map — teacher holidays take priority over school holidays
+  var holidayColors = {
+    Annual:   { bg: '#dbeafe', border: '#3b82f6', emoji: '🏖️', label: 'Vacaciones' },
+    Personal: { bg: '#ede9fe', border: '#8b5cf6', emoji: '👤', label: 'D.R. Empleado' },
+    School:   { bg: '#fce7f3', border: '#ec4899', emoji: '🏢', label: 'D.R. Empresa' },
+    Medical:  { bg: '#fee2e2', border: '#ef4444', emoji: '🏥', label: 'Médico' },
+    MedAppt:  { bg: '#fee2e2', border: '#ef4444', emoji: '⚕️', label: 'Visita Méd.' },
+    Permiso:  { bg: '#ccfbf1', border: '#14b8a6', emoji: '📋', label: 'Permiso' }
+  };
+
   // Day cells
   for (var day = 1; day <= daysInMonth; day++) {
     var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
@@ -1176,16 +1227,32 @@ async function renderCalendarModal() {
     var hasPunches = inOutPunches.length > 0;
     var hours = hasPunches ? calculateDayHours(inOutPunches) : 0;
     var isToday = dateStr === todayStr;
+    var schoolHol = schoolHolidayMap[dateStr];
+    var teacherHol = teacherHolidayMap[dateStr];
 
     var classes = 'calendar-cell';
     if (hasPunches) classes += ' has-punches';
     if (isToday) classes += ' today';
 
-    html += '<div class="' + classes + '" onclick="showDayDetail(\'' + dateStr + '\')">';
+    // Holiday overlay: teacher holiday wins > school holiday
+    var inlineStyle = '';
+    var overlayLabel = '';
+    if (teacherHol && holidayColors[teacherHol.type]) {
+      var c = holidayColors[teacherHol.type];
+      inlineStyle = 'background:' + c.bg + ';border:2px solid ' + c.border + ';';
+      overlayLabel = c.emoji + ' ' + c.label;
+    } else if (schoolHol) {
+      inlineStyle = 'background:#fef3c7;border:2px solid #f59e0b;';
+      overlayLabel = '🏫 ' + schoolHol;
+    }
+
+    html += '<div class="' + classes + '"' + (inlineStyle ? ' style="' + inlineStyle + '"' : '') + ' onclick="showDayDetail(\'' + dateStr + '\')">';
     html += '<div class="calendar-day-num">' + day + '</div>';
     if (hasPunches) {
       html += '<div class="calendar-punch-count">' + inOutPunches.length + ' fichajes</div>';
       html += '<div class="calendar-hours">' + hours.toFixed(1) + 'h</div>';
+    } else if (overlayLabel) {
+      html += '<div style="font-size:10px;font-weight:600;line-height:1.2;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + overlayLabel + '">' + overlayLabel + '</div>';
     }
     html += '</div>';
   }
@@ -1200,11 +1267,19 @@ async function showDayDetail(dateStr) {
   var container = document.getElementById('calendarDayDetail');
   if (!container) return;
 
-  var { data: punches } = await db.from('time_punches').select('*')
-    .eq('user_id', calendarUserId)
-    .eq('date', dateStr)
-    .order('time');
-  punches = punches || [];
+  // Fetch punches, school holiday status, and this teacher's approved holidays for this date
+  var results = await Promise.all([
+    db.from('time_punches').select('*')
+      .eq('user_id', calendarUserId).eq('date', dateStr).order('time'),
+    db.from('school_holidays').select('*')
+      .lte('start_date', dateStr).gte('end_date', dateStr),
+    db.from('holiday_requests').select('*')
+      .eq('user_id', calendarUserId).eq('status', 'Approved')
+      .lte('start_date', dateStr).gte('end_date', dateStr)
+  ]);
+  var punches = results[0].data || [];
+  var schoolHol = (results[1].data || [])[0];
+  var teacherHol = (results[2].data || [])[0];
 
   var inOutPunches = punches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
   var hours = calculateDayHours(inOutPunches);
@@ -1216,6 +1291,28 @@ async function showDayDetail(dateStr) {
     '<div class="day-hours-value">' + hours.toFixed(2) + 'h</div>' +
     '<div class="day-hours-label">' + dateDisplay + '</div>' +
   '</div>';
+
+  // Holiday info banner(s)
+  var holidayColors = {
+    Annual:   { bg: '#dbeafe', color: '#1e40af', emoji: '🏖️', label: 'Vacaciones' },
+    Personal: { bg: '#ede9fe', color: '#6b21a8', emoji: '👤', label: 'D.R. Empleado' },
+    School:   { bg: '#fce7f3', color: '#9d174d', emoji: '🏢', label: 'D.R. Empresa' },
+    Medical:  { bg: '#fee2e2', color: '#991b1b', emoji: '🏥', label: 'Baja Médica' },
+    MedAppt:  { bg: '#fee2e2', color: '#991b1b', emoji: '⚕️', label: 'Visita Médica' },
+    Permiso:  { bg: '#ccfbf1', color: '#115e59', emoji: '📋', label: 'Permiso' }
+  };
+  if (teacherHol && holidayColors[teacherHol.type]) {
+    var c = holidayColors[teacherHol.type];
+    html += '<div style="background:' + c.bg + ';color:' + c.color + ';padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:600;font-size:13px">' +
+      c.emoji + ' ' + c.label +
+      (teacherHol.reason ? ' — ' + teacherHol.reason : '') +
+      '</div>';
+  }
+  if (schoolHol) {
+    html += '<div style="background:#fef3c7;color:#92400e;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:600;font-size:13px">' +
+      '🏫 ' + schoolHol.name + (schoolHol.type === 'Puente' ? ' (Puente)' : '') +
+      '</div>';
+  }
 
   // Super admin add punch button
   if (isSuperAdmin) {
