@@ -3272,11 +3272,12 @@ async function exportAuditReport() {
       return changedBy;
     }
 
-    var creatorMap = {}, lastEditMap = {};
+    var creatorMap = {}, lastEditMap = {}, originalDataMap = {};
     (aR.data || []).forEach(function (a) {
       if (a.table_name !== 'time_punches') return;
       if (a.action === 'INSERT' && !creatorMap[a.record_id]) {
         creatorMap[a.record_id] = { by: resolveActor(a.changed_by), at: a.changed_at };
+        originalDataMap[a.record_id] = a.new_data || {};
       }
       if (a.action === 'UPDATE') {
         var prev = lastEditMap[a.record_id];
@@ -3359,9 +3360,9 @@ async function exportAuditReport() {
 
     // === FICHAJES SHEET =================================================
     xml += '<Worksheet ss:Name="Fichajes"><Table>';
-    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="10"><Data ss:Type="String">📊 REGISTRO DE FICHAJES — WorldClass BCN</Data></Cell></Row>';
-    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="5"><Data ss:Type="String">Exportado: ' + esc(now) + '</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="4"><Data ss:Type="String">Total: ' + punches.length + ' registros</Data></Cell></Row>';
-    var headers1 = ['Empleado', 'Email', 'Fecha', 'Hora', 'Tipo', 'Estado', 'GPS Lat', 'GPS Lng', 'Fichado por', 'Creado', 'Última modificación'];
+    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="11"><Data ss:Type="String">📊 REGISTRO DE FICHAJES — WorldClass BCN</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="5"><Data ss:Type="String">Exportado: ' + esc(now) + '</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="5"><Data ss:Type="String">Total: ' + punches.length + ' registros</Data></Cell></Row>';
+    var headers1 = ['Empleado', 'Email', 'Fecha', 'Hora', 'Tipo', 'Estado', 'GPS Lat', 'GPS Lng', 'Fichado por', 'Creado', 'Última modificación', 'ID'];
     xml += '<Row>' + headers1.map(function (h) { return '<Cell ss:StyleID="header"><Data ss:Type="String">' + h + '</Data></Cell>'; }).join('') + '</Row>';
     punches.forEach(function (p) {
       var isEdited = !!p.edited_at;
@@ -3382,32 +3383,57 @@ async function exportAuditReport() {
         + cell(creator, style)
         + cell(new Date(p.created_at).toLocaleString('es-ES'), style)
         + cell(lastEditStr, style)
+        + cell(p.id, style)
         + '</Row>';
     });
     xml += '</Table></Worksheet>';
 
     // === AUDITORIA SHEET ================================================
     xml += '<Worksheet ss:Name="Auditoría"><Table>';
-    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="6"><Data ss:Type="String">🔍 REGISTRO DE AUDITORÍA — Inalterable</Data></Cell></Row>';
-    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="3"><Data ss:Type="String">Total: ' + auditRows.length + ' eventos</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="2"><Data ss:Type="String">Generado por triggers de Postgres</Data></Cell></Row>';
-    var headers2 = ['Fecha/Hora', 'Tabla', 'Evento', 'Realizado por', 'Qué cambió', 'Antes', 'Después'];
+    xml += '<Row><Cell ss:StyleID="title" ss:MergeAcross="9"><Data ss:Type="String">🔍 REGISTRO DE AUDITORÍA — Inalterable</Data></Cell></Row>';
+    xml += '<Row><Cell ss:StyleID="info" ss:MergeAcross="4"><Data ss:Type="String">Total: ' + auditRows.length + ' eventos</Data></Cell><Cell ss:StyleID="info" ss:MergeAcross="4"><Data ss:Type="String">Generado por triggers de Postgres</Data></Cell></Row>';
+    var headers2 = ['Fecha/Hora', 'Tabla', 'Evento', 'Realizado por', 'Empleado', 'Fecha fichaje', 'Hora original', 'Qué cambió', 'Antes', 'Después', 'ID'];
     xml += '<Row>' + headers2.map(function (h) { return '<Cell ss:StyleID="header2"><Data ss:Type="String">' + h + '</Data></Cell>'; }).join('') + '</Row>';
     if (!auditRows.length) {
-      xml += '<Row><Cell ss:MergeAcross="6"><Data ss:Type="String">✅ No se han registrado modificaciones ni eliminaciones</Data></Cell></Row>';
+      xml += '<Row><Cell ss:MergeAcross="9"><Data ss:Type="String">✅ No se han registrado modificaciones ni eliminaciones</Data></Cell></Row>';
     } else {
       auditRows.forEach(function (a) {
         var style = a.action === 'DELETE' ? 'deleted' : 'edited';
         var who = resolveActor(a.changed_by) || 'Sistema';
         var label = a.action === 'UPDATE' ? 'Modificado' : 'Eliminado';
         var s = summarize(a);
+
+        // Identify which record this audit event refers to
+        var recordEmployee = '';
+        var recordDate = '';
+        var recordOriginalTime = '';
+        if (a.table_name === 'time_punches') {
+          var orig = originalDataMap[a.record_id] || {};
+          var snapshot = a.old_data || a.new_data || {};
+          var ownerId = orig.user_id || snapshot.user_id;
+          recordEmployee = ownerId && profileMap[ownerId] ? profileMap[ownerId].name : (ownerId || '');
+          recordDate = orig.date || snapshot.date || '';
+          recordOriginalTime = orig.time ? orig.time.substring(0, 5) : (snapshot.time ? snapshot.time.substring(0, 5) : '');
+        } else if (a.table_name === 'holiday_requests') {
+          var hSnapshot = a.old_data || a.new_data || {};
+          var hOwnerId = hSnapshot.user_id;
+          recordEmployee = hOwnerId && profileMap[hOwnerId] ? profileMap[hOwnerId].name : (hOwnerId || '');
+          recordDate = hSnapshot.start_date ? (hSnapshot.start_date + (hSnapshot.end_date && hSnapshot.end_date !== hSnapshot.start_date ? ' → ' + hSnapshot.end_date : '')) : '';
+          recordOriginalTime = '';
+        }
+
         xml += '<Row>'
           + cell(new Date(a.changed_at).toLocaleString('es-ES'), style)
           + cell(a.table_name, style)
           + cell(label, style)
           + cell(who, style)
+          + cell(recordEmployee, style)
+          + cell(recordDate, style)
+          + cell(recordOriginalTime, style)
           + cell(s.what, style || 'small')
           + cell(s.before, style || 'small')
           + cell(s.after, style || 'small')
+          + cell(a.record_id, style)
           + '</Row>';
       });
     }
