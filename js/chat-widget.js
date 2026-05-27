@@ -15,7 +15,7 @@
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #092b50, #1a4a7a);
+      background: linear-gradient(135deg, #59d2ff, #092b50);
       color: white;
       border: none;
       cursor: pointer;
@@ -65,7 +65,7 @@
       align-items: center;
       justify-content: space-between;
       padding: 14px 16px;
-      background: linear-gradient(135deg, #092b50, #1a4a7a);
+      background: linear-gradient(135deg, #59d2ff, #092b50);
       color: white;
     }
     .chat-overlay-header h3 {
@@ -293,7 +293,7 @@
   overlay.id = 'chatOverlay';
   overlay.innerHTML = `
     <div class="chat-overlay-header">
-      <h3>✦ Class Helper</h3>
+      <h3>✦ Asistente Profe</h3>
       <div class="chat-overlay-header-actions">
         <button onclick="window.chatWidget.newConversation()" title="Nueva conversación">🔄</button>
         <button onclick="window.chatWidget.toggle()" title="Cerrar">✕</button>
