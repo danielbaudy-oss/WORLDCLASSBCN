@@ -15,21 +15,21 @@
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      background: linear-gradient(135deg, #092b50, #1a4a7a);
       color: white;
       border: none;
       cursor: pointer;
-      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+      box-shadow: 0 4px 16px rgba(9, 43, 80, 0.4);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 24px;
       z-index: 9998;
       transition: transform 0.2s, box-shadow 0.2s;
     }
     .chat-bubble:hover {
       transform: scale(1.1);
-      box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5);
+      box-shadow: 0 6px 20px rgba(9, 43, 80, 0.5);
     }
     .chat-bubble.open {
       transform: scale(0.9);
@@ -65,7 +65,7 @@
       align-items: center;
       justify-content: space-between;
       padding: 14px 16px;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      background: linear-gradient(135deg, #092b50, #1a4a7a);
       color: white;
     }
     .chat-overlay-header h3 {
@@ -117,7 +117,7 @@
     }
     .chat-msg-user {
       align-self: flex-end;
-      background: #4f46e5;
+      background: #092b50;
       color: white;
       border-bottom-right-radius: 4px;
     }
@@ -194,8 +194,8 @@
       transition: all 0.15s;
     }
     .chat-suggestion:hover {
-      border-color: #4f46e5;
-      background: rgba(79,70,229,0.04);
+      border-color: #092b50;
+      background: rgba(9, 43, 80, 0.04);
     }
 
     .chat-input-area {
@@ -219,11 +219,11 @@
       outline: none;
     }
     .chat-input-area textarea:focus {
-      border-color: #4f46e5;
-      box-shadow: 0 0 0 2px rgba(79,70,229,0.1);
+      border-color: #092b50;
+      box-shadow: 0 0 0 2px rgba(9, 43, 80, 0.1);
     }
     .chat-send-btn {
-      background: #4f46e5;
+      background: #092b50;
       color: white;
       border: none;
       border-radius: 8px;
@@ -282,7 +282,7 @@
   // Create bubble button
   const bubble = document.createElement('button');
   bubble.className = 'chat-bubble';
-  bubble.innerHTML = '🤖';
+  bubble.innerHTML = '✦';
   bubble.title = 'Asistente de clase';
   bubble.onclick = toggleChat;
   document.body.appendChild(bubble);
@@ -293,7 +293,7 @@
   overlay.id = 'chatOverlay';
   overlay.innerHTML = `
     <div class="chat-overlay-header">
-      <h3>🤖 Class Helper</h3>
+      <h3>✦ Class Helper</h3>
       <div class="chat-overlay-header-actions">
         <button onclick="window.chatWidget.newConversation()" title="Nueva conversación">🔄</button>
         <button onclick="window.chatWidget.toggle()" title="Cerrar">✕</button>
