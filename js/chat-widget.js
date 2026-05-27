@@ -320,13 +320,20 @@
   `;
   document.body.appendChild(overlay);
 
-  // Detect user role on load
+  // Detect user role on load — only show for test account during testing
   (async function detectRole() {
     try {
       const { data: { session } } = await db.auth.getSession();
       if (session) {
-        const { data: profile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
-        if (profile) userRole = profile.role;
+        const { data: profile } = await db.from('profiles').select('role, email').eq('id', session.user.id).single();
+        if (profile) {
+          userRole = profile.role;
+          // TEST MODE: only show bubble for test account
+          const TEST_EMAILS = ['danielbaudy@googlemail.com'];
+          if (!TEST_EMAILS.includes(profile.email)) {
+            bubble.style.display = 'none';
+          }
+        }
       }
     } catch(e) {}
   })();
