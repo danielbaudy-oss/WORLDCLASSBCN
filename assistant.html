@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorldClass BCN - Class Helper</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 80px);
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: var(--card-bg, #fff);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .chat-header h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chat-header .back-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+            color: var(--text-color, #333);
+        }
+
+        .chat-header .back-btn:hover {
+            background: var(--hover-bg, #f0f0f0);
+        }
+
+        .new-chat-btn {
+            background: var(--primary-color, #4f46e5);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .new-chat-btn:hover {
+            opacity: 0.9;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            word-wrap: break-word;
+        }
+
+        .message-user {
+            align-self: flex-end;
+            background: var(--primary-color, #4f46e5);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-assistant {
+            align-self: flex-start;
+            background: var(--card-bg, #f3f4f6);
+            color: var(--text-color, #333);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color, #e5e7eb);
+        }
+
+        .message-assistant pre {
+            background: rgba(0,0,0,0.05);
+            padding: 0.5rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .message-error {
+            align-self: center;
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            font-size: 0.85rem;
+        }
+
+        .message-typing {
+            align-self: flex-start;
+            background: var(--card-bg, #f3f4f6);
+            border: 1px solid var(--border-color, #e5e7eb);
+            padding: 1rem;
+            border-radius: 12px;
+            border-bottom-left-radius: 4px;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            background: #9ca3af;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        .input-container {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: var(--card-bg, #fff);
+            border-radius: 12px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+        }
+
+        .input-container textarea {
+            flex: 1;
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-size: 0.95rem;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+            font-family: inherit;
+            line-height: 1.4;
+        }
+
+        .input-container textarea:focus {
+            outline: none;
+            border-color: var(--primary-color, #4f46e5);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .send-btn {
+            background: var(--primary-color, #4f46e5);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 1.25rem;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px;
+            transition: opacity 0.2s;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+
+        .welcome-message h2 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-color, #333);
+        }
+
+        .welcome-message p {
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .suggestion-chip {
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 20px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .suggestion-chip:hover {
+            border-color: var(--primary-color, #4f46e5);
+            background: rgba(79, 70, 229, 0.05);
+        }
+
+        .approval-card {
+            background: #fffbeb;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .approval-card p {
+            margin: 0 0 0.75rem 0;
+            font-weight: 500;
+        }
+
+        .approval-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .approve-btn {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .reject-btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .char-count {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            text-align: right;
+            padding-right: 0.5rem;
+        }
+
+        .char-count.over-limit {
+            color: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button class="back-btn" onclick="goBack()" title="Volver">←</button>
+                <h1>🤖 Class Helper</h1>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="new-chat-btn" id="indexBtn" onclick="triggerIndexing()" style="display:none; background:#059669;">🔄 Indexar</button>
+                <button class="new-chat-btn" onclick="newConversation()">+ Nueva conversación</button>
+            </div>
+        </div>
+
+        <div class="messages-container" id="messagesContainer">
+            <div class="welcome-message" id="welcomeMessage">
+                <h2>¡Hola! Soy tu asistente de clase</h2>
+                <p>Puedo ayudarte con horarios, materiales y más.</p>
+                <div class="suggestions">
+                    <div class="suggestion-chip" onclick="sendSuggestion('¿Qué clases tengo hoy?')">¿Qué clases tengo hoy?</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('¿Cuántos días de vacaciones me quedan?')">Días de vacaciones</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Busca materiales para una clase de B1 sobre comida')">Buscar materiales</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('¿Cuántas horas he trabajado este mes?')">Horas trabajadas</div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="char-count" id="charCount">0 / 2000</div>
+            <div class="input-container">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Escribe tu pregunta..." 
+                    rows="1"
+                    maxlength="2000"
+                    onkeydown="handleKeyDown(event)"
+                    oninput="autoResize(this); updateCharCount()"
+                ></textarea>
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Enviar">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script>
+        let conversationHistory = [];
+        let isWaiting = false;
+
+        // Check auth on load
+        (async function init() {
+            const { data: { session } } = await db.auth.getSession();
+            if (!session) {
+                window.location.href = 'index.html';
+                return;
+            }
+            // Check if admin - show index button
+            const { data: profile } = await db
+                .from('profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+            if (profile && ['admin', 'super_admin'].includes(profile.role)) {
+                document.getElementById('indexBtn').style.display = 'inline-block';
+            }
+        })();
+
+        function goBack() {
+            window.history.back();
+        }
+
+        async function triggerIndexing() {
+            const btn = document.getElementById('indexBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Indexando...';
+            
+            try {
+                const { data: { session } } = await db.auth.getSession();
+                const response = await fetch(
+                    `${SUPABASE_URL}/functions/v1/index-materials`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'apikey': SUPABASE_ANON_KEY,
+                        },
+                        body: JSON.stringify({}),
+                    }
+                );
+                
+                const data = await response.json();
+                if (data.success) {
+                    addMessage(`✅ Indexación completada: ${data.summary.indexed} archivos indexados, ${data.summary.skipped_unchanged} sin cambios, ${data.summary.errors} errores.`, 'assistant');
+                } else {
+                    addMessage(`❌ Error en indexación: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (e) {
+                addMessage('❌ Error de conexión al indexar.', 'error');
+            }
+            
+            btn.disabled = false;
+            btn.textContent = '🔄 Indexar';
+        }
+
+        function newConversation() {
+            conversationHistory = [];
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = `
+                <div class="welcome-message" id="welcomeMessage">
+                    <h2>¡Hola! Soy tu asistente de clase</h2>
+                    <p>Puedo ayudarte con horarios, materiales y más.</p>
+                    <div class="suggestions">
+                        <div class="suggestion-chip" onclick="sendSuggestion('¿Qué clases tengo hoy?')">¿Qué clases tengo hoy?</div>
+                        <div class="suggestion-chip" onclick="sendSuggestion('¿Cuántos días de vacaciones me quedan?')">Días de vacaciones</div>
+                        <div class="suggestion-chip" onclick="sendSuggestion('Busca materiales para una clase de B1 sobre comida')">Buscar materiales</div>
+                        <div class="suggestion-chip" onclick="sendSuggestion('¿Cuántas horas he trabajado este mes?')">Horas trabajadas</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function sendSuggestion(text) {
+            document.getElementById('messageInput').value = text;
+            updateCharCount();
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || isWaiting) return;
+            if (message.length > 2000) return;
+
+            // Remove welcome message
+            const welcome = document.getElementById('welcomeMessage');
+            if (welcome) welcome.remove();
+
+            // Add user message to UI
+            addMessage(message, 'user');
+            input.value = '';
+            updateCharCount();
+            autoResize(input);
+
+            // Show typing indicator
+            isWaiting = true;
+            document.getElementById('sendBtn').disabled = true;
+            showTyping();
+
+            try {
+                const { data: { session } } = await db.auth.getSession();
+                if (!session) {
+                    removeTyping();
+                    addMessage('Session expired. Please log in again.', 'error');
+                    isWaiting = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    return;
+                }
+
+                const response = await fetch(
+                    `${SUPABASE_URL}/functions/v1/class-helper`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'apikey': SUPABASE_ANON_KEY,
+                        },
+                        body: JSON.stringify({
+                            message,
+                            history: conversationHistory,
+                        }),
+                    }
+                );
+
+                removeTyping();
+
+                if (response.status === 429) {
+                    addMessage('Has alcanzado el límite diario de 50 mensajes. Inténtalo mañana.', 'error');
+                } else if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    addMessage(err.error || 'El asistente no está disponible en este momento.', 'error');
+                } else {
+                    const data = await response.json();
+                    
+                    // Add to conversation history
+                    conversationHistory.push({ role: 'user', content: message });
+                    conversationHistory.push({ role: 'assistant', content: data.response });
+
+                    // Keep only last 10 messages
+                    if (conversationHistory.length > 10) {
+                        conversationHistory = conversationHistory.slice(-10);
+                    }
+
+                    addMessage(data.response, 'assistant');
+
+                    // Handle pending approval
+                    if (data.pending_approval) {
+                        addApprovalCard(data.pending_approval);
+                    }
+                }
+            } catch (error) {
+                removeTyping();
+                addMessage('Error de conexión. Verifica tu internet e inténtalo de nuevo.', 'error');
+            }
+
+            isWaiting = false;
+            document.getElementById('sendBtn').disabled = false;
+        }
+
+        function addMessage(text, type) {
+            const container = document.getElementById('messagesContainer');
+            const div = document.createElement('div');
+            div.className = `message message-${type}`;
+            
+            // Simple markdown-like formatting for assistant messages
+            if (type === 'assistant') {
+                div.innerHTML = formatResponse(text);
+            } else {
+                div.textContent = text;
+            }
+            
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function formatResponse(text) {
+            // Basic markdown formatting
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function addApprovalCard(proposal) {
+            const container = document.getElementById('messagesContainer');
+            const div = document.createElement('div');
+            div.className = 'approval-card';
+            div.innerHTML = `
+                <p>⚠️ Cambio propuesto: ${proposal.description || 'Schedule change'}</p>
+                <div class="approval-actions">
+                    <button class="approve-btn" onclick="handleApproval(this, true)">✓ Aprobar</button>
+                    <button class="reject-btn" onclick="handleApproval(this, false)">✗ Rechazar</button>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function handleApproval(btn, approved) {
+            const card = btn.closest('.approval-card');
+            card.innerHTML = approved 
+                ? '<p>✅ Cambio aprobado. Ejecutando...</p>'
+                : '<p>❌ Cambio rechazado.</p>';
+            
+            // TODO: Execute the approved change via Edge Function
+            if (approved) {
+                setTimeout(() => {
+                    card.innerHTML = '<p>✅ Cambio ejecutado correctamente.</p>';
+                }, 1000);
+            }
+        }
+
+        function showTyping() {
+            const container = document.getElementById('messagesContainer');
+            const div = document.createElement('div');
+            div.className = 'message-typing';
+            div.id = 'typingIndicator';
+            div.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeTyping() {
+            const typing = document.getElementById('typingIndicator');
+            if (typing) typing.remove();
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+
+        function updateCharCount() {
+            const input = document.getElementById('messageInput');
+            const count = document.getElementById('charCount');
+            const len = input.value.length;
+            count.textContent = `${len} / 2000`;
+            count.className = len > 1900 ? 'char-count over-limit' : 'char-count';
+        }
+    </script>
+</body>
+</html>

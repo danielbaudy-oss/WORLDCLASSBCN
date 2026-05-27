@@ -286,7 +286,7 @@
   <script>
     // Cache-busting on localhost only; production uses plain URLs (GitHub Pages caches well)
     var V = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? '?v=' + Date.now() : '';
-    document.write('<script src="js/supabase-config.js'+V+'"><\/script><script src="js/auth.js'+V+'"><\/script><script src="js/teacher.js'+V+'"><\/script>');
+    document.write('<script src="js/supabase-config.js'+V+'"><\/script><script src="js/auth.js'+V+'"><\/script><script src="js/teacher.js'+V+'"><\/script><script src="js/chat-widget.js'+V+'"><\/script>');
   </script>
 </body>
 </html>
