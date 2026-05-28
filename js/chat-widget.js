@@ -283,12 +283,23 @@
         max-width: 100vw;
         border-radius: 0;
       }
+      .chat-overlay-header {
+        padding: 16px;
+        padding-top: max(16px, env(safe-area-inset-top));
+      }
+      .chat-messages {
+        padding: 12px;
+      }
+      .chat-input-area {
+        padding: 10px 12px;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+      }
       .chat-bubble {
         bottom: 16px;
         right: 16px;
         width: 54px;
         height: 54px;
-        font-size: 24px;
+        font-size: 22px;
       }
     }
   `;
