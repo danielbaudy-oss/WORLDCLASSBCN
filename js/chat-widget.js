@@ -23,7 +23,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 28px;
       z-index: 9998;
       transition: transform 0.2s, box-shadow 0.2s;
     }
@@ -275,31 +275,46 @@
 
     @media (max-width: 440px) {
       .chat-overlay {
-        bottom: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
         right: 0;
-        width: 100vw;
-        height: 100vh;
-        max-height: 100vh;
-        max-width: 100vw;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        max-width: none;
         border-radius: 0;
+        z-index: 99999;
+      }
+      .chat-overlay.keyboard-open {
+        height: calc(var(--vh, 100vh));
       }
       .chat-overlay-header {
-        padding: 16px;
-        padding-top: max(16px, env(safe-area-inset-top));
+        padding: 12px 16px;
+        padding-top: max(12px, env(safe-area-inset-top, 0px));
+        min-height: 50px;
+        flex-shrink: 0;
+      }
+      .chat-overlay-header h3 {
+        font-size: 1.1rem;
       }
       .chat-messages {
         padding: 12px;
+        flex: 1;
+        min-height: 0;
       }
       .chat-input-area {
         padding: 10px 12px;
-        padding-bottom: max(10px, env(safe-area-inset-bottom));
+        padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+        flex-shrink: 0;
       }
       .chat-bubble {
         bottom: 16px;
         right: 16px;
-        width: 54px;
-        height: 54px;
-        font-size: 22px;
+        width: 56px;
+        height: 56px;
+        font-size: 28px;
       }
     }
   `;
@@ -513,6 +528,28 @@
   function removeTyping() {
     const el = document.getElementById('chatWidgetTyping');
     if (el) el.remove();
+  }
+
+  // Handle mobile keyboard - resize overlay to visual viewport
+  if (window.visualViewport) {
+    const resizeOverlay = () => {
+      const vh = window.visualViewport.height;
+      overlay.style.setProperty('--vh', vh + 'px');
+      if (vh < window.innerHeight * 0.8) {
+        overlay.classList.add('keyboard-open');
+        overlay.style.height = vh + 'px';
+        overlay.style.top = window.visualViewport.offsetTop + 'px';
+      } else {
+        overlay.classList.remove('keyboard-open');
+        overlay.style.height = '';
+        overlay.style.top = '';
+      }
+      // Scroll messages to bottom when keyboard opens
+      const msgs = document.getElementById('chatWidgetMessages');
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    };
+    window.visualViewport.addEventListener('resize', resizeOverlay);
+    window.visualViewport.addEventListener('scroll', resizeOverlay);
   }
 
   // Expose API
