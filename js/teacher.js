@@ -258,6 +258,19 @@ async function submitPunch() {
     return;
   }
 
+  // Block future times on today
+  const now = new Date();
+  const todayStr = formatDate(now);
+  if (dateStr === todayStr) {
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const punchMinutes = timeToMinutes(timeStr);
+    if (punchMinutes > currentMinutes) {
+      showToast('No se puede fichar en una hora futura', 'error');
+      isPunching = false; btn.disabled = false;
+      return;
+    }
+  }
+
   // Capture GPS
   let latitude = null, longitude = null;
   try {
