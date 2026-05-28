@@ -225,9 +225,9 @@
       box-shadow: 0 0 0 2px rgba(9, 43, 80, 0.1);
     }
     .chat-send-btn {
-      background: #092b50;
+      background: linear-gradient(135deg, #59d2ff, #6366f1, #a855f7, #ec4899, #f59e0b, #10b981) border-box;
       color: white;
-      border: none;
+      border: 2px solid transparent;
       border-radius: 8px;
       width: 38px;
       height: 38px;
@@ -237,6 +237,19 @@
       align-items: center;
       justify-content: center;
       transition: opacity 0.2s;
+      position: relative;
+    }
+    .chat-send-btn::before {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      background: #092b50;
+      border-radius: 6px;
+      z-index: 0;
+    }
+    .chat-send-btn span {
+      position: relative;
+      z-index: 1;
     }
     .chat-send-btn:hover:not(:disabled) { opacity: 0.85; }
     .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -317,7 +330,7 @@
       <textarea id="chatWidgetInput" placeholder="Escribe tu pregunta..." rows="1" maxlength="2000"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.chatWidget.send()}"
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
-      <button class="chat-send-btn" id="chatWidgetSendBtn" onclick="window.chatWidget.send()">➤</button>
+      <button class="chat-send-btn" id="chatWidgetSendBtn" onclick="window.chatWidget.send()"><span>➤</span></button>
     </div>
   `;
   document.body.appendChild(overlay);
