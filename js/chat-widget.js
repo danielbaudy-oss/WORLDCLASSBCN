@@ -493,11 +493,57 @@
         .replace(/`(.*?)`/g, '<code>$1</code>')
         .replace(/(https?:\/\/[^\s<]+)/g, function(match) { if (match.includes('"')) return match; return '<a href="'+match+'" target="_blank" style="color:#4f46e5;text-decoration:underline">📄 Abrir archivo</a>'; })
         .replace(/\n/g, '<br>');
+      // Add confirm/cancel buttons if response asks for confirmation
+      if (text.includes('onfirma') || text.includes('confirmar') || text.includes('¿Procedo')) {
+        const btnWrap = document.createElement('div');
+        btnWrap.style.cssText = 'margin-top:10px;display:flex;gap:8px;';
+        btnWrap.innerHTML = `
+          <button class="chat-confirm-btn" style="background:#092b50;color:white;border:2px solid transparent;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:0.85rem;background-image:linear-gradient(#092b50,#092b50),linear-gradient(135deg,#59d2ff,#6366f1,#a855f7,#ec4899,#f59e0b,#10b981);background-origin:border-box;background-clip:padding-box,border-box;">✓ Confirmar</button>
+          <button class="chat-cancel-btn" style="background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:500;font-size:0.85rem;">✗ Cancelar</button>
+        `;
+        btnWrap.querySelector('.chat-confirm-btn').onclick = () => { btnWrap.remove(); sendSilent('Confirmar'); };
+        btnWrap.querySelector('.chat-cancel-btn').onclick = () => { btnWrap.remove(); addMsg('Solicitud cancelada.', 'assistant'); };
+        div.appendChild(btnWrap);
+      }
     } else {
       div.textContent = text;
     }
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
+  }
+
+  // Send message silently (no user bubble shown, just the response)
+  async function sendSilent(text) {
+    isWaiting = true;
+    document.getElementById('chatWidgetSendBtn').disabled = true;
+    showTyping();
+
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      if (!session) { removeTyping(); addMsg('Sesión expirada.', 'error'); isWaiting = false; document.getElementById('chatWidgetSendBtn').disabled = false; return; }
+
+      conversationHistory.push({ role: 'user', content: text });
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/class-helper`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${session.access_token}`, 'apikey':SUPABASE_ANON_KEY },
+        body: JSON.stringify({ message: text, history: conversationHistory }),
+      });
+
+      removeTyping();
+
+      if (!response.ok) {
+        addMsg('Error al procesar.', 'error');
+      } else {
+        const data = await response.json();
+        conversationHistory.push({ role: 'assistant', content: data.response });
+        if (conversationHistory.length > 10) conversationHistory = conversationHistory.slice(-10);
+        addMsg(data.response, 'assistant');
+      }
+    } catch(e) { removeTyping(); addMsg('Error de conexión.', 'error'); }
+
+    isWaiting = false;
+    document.getElementById('chatWidgetSendBtn').disabled = false;
   }
 
   function addApproval(proposal) {
