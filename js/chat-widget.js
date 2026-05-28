@@ -501,7 +501,12 @@
           <button class="chat-confirm-btn" style="background:#092b50;color:white;border:2px solid transparent;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:0.85rem;background-image:linear-gradient(#092b50,#092b50),linear-gradient(135deg,#59d2ff,#6366f1,#a855f7,#ec4899,#f59e0b,#10b981);background-origin:border-box;background-clip:padding-box,border-box;">✓ Confirmar</button>
           <button class="chat-cancel-btn" style="background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:500;font-size:0.85rem;">✗ Cancelar</button>
         `;
-        btnWrap.querySelector('.chat-confirm-btn').onclick = () => { btnWrap.remove(); addMsg('Confirmado ✓', 'user'); sendSilent('Confirmar'); };
+        btnWrap.querySelector('.chat-confirm-btn').onclick = () => { 
+          btnWrap.remove(); 
+          document.querySelectorAll('.chat-confirm-btn, .chat-cancel-btn').forEach(b => { const w = b.closest('div'); if(w) w.remove(); });
+          addMsg('Confirmado ✓', 'user'); 
+          sendSilent('Sí, confirmo. Ejecuta la acción con confirmed=true.'); 
+        };
         btnWrap.querySelector('.chat-cancel-btn').onclick = () => { btnWrap.remove(); addMsg('Solicitud cancelada.', 'assistant'); };
         div.appendChild(btnWrap);
       }
