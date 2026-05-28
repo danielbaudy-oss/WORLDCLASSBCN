@@ -461,9 +461,11 @@
     div.className = `chat-msg chat-msg-${type}`;
     if (type === 'assistant') {
       div.innerHTML = text
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" style="color:#4f46e5;text-decoration:underline">$1</a>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/(https?:\/\/[^\s<]+)/g, function(match) { if (match.includes('"')) return match; return '<a href="'+match+'" target="_blank" style="color:#4f46e5;text-decoration:underline">📄 Abrir archivo</a>'; })
         .replace(/\n/g, '<br>');
     } else {
       div.textContent = text;
