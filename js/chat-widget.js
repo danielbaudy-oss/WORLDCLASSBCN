@@ -323,7 +323,7 @@
   // Create bubble button
   const bubble = document.createElement('button');
   bubble.className = 'chat-bubble';
-  bubble.innerHTML = '✦';
+  bubble.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;margin-top:-2px">✦</span>';
   bubble.title = 'Asistente Profe';
   bubble.onclick = toggleChat;
   document.body.appendChild(bubble);
