@@ -310,7 +310,7 @@
     <div class="chat-overlay-header">
       <h3>✦ Asistente Profe</h3>
       <div class="chat-overlay-header-actions">
-        <button onclick="window.chatWidget.newConversation()" title="Nueva conversación">🔄</button>
+        <button onclick="window.chatWidget.newConversation()" title="Nueva conversación">↻</button>
         <button onclick="window.chatWidget.toggle()" title="Cerrar">✕</button>
       </div>
     </div>
