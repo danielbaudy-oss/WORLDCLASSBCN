@@ -343,8 +343,8 @@
         const { data: profile } = await db.from('profiles').select('role, email').eq('id', session.user.id).single();
         if (profile) {
           userRole = profile.role;
-          // TEST MODE: only show bubble for test account
-          const TEST_EMAILS = ['danielbaudy@googlemail.com'];
+          // TEST MODE: only show bubble for test accounts
+          const TEST_EMAILS = ['danielbaudy@googlemail.com', 'rocio@worldclassbcn.com'];
           if (!TEST_EMAILS.includes(profile.email)) {
             bubble.style.display = 'none';
           }
