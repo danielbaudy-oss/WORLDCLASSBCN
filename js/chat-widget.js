@@ -368,7 +368,10 @@
 
   function sendSuggestion(text) {
     document.getElementById('chatWidgetInput').value = text;
-    send();
+    document.getElementById('chatWidgetInput').focus();
+    const input = document.getElementById('chatWidgetInput');
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 80) + 'px';
   }
 
   async function send() {
