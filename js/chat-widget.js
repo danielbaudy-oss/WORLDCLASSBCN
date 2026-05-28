@@ -298,7 +298,7 @@
   const bubble = document.createElement('button');
   bubble.className = 'chat-bubble';
   bubble.innerHTML = '✦';
-  bubble.title = 'Asistente de clase';
+  bubble.title = 'Asistente Profe';
   bubble.onclick = toggleChat;
   document.body.appendChild(bubble);
 
