@@ -396,8 +396,9 @@
   })();
 
   function getWelcomeHTML() {
-    var isAdmin = userRole === 'admin' || userRole === 'super_admin';
-    if (isAdmin) {
+    // Determine context from the current page URL, not the profile role
+    var isAdminPage = window.location.pathname.indexOf('admin') !== -1;
+    if (isAdminPage) {
       return '<div class="chat-welcome" id="chatWelcome">' +
         '<h4>¡Hola! Soy Atlas</h4>' +
         '<p>Pregúntame sobre clases, cobertura o planificación.</p>' +
