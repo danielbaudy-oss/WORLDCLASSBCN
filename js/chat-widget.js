@@ -337,7 +337,7 @@
   const bubble = document.createElement('button');
   bubble.className = 'chat-bubble';
   bubble.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="white" style="display:block"><path d="M12 0 Q12 12 24 12 Q12 12 12 24 Q12 12 0 12 Q12 12 12 0 Z"/></svg>';
-  bubble.title = 'Asistente Profe';
+  bubble.title = 'Atlas';
   bubble.onclick = toggleChat;
   document.body.appendChild(bubble);
 
@@ -347,7 +347,7 @@
   overlay.id = 'chatOverlay';
   overlay.innerHTML = `
     <div class="chat-overlay-header">
-      <h3>✦ Asistente Profe</h3>
+      <h3>✦ Atlas</h3>
       <div class="chat-overlay-header-actions">
         <button onclick="window.chatWidget.newConversation()" title="Nueva conversación">↻</button>
         <button onclick="window.chatWidget.toggle()" title="Cerrar">✕</button>
@@ -355,8 +355,8 @@
     </div>
     <div class="chat-messages" id="chatWidgetMessages">
       <div class="chat-welcome" id="chatWelcome">
-        <h4>¡Hola! Soy tu asistente</h4>
-        <p>Pregúntame sobre horarios, materiales o permisos.</p>
+        <h4>¡Hola! Soy Atlas</h4>
+        <p>Pregúntame sobre horarios, clases o permisos.</p>
         <div class="chat-suggestions">
           <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Qué clases tengo hoy?')">Mis clases hoy</div>
           <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cuántos días de vacaciones me quedan?')">Vacaciones</div>
@@ -411,8 +411,8 @@
     const container = document.getElementById('chatWidgetMessages');
     container.innerHTML = `
       <div class="chat-welcome" id="chatWelcome">
-        <h4>¡Hola! Soy tu asistente</h4>
-        <p>Pregúntame sobre horarios, materiales o permisos.</p>
+        <h4>¡Hola! Soy Atlas</h4>
+        <p>Pregúntame sobre horarios, clases o permisos.</p>
         <div class="chat-suggestions">
           <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Qué clases tengo hoy?')">Mis clases hoy</div>
           <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cuántos días de vacaciones me quedan?')">Vacaciones</div>
@@ -477,7 +477,7 @@
         addMsg('Límite diario alcanzado (50 mensajes). Inténtalo mañana.', 'error');
       } else if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        addMsg(err.error || 'Asistente no disponible.', 'error');
+        addMsg(err.error || 'Atlas no disponible.', 'error');
       } else {
         const data = await response.json();
         conversationHistory.push({ role: 'user', content: message });
