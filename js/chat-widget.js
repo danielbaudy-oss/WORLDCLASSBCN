@@ -52,6 +52,19 @@
       overflow: hidden;
       animation: chatSlideUp 0.25s ease-out;
     }
+    @media (max-width: 500px) {
+      .chat-overlay {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        max-height: 100%;
+        max-width: 100%;
+        border-radius: 0;
+      }
+    }
     .chat-overlay.visible {
       display: flex;
     }
@@ -323,7 +336,7 @@
   // Create bubble button
   const bubble = document.createElement('button');
   bubble.className = 'chat-bubble';
-  bubble.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;font-size:34px;margin-top:-1px">✦</span>';
+  bubble.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;font-size:34px">✦</span>';
   bubble.title = 'Asistente Profe';
   bubble.onclick = toggleChat;
   document.body.appendChild(bubble);
@@ -383,9 +396,28 @@
     isOpen = !isOpen;
     overlay.classList.toggle('visible', isOpen);
     bubble.classList.toggle('open', isOpen);
+    // Don't auto-focus input — let user tap it when ready (avoids mobile keyboard popping up)
+    // On mobile, prevent page scroll when chat is open
     if (isOpen) {
-      document.getElementById('chatWidgetInput').focus();
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
+  }
+
+  // Handle mobile keyboard: resize overlay to fit above keyboard
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function() {
+      if (!isOpen) return;
+      var vh = window.visualViewport.height;
+      overlay.style.height = vh + 'px';
+      overlay.style.maxHeight = vh + 'px';
+      overlay.style.top = window.visualViewport.offsetTop + 'px';
+    });
+    window.visualViewport.addEventListener('scroll', function() {
+      if (!isOpen) return;
+      overlay.style.top = window.visualViewport.offsetTop + 'px';
+    });
   }
 
   function newConversation() {
