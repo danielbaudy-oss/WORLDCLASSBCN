@@ -59,8 +59,8 @@
         right: 0;
         bottom: 0;
         width: 100%;
-        height: 100%;
-        max-height: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
         max-width: 100%;
         border-radius: 0;
       }
@@ -403,21 +403,6 @@
     } else {
       document.body.style.overflow = '';
     }
-  }
-
-  // Handle mobile keyboard: resize overlay to fit above keyboard
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', function() {
-      if (!isOpen) return;
-      var vh = window.visualViewport.height;
-      overlay.style.height = vh + 'px';
-      overlay.style.maxHeight = vh + 'px';
-      overlay.style.top = window.visualViewport.offsetTop + 'px';
-    });
-    window.visualViewport.addEventListener('scroll', function() {
-      if (!isOpen) return;
-      overlay.style.top = window.visualViewport.offsetTop + 'px';
-    });
   }
 
   function newConversation() {
