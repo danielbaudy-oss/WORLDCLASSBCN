@@ -367,6 +367,7 @@
     </div>
     <div class="chat-input-area">
       <textarea id="chatWidgetInput" placeholder="Escribe tu pregunta..." rows="1" maxlength="2000"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.chatWidget.send()}"
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
       <button class="chat-send-btn" id="chatWidgetSendBtn" onclick="window.chatWidget.send()"><span>➤</span></button>
