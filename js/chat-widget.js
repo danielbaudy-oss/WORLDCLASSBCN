@@ -336,7 +336,7 @@
   // Create bubble button
   const bubble = document.createElement('button');
   bubble.className = 'chat-bubble';
-  bubble.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="display:block"><path d="M12 1L14 10L12 12L10 10ZM12 23L10 14L12 12L14 14ZM1 12L10 10L12 12L10 14ZM23 12L14 14L12 12L14 10Z"/></svg>';
+  bubble.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="display:block"><path d="M12 1C12 1 13 8 14 10C16 11 23 12 23 12C23 12 16 13 14 14C13 16 12 23 12 23C12 23 11 16 10 14C8 13 1 12 1 12C1 12 8 11 10 10C11 8 12 1 12 1Z"/></svg>';
   bubble.title = 'Asistente Profe';
   bubble.onclick = toggleChat;
   document.body.appendChild(bubble);
