@@ -375,7 +375,7 @@
   `;
   document.body.appendChild(overlay);
 
-  // Detect user role on load — only show for test account during testing
+  // Detect user role on load — only show for test accounts during testing
   (async function detectRole() {
     try {
       const { data: { session } } = await db.auth.getSession();
@@ -388,10 +388,46 @@
           if (!TEST_EMAILS.includes(profile.email)) {
             bubble.style.display = 'none';
           }
+          // Update welcome content based on role
+          updateWelcomeForRole();
         }
       }
     } catch(e) {}
   })();
+
+  function getWelcomeHTML() {
+    var isAdmin = userRole === 'admin' || userRole === 'super_admin';
+    if (isAdmin) {
+      return '<div class="chat-welcome" id="chatWelcome">' +
+        '<h4>¡Hola! Soy Atlas</h4>' +
+        '<p>Pregúntame sobre clases, cobertura o planificación.</p>' +
+        '<div class="chat-suggestions">' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Están todas las clases cubiertas esta semana?\')">Cobertura semanal</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Quién tiene vacaciones esta semana?\')">Vacaciones equipo</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Dónde hay hueco para un 20h?\')">Hueco para clase</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'Horas del equipo este mes\')">Horas equipo</div>' +
+        '</div>' +
+      '</div>';
+    } else {
+      return '<div class="chat-welcome" id="chatWelcome">' +
+        '<h4>¡Hola! Soy Atlas</h4>' +
+        '<p>Pregúntame sobre horarios, clases o vacaciones.</p>' +
+        '<div class="chat-suggestions">' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Qué clases tengo hoy?\')">Mis clases hoy</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Cuántos días de vacaciones me quedan?\')">Vacaciones</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Cuántas horas he trabajado este mes?\')">Horas trabajadas</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Tengo pruebas esta semana?\')">Pruebas</div>' +
+        '</div>' +
+      '</div>';
+    }
+  }
+
+  function updateWelcomeForRole() {
+    var welcomeEl = document.getElementById('chatWelcome');
+    if (welcomeEl) {
+      welcomeEl.outerHTML = getWelcomeHTML();
+    }
+  }
 
   function toggleChat() {
     isOpen = !isOpen;
@@ -409,18 +445,7 @@
   function newConversation() {
     conversationHistory = [];
     const container = document.getElementById('chatWidgetMessages');
-    container.innerHTML = `
-      <div class="chat-welcome" id="chatWelcome">
-        <h4>¡Hola! Soy Atlas</h4>
-        <p>Pregúntame sobre horarios, clases o permisos.</p>
-        <div class="chat-suggestions">
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Qué clases tengo hoy?')">Mis clases hoy</div>
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cuántos días de vacaciones me quedan?')">Vacaciones</div>
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('Busca materiales para B1 sobre comida')">Buscar materiales</div>
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cuántas horas he trabajado este mes?')">Horas trabajadas</div>
-        </div>
-      </div>
-    `;
+    container.innerHTML = getWelcomeHTML();
   }
 
   function sendSuggestion(text) {
