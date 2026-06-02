@@ -4,6 +4,8 @@
   let isWaiting = false;
   let conversationHistory = [];
   let userRole = 'teacher';
+  let sessionId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2);
+  let lastLogId = null; // Track last response for feedback
 
   // Inject styles
   const style = document.createElement('style');
@@ -142,6 +144,38 @@
       color: #1f2937;
       border-bottom-left-radius: 4px;
       border: 1px solid #e5e7eb;
+      position: relative;
+    }
+    .chat-feedback {
+      display: flex;
+      gap: 4px;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .chat-feedback button {
+      background: none;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #6b7280;
+    }
+    .chat-feedback button:hover {
+      border-color: #092b50;
+      color: #092b50;
+    }
+    .chat-feedback button.selected {
+      border-color: transparent;
+      color: white;
+    }
+    .chat-feedback button.selected.thumbs-up {
+      background: #16a34a;
+    }
+    .chat-feedback button.selected.thumbs-down {
+      background: #dc2626;
     }
     .chat-msg-error {
       align-self: center;
@@ -445,6 +479,8 @@
 
   function newConversation() {
     conversationHistory = [];
+    sessionId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2);
+    lastLogId = null;
     const container = document.getElementById('chatWidgetMessages');
     container.innerHTML = getWelcomeHTML();
   }
@@ -493,7 +529,7 @@
             'Authorization': `Bearer ${session.access_token}`,
             'apikey': SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ message, history: conversationHistory }),
+          body: JSON.stringify({ message, history: conversationHistory, session_id: sessionId }),
         }
       );
 
@@ -511,7 +547,8 @@
         if (conversationHistory.length > 10) {
           conversationHistory = conversationHistory.slice(-10);
         }
-        addMsg(data.response, 'assistant');
+        lastLogId = data.log_id || null;
+        addMsg(data.response, 'assistant', lastLogId);
         if (data.pending_approval) {
           addApproval(data.pending_approval);
         }
@@ -525,7 +562,7 @@
     document.getElementById('chatWidgetSendBtn').disabled = false;
   }
 
-  function addMsg(text, type) {
+  function addMsg(text, type, logId) {
     const container = document.getElementById('chatWidgetMessages');
     const div = document.createElement('div');
     div.className = `chat-msg chat-msg-${type}`;
@@ -554,6 +591,18 @@
         btnWrap.querySelector('.chat-cancel-btn').onclick = () => { btnWrap.remove(); addMsg('Solicitud cancelada.', 'assistant'); };
         div.appendChild(btnWrap);
       }
+      // Add thumbs up/down feedback (only for logged messages)
+      if (logId) {
+        const feedback = document.createElement('div');
+        feedback.className = 'chat-feedback';
+        feedback.innerHTML = `
+          <button class="thumbs-up" title="Útil">👍</button>
+          <button class="thumbs-down" title="No útil">👎</button>
+        `;
+        feedback.querySelector('.thumbs-up').onclick = function() { sendFeedback(logId, true, feedback); };
+        feedback.querySelector('.thumbs-down').onclick = function() { sendFeedback(logId, false, feedback); };
+        div.appendChild(feedback);
+      }
     } else {
       div.textContent = text;
     }
@@ -576,7 +625,7 @@
       const response = await fetch(`${SUPABASE_URL}/functions/v1/class-helper`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${session.access_token}`, 'apikey':SUPABASE_ANON_KEY },
-        body: JSON.stringify({ message: text, history: conversationHistory }),
+        body: JSON.stringify({ message: text, history: conversationHistory, session_id: sessionId }),
       });
 
       removeTyping();
@@ -645,6 +694,34 @@
     };
     window.visualViewport.addEventListener('resize', resizeOverlay);
     window.visualViewport.addEventListener('scroll', resizeOverlay);
+  }
+
+  async function sendFeedback(logId, helpful, feedbackEl) {
+    // Update UI immediately
+    const btns = feedbackEl.querySelectorAll('button');
+    btns.forEach(b => {
+      b.classList.remove('selected');
+      b.disabled = true;
+    });
+    const selectedBtn = helpful ? feedbackEl.querySelector('.thumbs-up') : feedbackEl.querySelector('.thumbs-down');
+    selectedBtn.classList.add('selected');
+    
+    // Send to backend
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      if (session) {
+        await fetch(`${SUPABASE_URL}/rest/v1/chat_logs?id=eq.${logId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ helpful })
+        });
+      }
+    } catch(_e) { /* silently fail */ }
   }
 
   // Expose API
