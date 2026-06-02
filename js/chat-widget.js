@@ -577,8 +577,10 @@
         .replace(/`(.*?)`/g, '<code>$1</code>')
         .replace(/(https?:\/\/[^\s<]+)/g, function(match) { if (match.includes('"')) return match; return '<a href="'+match+'" target="_blank" style="color:#4f46e5;text-decoration:underline">📄 Abrir archivo</a>'; })
         .replace(/\n/g, '<br>');
-      // Add confirm/cancel buttons if response asks for confirmation
-      if (text.includes('onfirma') || text.includes('confirmar') || text.includes('¿Procedo')) {
+      // Add confirm/cancel buttons ONLY when Atlas is asking to execute a specific action
+      // (holiday request or punch submission with a summary shown)
+      const hasActionSummary = text.includes('Confirma para enviar') || text.includes('Confirma para añadir') || text.includes('¿Procedo?') || text.includes('¿Confirmas?');
+      if (hasActionSummary) {
         const btnWrap = document.createElement('div');
         btnWrap.style.cssText = 'margin-top:10px;display:flex;gap:8px;';
         btnWrap.innerHTML = `
