@@ -323,6 +323,40 @@
       padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;
     }
 
+    .chat-bubble-tooltip {
+      position: fixed;
+      bottom: 90px;
+      right: 24px;
+      background: #092b50;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 9997;
+      animation: tooltipFadeIn 0.3s ease-out, tooltipFadeOut 0.5s ease-in 4.5s forwards;
+      max-width: 200px;
+      line-height: 1.4;
+    }
+    .chat-bubble-tooltip::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      right: 24px;
+      width: 12px;
+      height: 12px;
+      background: #092b50;
+      transform: rotate(45deg);
+    }
+    @keyframes tooltipFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tooltipFadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; pointer-events: none; }
+    }
+
     @media (max-width: 440px) {
       .chat-overlay {
         position: fixed;
@@ -377,6 +411,19 @@
   bubble.title = 'Atlas';
   bubble.onclick = toggleChat;
   document.body.appendChild(bubble);
+
+  // One-time tooltip (shows once per user, auto-dismisses after 5s)
+  if (!localStorage.getItem('atlas_tooltip_seen')) {
+    setTimeout(function() {
+      var tooltip = document.createElement('div');
+      tooltip.className = 'chat-bubble-tooltip';
+      tooltip.textContent = '¡Hola! Soy Atlas, tu nuevo asistente 😊';
+      tooltip.onclick = function() { tooltip.remove(); toggleChat(); };
+      document.body.appendChild(tooltip);
+      localStorage.setItem('atlas_tooltip_seen', '1');
+      setTimeout(function() { if (tooltip.parentNode) tooltip.remove(); }, 5500);
+    }, 1500);
+  }
 
   // Create overlay
   const overlay = document.createElement('div');
