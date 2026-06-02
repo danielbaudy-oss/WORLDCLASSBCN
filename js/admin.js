@@ -3526,17 +3526,41 @@ async function loadAtlasStats() {
     }).join('') : '<p style="color:#9ca3af">Sin datos todavía</p>';
     document.getElementById('atlasTopics').innerHTML = topicsHtml;
 
-    // Feedback summary
+    // Feedback pie chart
     var avgResponseTime = logs.length > 0 ? Math.round(logs.reduce(function(a, l) { return a + (l.response_time_ms || 0); }, 0) / logs.length) : 0;
-    var feedbackHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center">' +
-      '<div style="background:#f0fdf4;border-radius:8px;padding:16px"><div style="font-size:1.5rem;font-weight:700;color:#16a34a">' + thumbsUp + '</div><div style="font-size:0.8rem;color:#6b7280">👍 Útil</div></div>' +
-      '<div style="background:#fef2f2;border-radius:8px;padding:16px"><div style="font-size:1.5rem;font-weight:700;color:#dc2626">' + thumbsDown + '</div><div style="font-size:0.8rem;color:#6b7280">👎 No útil</div></div>' +
-    '</div>' +
-    '<div style="margin-top:16px;padding:12px;background:#f9fafb;border-radius:8px;text-align:center">' +
-      '<div style="font-size:0.8rem;color:#6b7280">Tiempo de respuesta promedio</div>' +
-      '<div style="font-size:1.2rem;font-weight:600">' + (avgResponseTime / 1000).toFixed(1) + 's</div>' +
-    '</div>';
-    document.getElementById('atlasFeedback').innerHTML = feedbackHtml;
+    var pieHtml = '';
+    if (totalFeedback > 0) {
+      var upPct = Math.round(100 * thumbsUp / totalFeedback);
+      var downPct = 100 - upPct;
+      // SVG pie chart using conic gradient via two arcs
+      var upAngle = (upPct / 100) * 360;
+      var upRad = (upAngle - 90) * Math.PI / 180;
+      var startRad = -90 * Math.PI / 180;
+      var r = 50; var cx = 60; var cy = 60;
+      var x1 = cx + r * Math.cos(startRad); var y1 = cy + r * Math.sin(startRad);
+      var x2 = cx + r * Math.cos(upRad); var y2 = cy + r * Math.sin(upRad);
+      var largeArc = upAngle > 180 ? 1 : 0;
+      pieHtml = '<div style="display:flex;align-items:center;gap:20px;justify-content:center">' +
+        '<svg width="120" height="120" viewBox="0 0 120 120">' +
+          '<circle cx="60" cy="60" r="50" fill="#fecaca"/>' +
+          '<path d="M60,60 L' + x1 + ',' + y1 + ' A50,50 0 ' + largeArc + ',1 ' + x2 + ',' + y2 + ' Z" fill="#86efac"/>' +
+          '<circle cx="60" cy="60" r="28" fill="white"/>' +
+          '<text x="60" y="64" text-anchor="middle" font-size="14" font-weight="700" fill="#1f2937">' + upPct + '%</text>' +
+        '</svg>' +
+        '<div style="font-size:0.82rem">' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:10px;height:10px;background:#86efac;border-radius:2px"></div> 👍 Útil: ' + thumbsUp + '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><div style="width:10px;height:10px;background:#fecaca;border-radius:2px"></div> 👎 No útil: ' + thumbsDown + '</div>' +
+          '<div style="color:#6b7280;font-size:0.75rem">⏱ ' + (avgResponseTime / 1000).toFixed(1) + 's promedio</div>' +
+        '</div>' +
+      '</div>';
+    } else {
+      pieHtml = '<div style="text-align:center;padding:30px">' +
+        '<div style="font-size:2rem;margin-bottom:8px">🤷</div>' +
+        '<p style="color:#9ca3af;font-size:0.85rem">Sin feedback todavía</p>' +
+        '<div style="margin-top:12px;color:#6b7280;font-size:0.75rem">⏱ ' + (avgResponseTime / 1000).toFixed(1) + 's promedio</div>' +
+      '</div>';
+    }
+    document.getElementById('atlasFeedback').innerHTML = pieHtml;
 
     // Usage histogram (last 7 days)
     var dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
