@@ -40,6 +40,9 @@ async function initAdmin() {
   if (adminProfile.role === 'super_admin') {
     var freezeBtn = document.getElementById('freezeTabBtn');
     if (freezeBtn) freezeBtn.style.display = '';
+    // Show Atlas Analytics nav
+    var atlasNav = document.getElementById('navAtlas');
+    if (atlasNav) atlasNav.style.display = '';
   }
 
   // Load initial data
@@ -85,6 +88,9 @@ function showSection(section) {
     }
     else if (section === 'archive') {
       if (typeof loadArchivoAnual === 'function') loadArchivoAnual();
+    }
+    else if (section === 'atlas') {
+      if (typeof loadAtlasStats === 'function') loadAtlasStats();
     }
     else if (section === 'settings') {
       if (typeof loadSettings === 'function') loadSettings();
@@ -3459,3 +3465,134 @@ async function exportAuditReport() {
 // ========================================
 
 document.addEventListener('DOMContentLoaded', initAdmin);
+
+
+// ========================================
+// ATLAS ANALYTICS DASHBOARD
+// ========================================
+
+async function loadAtlasStats() {
+  try {
+    // Load overview stats
+    var { data: logs } = await db.from('chat_logs').select('id, topic, helpful, response_time_ms, created_at, session_id').order('created_at', { ascending: false });
+    logs = logs || [];
+
+    var now = new Date();
+    var sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
+    var thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(now.getDate() - 30);
+    var sevenDaysStr = sevenDaysAgo.toISOString();
+    var thirtyDaysStr = thirtyDaysAgo.toISOString();
+
+    var total = logs.length;
+    var last7d = logs.filter(function(l) { return l.created_at >= sevenDaysStr; });
+    var sessions7d = new Set(last7d.map(function(l) { return l.session_id; }).filter(Boolean)).size;
+    var thumbsUp = logs.filter(function(l) { return l.helpful === true; }).length;
+    var thumbsDown = logs.filter(function(l) { return l.helpful === false; }).length;
+    var totalFeedback = thumbsUp + thumbsDown;
+    var satisfaction = totalFeedback > 0 ? Math.round(100 * thumbsUp / totalFeedback) + '%' : 'Sin datos';
+
+    // Update stat cards
+    document.getElementById('atlasTotalMsgs').textContent = total;
+    document.getElementById('atlasLast7d').textContent = last7d.length;
+    document.getElementById('atlasSessions7d').textContent = sessions7d;
+    document.getElementById('atlasSatisfaction').textContent = satisfaction;
+
+    // Topic breakdown
+    var topicCounts = {};
+    var topicLabels = {
+      evaluacion: '📝 Evaluación',
+      sustitucion: '🔄 Sustituciones',
+      materiales: '📚 Materiales',
+      horario: '🕐 Horarios',
+      vacaciones: '🏖️ Vacaciones',
+      fichaje: '⏰ Fichaje',
+      onboarding: '🆕 Onboarding',
+      otro: '❓ Otro'
+    };
+    logs.forEach(function(l) {
+      var t = l.topic || 'otro';
+      topicCounts[t] = (topicCounts[t] || 0) + 1;
+    });
+    var topicsSorted = Object.entries(topicCounts).sort(function(a, b) { return b[1] - a[1]; });
+    var topicsHtml = topicsSorted.length ? topicsSorted.map(function(entry) {
+      var pct = total > 0 ? Math.round(100 * entry[1] / total) : 0;
+      var label = topicLabels[entry[0]] || entry[0];
+      return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">' +
+        '<div style="flex:1">' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:0.85rem">' + label + '</span><span style="font-size:0.8rem;color:#6b7280">' + entry[1] + ' (' + pct + '%)</span></div>' +
+          '<div style="background:#f3f4f6;border-radius:4px;height:8px;overflow:hidden"><div style="background:linear-gradient(90deg,#6366f1,#a855f7);height:100%;width:' + pct + '%;border-radius:4px"></div></div>' +
+        '</div>' +
+      '</div>';
+    }).join('') : '<p style="color:#9ca3af">Sin datos todavía</p>';
+    document.getElementById('atlasTopics').innerHTML = topicsHtml;
+
+    // Feedback summary
+    var avgResponseTime = logs.length > 0 ? Math.round(logs.reduce(function(a, l) { return a + (l.response_time_ms || 0); }, 0) / logs.length) : 0;
+    var feedbackHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center">' +
+      '<div style="background:#f0fdf4;border-radius:8px;padding:16px"><div style="font-size:1.5rem;font-weight:700;color:#16a34a">' + thumbsUp + '</div><div style="font-size:0.8rem;color:#6b7280">👍 Útil</div></div>' +
+      '<div style="background:#fef2f2;border-radius:8px;padding:16px"><div style="font-size:1.5rem;font-weight:700;color:#dc2626">' + thumbsDown + '</div><div style="font-size:0.8rem;color:#6b7280">👎 No útil</div></div>' +
+    '</div>' +
+    '<div style="margin-top:16px;padding:12px;background:#f9fafb;border-radius:8px;text-align:center">' +
+      '<div style="font-size:0.8rem;color:#6b7280">Tiempo de respuesta promedio</div>' +
+      '<div style="font-size:1.2rem;font-weight:600">' + (avgResponseTime / 1000).toFixed(1) + 's</div>' +
+    '</div>';
+    document.getElementById('atlasFeedback').innerHTML = feedbackHtml;
+
+    // Recent questions (last 20)
+    var { data: recent } = await db.from('chat_logs').select('user_question, bot_response, topic, helpful, response_time_ms, created_at').order('created_at', { ascending: false }).limit(20);
+    recent = recent || [];
+    var recentHtml = recent.length ? '<table style="width:100%;font-size:0.82rem;border-collapse:collapse">' +
+      '<thead><tr style="border-bottom:1px solid #e5e7eb"><th style="text-align:left;padding:8px">Pregunta</th><th style="width:80px">Tema</th><th style="width:50px">👍/👎</th><th style="width:60px">Tiempo</th><th style="width:100px">Fecha</th></tr></thead><tbody>' +
+      recent.map(function(r) {
+        var topicShort = (topicLabels[r.topic] || r.topic || '').split(' ')[0];
+        var fb = r.helpful === true ? '👍' : r.helpful === false ? '👎' : '—';
+        var time = r.response_time_ms ? (r.response_time_ms / 1000).toFixed(1) + 's' : '—';
+        var date = new Date(r.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        return '<tr style="border-bottom:1px solid #f3f4f6">' +
+          '<td style="padding:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (r.user_question || '').replace(/"/g, '&quot;') + '">' + (r.user_question || '').substring(0, 60) + '</td>' +
+          '<td style="text-align:center">' + topicShort + '</td>' +
+          '<td style="text-align:center">' + fb + '</td>' +
+          '<td style="text-align:center;color:#6b7280">' + time + '</td>' +
+          '<td style="text-align:center;color:#6b7280;font-size:0.75rem">' + date + '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>' : '<p style="color:#9ca3af">Sin preguntas todavía</p>';
+    document.getElementById('atlasRecentQuestions').innerHTML = recentHtml;
+
+    // Top repeated questions
+    var questionCounts = {};
+    logs.forEach(function(l) {
+      if (!l.topic) return; // skip if no question logged (old format)
+      // We'll use the raw question from recent data for display
+    });
+    // Use a simpler approach: group by question text from all logs
+    var { data: allQuestions } = await db.from('chat_logs').select('user_question, topic, helpful').order('created_at', { ascending: false }).limit(500);
+    allQuestions = allQuestions || [];
+    var qMap = {};
+    allQuestions.forEach(function(q) {
+      var key = (q.user_question || '').toLowerCase().trim();
+      if (key.length < 5) return;
+      if (!qMap[key]) qMap[key] = { question: q.user_question, count: 0, topic: q.topic, thumbsDown: 0 };
+      qMap[key].count++;
+      if (q.helpful === false) qMap[key].thumbsDown++;
+    });
+    var repeated = Object.values(qMap).filter(function(q) { return q.count > 1; }).sort(function(a, b) { return b.count - a.count; });
+    var topQHtml = repeated.length ? '<table style="width:100%;font-size:0.82rem;border-collapse:collapse">' +
+      '<thead><tr style="border-bottom:1px solid #e5e7eb"><th style="text-align:left;padding:8px">Pregunta</th><th style="width:60px">Veces</th><th style="width:60px">👎</th><th style="width:80px">Tema</th></tr></thead><tbody>' +
+      repeated.slice(0, 15).map(function(q) {
+        var topicShort = (topicLabels[q.topic] || q.topic || '').split(' ')[0];
+        return '<tr style="border-bottom:1px solid #f3f4f6">' +
+          '<td style="padding:8px">' + (q.question || '').substring(0, 70) + '</td>' +
+          '<td style="text-align:center;font-weight:600">' + q.count + '</td>' +
+          '<td style="text-align:center;color:' + (q.thumbsDown > 0 ? '#dc2626' : '#9ca3af') + '">' + q.thumbsDown + '</td>' +
+          '<td style="text-align:center">' + topicShort + '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>' : '<p style="color:#9ca3af">Aún no hay preguntas repetidas</p>';
+    document.getElementById('atlasTopQuestions').innerHTML = topQHtml;
+
+  } catch (err) {
+    console.error('Error loading Atlas stats:', err);
+    document.getElementById('atlasTopics').innerHTML = '<p style="color:#dc2626">Error al cargar datos</p>';
+  }
+}
