@@ -431,7 +431,7 @@
   overlay.id = 'chatOverlay';
   overlay.innerHTML = `
     <div class="chat-overlay-header">
-      <h3>✦ Atlas</h3>
+      <h3>✦ Atlas <span style="font-size:0.65rem;font-weight:400;opacity:0.7;margin-left:4px">WorldClass BCN</span></h3>
       <div class="chat-overlay-header-actions">
         <button onclick="window.chatWidget.newConversation()" title="Nueva conversación">↻</button>
         <button onclick="window.chatWidget.toggle()" title="Cerrar">✕</button>
