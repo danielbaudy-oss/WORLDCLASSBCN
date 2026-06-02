@@ -3538,6 +3538,31 @@ async function loadAtlasStats() {
     '</div>';
     document.getElementById('atlasFeedback').innerHTML = feedbackHtml;
 
+    // Usage histogram (last 7 days)
+    var dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    var days7 = [];
+    for (var di = 6; di >= 0; di--) {
+      var d = new Date(now); d.setDate(now.getDate() - di);
+      var dateStr = d.toISOString().split('T')[0];
+      var dayLabel = dayNames[d.getDay()] + ' ' + d.getDate();
+      var count = logs.filter(function(l) { return l.created_at && l.created_at.startsWith(dateStr); }).length;
+      days7.push({ label: dayLabel, count: count, date: dateStr });
+    }
+    var maxCount = Math.max.apply(null, days7.map(function(d) { return d.count; })) || 1;
+    var histogramHtml = '<div style="display:flex;align-items:flex-end;justify-content:space-between;height:120px;gap:6px;padding-top:8px">' +
+      days7.map(function(d) {
+        var height = Math.max(4, Math.round((d.count / maxCount) * 100));
+        var isToday = d.date === now.toISOString().split('T')[0];
+        var barColor = isToday ? 'linear-gradient(180deg,#6366f1,#a855f7)' : 'linear-gradient(180deg,#c7d2fe,#a5b4fc)';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">' +
+          '<span style="font-size:0.7rem;color:#6b7280;font-weight:500">' + d.count + '</span>' +
+          '<div style="width:100%;max-width:36px;height:' + height + '%;background:' + barColor + ';border-radius:4px 4px 0 0;min-height:4px"></div>' +
+          '<span style="font-size:0.68rem;color:#9ca3af">' + d.label + '</span>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+    document.getElementById('atlasHistogram').innerHTML = histogramHtml;
+
     // Recent questions (last 20)
     var { data: recent } = await db.from('chat_logs').select('user_question, bot_response, topic, helpful, response_time_ms, created_at').order('created_at', { ascending: false }).limit(20);
     recent = recent || [];
