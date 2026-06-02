@@ -161,21 +161,24 @@
       font-size: 0.75rem;
       cursor: pointer;
       transition: all 0.15s;
-      color: #6b7280;
+      color: #9ca3af;
+      line-height: 1;
     }
     .chat-feedback button:hover {
-      border-color: #092b50;
-      color: #092b50;
+      border-color: #6b7280;
+      color: #6b7280;
     }
-    .chat-feedback button.selected {
-      border-color: transparent;
-      color: white;
+    .chat-feedback-thanks {
+      font-size: 0.72rem;
+      color: #9ca3af;
+      margin-top: 6px;
+      padding-top: 4px;
+      animation: chatFeedbackFade 2s forwards;
     }
-    .chat-feedback button.selected.thumbs-up {
-      background: #16a34a;
-    }
-    .chat-feedback button.selected.thumbs-down {
-      background: #dc2626;
+    @keyframes chatFeedbackFade {
+      0% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { opacity: 0; height: 0; margin: 0; padding: 0; overflow: hidden; }
     }
     .chat-msg-error {
       align-self: center;
@@ -596,8 +599,8 @@
         const feedback = document.createElement('div');
         feedback.className = 'chat-feedback';
         feedback.innerHTML = `
-          <button class="thumbs-up" title="Útil">👍</button>
-          <button class="thumbs-down" title="No útil">👎</button>
+          <button class="thumbs-up" title="Útil"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 22V11L2 11V22H7ZM7 11L11 2C12.1 2 13 2.9 13 4V8H19.5C20.3 8 21 8.8 20.9 9.6L19.4 19.6C19.3 20.4 18.6 21 17.8 21H7"/></svg></button>
+          <button class="thumbs-down" title="No útil"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2V13H22V2H17ZM17 13L13 22C11.9 22 11 21.1 11 20V16H4.5C3.7 16 3 15.2 3.1 14.4L4.6 4.4C4.7 3.6 5.4 3 6.2 3H17"/></svg></button>
         `;
         feedback.querySelector('.thumbs-up').onclick = function() { sendFeedback(logId, true, feedback); };
         feedback.querySelector('.thumbs-down').onclick = function() { sendFeedback(logId, false, feedback); };
@@ -697,14 +700,11 @@
   }
 
   async function sendFeedback(logId, helpful, feedbackEl) {
-    // Update UI immediately
-    const btns = feedbackEl.querySelectorAll('button');
-    btns.forEach(b => {
-      b.classList.remove('selected');
-      b.disabled = true;
-    });
-    const selectedBtn = helpful ? feedbackEl.querySelector('.thumbs-up') : feedbackEl.querySelector('.thumbs-down');
-    selectedBtn.classList.add('selected');
+    // Replace buttons with thank you message that fades away
+    feedbackEl.innerHTML = '<span class="chat-feedback-thanks">Gracias por tu feedback</span>';
+    feedbackEl.className = '';
+    // Remove the element after animation
+    setTimeout(() => { feedbackEl.remove(); }, 2200);
     
     // Send to backend
     try {
