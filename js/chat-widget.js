@@ -390,12 +390,12 @@
     <div class="chat-messages" id="chatWidgetMessages">
       <div class="chat-welcome" id="chatWelcome">
         <h4>¡Hola! Soy Atlas</h4>
-        <p>Pregúntame sobre horarios, clases o permisos.</p>
+        <p>Pregúntame sobre procedimientos, materiales o vacaciones.</p>
         <div class="chat-suggestions">
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Qué clases tengo hoy?')">Mis clases hoy</div>
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cuántos días de vacaciones me quedan?')">Vacaciones</div>
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('Busca materiales para B1 sobre comida')">Buscar materiales</div>
-          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cuántas horas he trabajado este mes?')">Horas trabajadas</div>
+          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cuántos días de vacaciones me quedan?')">Mis vacaciones</div>
+          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Qué hago si no viene ningún alumno a clase?')">No viene nadie</div>
+          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('¿Cómo funciona la tarea evaluable?')">Tarea evaluable</div>
+          <div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion('Fichar mis horas de esta semana')">Fichar horas</div>
         </div>
       </div>
     </div>
@@ -435,23 +435,23 @@
     if (isAdminPage) {
       return '<div class="chat-welcome" id="chatWelcome">' +
         '<h4>¡Hola! Soy Atlas</h4>' +
-        '<p>Pregúntame sobre clases, cobertura o planificación.</p>' +
+        '<p>Pregúntame sobre el equipo, cobertura o el convenio.</p>' +
         '<div class="chat-suggestions">' +
-          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Están todas las clases cubiertas esta semana?\')">Cobertura semanal</div>' +
           '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Quién tiene vacaciones esta semana?\')">Vacaciones equipo</div>' +
-          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Dónde hay hueco para un 20h?\')">Hueco para clase</div>' +
           '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'Horas del equipo este mes\')">Horas equipo</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Qué dice el convenio sobre las vacaciones?\')">Consultar convenio</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Cuál es el procedimiento de sustitución?\')">Proceso sustis</div>' +
         '</div>' +
       '</div>';
     } else {
       return '<div class="chat-welcome" id="chatWelcome">' +
         '<h4>¡Hola! Soy Atlas</h4>' +
-        '<p>Pregúntame sobre horarios, clases o vacaciones.</p>' +
+        '<p>Pregúntame sobre procedimientos, materiales o vacaciones.</p>' +
         '<div class="chat-suggestions">' +
-          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Qué clases tengo hoy?\')">Mis clases hoy</div>' +
-          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Cuántos días de vacaciones me quedan?\')">Vacaciones</div>' +
-          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Cuántas horas he trabajado este mes?\')">Horas trabajadas</div>' +
-          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Tengo pruebas esta semana?\')">Pruebas</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Cuántos días de vacaciones me quedan?\')">Mis vacaciones</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Qué hago si no viene ningún alumno a clase?\')">No viene nadie</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'¿Cómo funciona la tarea evaluable?\')">Tarea evaluable</div>' +
+          '<div class="chat-suggestion" onclick="window.chatWidget.sendSuggestion(\'Fichar mis horas de esta semana\')">Fichar horas</div>' +
         '</div>' +
       '</div>';
     }
