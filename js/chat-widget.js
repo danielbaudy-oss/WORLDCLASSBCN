@@ -334,7 +334,7 @@
       font-size: 0.82rem;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       z-index: 9997;
-      animation: tooltipFadeIn 0.3s ease-out, tooltipFadeOut 0.5s ease-in 2.5s forwards;
+      animation: tooltipFadeIn 0.3s ease-out, tooltipFadeOut 0.5s ease-in 4.5s forwards;
       max-width: 220px;
       line-height: 1.4;
     }
@@ -421,8 +421,8 @@
       tooltip.onclick = function() { tooltip.remove(); toggleChat(); };
       document.body.appendChild(tooltip);
       localStorage.setItem('atlas_tooltip_seen', '1');
-      setTimeout(function() { if (tooltip.parentNode) tooltip.remove(); }, 3500);
-    }, 1000);
+      setTimeout(function() { if (tooltip.parentNode) tooltip.remove(); }, 5500);
+    }, 1500);
   }
 
   // Create overlay
