@@ -3532,25 +3532,35 @@ async function loadAtlasStats() {
     if (totalFeedback > 0) {
       var upPct = Math.round(100 * thumbsUp / totalFeedback);
       var downPct = 100 - upPct;
-      // SVG pie chart using conic gradient via two arcs
-      var upAngle = (upPct / 100) * 360;
-      var upRad = (upAngle - 90) * Math.PI / 180;
-      var startRad = -90 * Math.PI / 180;
-      var r = 50; var cx = 60; var cy = 60;
-      var x1 = cx + r * Math.cos(startRad); var y1 = cy + r * Math.sin(startRad);
-      var x2 = cx + r * Math.cos(upRad); var y2 = cy + r * Math.sin(upRad);
-      var largeArc = upAngle > 180 ? 1 : 0;
+      // SVG pie chart using two arcs
+      var piesvg = '';
+      if (upPct >= 100) {
+        // All positive — full green circle
+        piesvg = '<circle cx="60" cy="60" r="50" fill="#86efac"/>';
+      } else if (upPct <= 0) {
+        // All negative — full red circle
+        piesvg = '<circle cx="60" cy="60" r="50" fill="#fecaca"/>';
+      } else {
+        var upAngle = (upPct / 100) * 360;
+        var upRad = (upAngle - 90) * Math.PI / 180;
+        var startRad = -90 * Math.PI / 180;
+        var r = 50; var cx = 60; var cy = 60;
+        var x1 = cx + r * Math.cos(startRad); var y1 = cy + r * Math.sin(startRad);
+        var x2 = cx + r * Math.cos(upRad); var y2 = cy + r * Math.sin(upRad);
+        var largeArc = upAngle > 180 ? 1 : 0;
+        piesvg = '<circle cx="60" cy="60" r="50" fill="#fecaca"/>' +
+          '<path d="M60,60 L' + x1 + ',' + y1 + ' A50,50 0 ' + largeArc + ',1 ' + x2 + ',' + y2 + ' Z" fill="#86efac"/>';
+      }
       pieHtml = '<div style="display:flex;align-items:center;gap:20px;justify-content:center">' +
         '<svg width="120" height="120" viewBox="0 0 120 120">' +
-          '<circle cx="60" cy="60" r="50" fill="#fecaca"/>' +
-          '<path d="M60,60 L' + x1 + ',' + y1 + ' A50,50 0 ' + largeArc + ',1 ' + x2 + ',' + y2 + ' Z" fill="#86efac"/>' +
+          piesvg +
           '<circle cx="60" cy="60" r="28" fill="white"/>' +
           '<text x="60" y="64" text-anchor="middle" font-size="14" font-weight="700" fill="#1f2937">' + upPct + '%</text>' +
         '</svg>' +
         '<div style="font-size:0.82rem">' +
-          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:10px;height:10px;background:#86efac;border-radius:2px"></div> 👍 Útil: ' + thumbsUp + '</div>' +
-          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><div style="width:10px;height:10px;background:#fecaca;border-radius:2px"></div> 👎 No útil: ' + thumbsDown + '</div>' +
-          '<div style="color:#6b7280;font-size:0.75rem">⏱ ' + (avgResponseTime / 1000).toFixed(1) + 's promedio</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:10px;height:10px;background:#86efac;border-radius:2px"></div> \ud83d\udc4d \u00datil: ' + thumbsUp + '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><div style="width:10px;height:10px;background:#fecaca;border-radius:2px"></div> \ud83d\udc4e No \u00fatil: ' + thumbsDown + '</div>' +
+          '<div style="color:#6b7280;font-size:0.75rem">\u23f1 ' + (avgResponseTime / 1000).toFixed(1) + 's promedio</div>' +
         '</div>' +
       '</div>';
     } else {
