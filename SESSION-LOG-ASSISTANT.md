@@ -661,3 +661,51 @@ All three exclusion layers behave exactly as the v37 code intends.
 ### Reminder
 - Frontend changes need a HARD REFRESH on prod (no cache-busting in production yet).
 - `class-helper` repo source is kept byte-for-byte in sync with the deployed version on each change.
+
+---
+
+## Session: June 5, 2026 (continued — auto-refresh after punch/holiday writes)
+
+### Feature: host page auto-refreshes after Atlas (chat) writes
+- Goal: after a punch/holiday is saved via Atlas, the underlying admin/teacher page should
+  update its numbers WITHOUT a manual reload (the stale "360h / 72%" we saw was because the
+  admin table was cached from page load, before the Atlas punch).
+- Chain (all 4 pieces now live + pushed):
+  1. Edge Function (v42): tracks `dataChanged` in the tool loop — true only when a write tool
+     (`add_punches` / `request_holiday`) actually saved (has `mensaje`, no `error`, not
+     `needs_confirmation`). Returns it as `data_changed` in the JSON response.
+  2. `chat-widget.js`: when `data.data_changed` is true, calls `window.onAtlasDataChanged()`
+     (helper `notifyDataChanged()`), in both `send()` and `sendSilent()` paths.
+  3. `admin.js`: `window.onAtlasDataChanged` → `loadData(true)` (clears caches, reloads stats
+     grid + teacher/admin tables). Only refreshes sections already loaded.
+  4. `teacher.js`: `window.onAtlasDataChanged` → reloads day, progress bar, holiday summary.
+- IMPORTANT: this was previously HALF-wired — the frontend already listened for `data_changed`,
+  but the DEPLOYED function (v41) never sent it. v42 fixes that. Lesson: deployed function had
+  drifted from intent again; always verify live function emits what the frontend expects.
+
+### Manual punch from the admin site — already worked
+- The admin calendar modal CRUD (`saveNewPunch`, `saveEditPunch`, `deletePunch`) already calls
+  `refreshTablesAfterPunchChange()`, which nulls `cachedPunches`/`cachedHolidays` and reloads
+  the stats grid + both tables (modal stays open). No change needed there.
+
+### Re: the "360h / 72%" question
+- Not a bug in the data — it was a STALE admin table (cached at page load, before the Atlas
+  punch). A manual refresh fixed it then; v42 auto-refresh prevents it going forward.
+- For reference: YTD expected at 8h/workday (Jan 1 → Jun 5) = 106 net workdays × 8h = 848h
+  (112 weekday count minus 6 school holidays).
+
+### Edge Function version history (this session, cont.)
+| Version | Change |
+|---------|--------|
+| v42 | Returns `data_changed` flag so host page auto-refreshes after a real punch/holiday write |
+
+### Files modified
+- `supabase/functions/class-helper/index.ts` — `data_changed` flag (live == repo, v42)
+- `js/chat-widget.js` — calls onAtlasDataChanged when data_changed
+- `js/admin.js` — onAtlasDataChanged hook (already present; confirmed)
+- `js/teacher.js` — onAtlasDataChanged hook (already present; confirmed)
+- `SESSION-LOG-ASSISTANT.md` — this entry
+
+### Not yet verified by me
+- Could not click through the live UI from here. Needs a real hard-refresh + Atlas punch to
+  confirm the table updates on screen. Logic + deployment verified.
