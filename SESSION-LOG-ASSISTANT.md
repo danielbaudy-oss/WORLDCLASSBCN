@@ -709,3 +709,50 @@ All three exclusion layers behave exactly as the v37 code intends.
 ### Not yet verified by me
 - Could not click through the live UI from here. Needs a real hard-refresh + Atlas punch to
   confirm the table updates on screen. Logic + deployment verified.
+
+---
+
+## Session: June 5, 2026 (continued — cleanup: orphan punch, cache-busting, migration drift)
+
+### 1. Removed orphan Jan 9 punch
+- Deleted the lone Jan 9 2026 IN @ 18:51 (no matching OUT) on the Test Account
+  (a050a494…). January is now fully clean.
+
+### 2. Production cache-busting (so frontend changes show without manual hard refresh)
+- Before: `?v=` only applied on localhost; production loaded plain URLs → stale CSS/JS until
+  the browser cache expired (this is why the calendar CSS fix needed a hard refresh).
+- Now: a manual `APP_VERSION` constant (currently `20260605b`) is appended in production too,
+  for BOTH the document.write JS block AND the stylesheet `<link>` tags.
+- Files: `index.html`, `teacher.html`, `admin.html` (JS block) + the CSS `<link>` in
+  teacher.html (`styles.css`) and admin.html (`admin.css`). index.html has no external CSS.
+- ⚠️ PROCESS: BUMP `APP_VERSION` (and the matching `?v=` on the CSS links) on every release so
+  browsers fetch fresh files. Localhost still uses a live `Date.now()` timestamp.
+
+### 3. Migration drift reconciled (repo now mirrors deployed DB)
+- Pulled the actual applied SQL from `supabase_migrations.schema_migrations` via MCP (the CLI
+  isn't installed on this laptop) and recreated the 10 remote migrations that were missing
+  from the local repo:
+  - 20260421090322_admin_delete_holidays_with_reason
+  - 20260421091253_delete_punch_with_reason
+  - 20260422162304_audit_log_changed_by_text
+  - 20260422162425_audit_trigger_capture_actor_name
+  - 20260422162504_update_delete_rpcs_for_text_actor
+  - 20260527094347_enable_vector_and_create_embeddings
+  - 20260527094714_add_chat_usage_upsert_function
+  - 20260528060216_update_embedding_dimensions_3072_ivfflat
+  - 20260602072632_add_chat_statistics
+  - 20260602072942_anonymize_chat_logs
+- ⚠️ KNOWN REMAINING DRIFT: six LOCAL migration files were applied manually in early sessions
+  and are NOT in the remote `schema_migrations` table:
+  100003_link_profile_function, 100004_fix_fk_constraint, 100005_add_gps_columns,
+  100006_admin_punch_policies, 100007_audit_log, 20260415000000_dev_role_switcher.
+  They reflect real DB state, so they're kept. A fresh `db reset` from migrations would apply
+  them in timestamp order; they all precede the pulled remote set, so order is consistent.
+  (The original `audit_log` trigger created in 100007 is later superseded by the
+  20260422162425 + 20260605094240 migrations — same as what actually happened in prod.)
+
+### Files created/modified
+- Removed: orphan Jan 9 punch (DB only)
+- `index.html`, `teacher.html`, `admin.html` — production cache-busting (APP_VERSION)
+- `supabase/migrations/` — 10 new files mirroring the deployed DB
+- `SESSION-LOG-ASSISTANT.md` — this entry
