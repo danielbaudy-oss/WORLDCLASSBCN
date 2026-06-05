@@ -544,3 +544,75 @@ All three exclusion layers behave exactly as the v37 code intends.
 - Consider adding the `audit_app_config` trigger + the audit_trigger_fn fix to a tracked
   migration file in the repo (currently only applied to the live DB; migrations/ folder
   does not yet contain either, so they'd be lost on a fresh `db reset`).
+
+---
+
+## Session: June 5, 2026 (continued — UI fix + punch year bug + function in repo)
+
+### 🐛 Calendar UI: long holiday names blew up the day cell
+- Symptom: "Descanso Retribuido de empresa" stretched a calendar day far taller than the rest.
+- TWO separate admin calendars exist — fixed the WRONG one first, then the right one:
+  1. **Vacaciones overview** (`.calendar-view-*`): clamped `.calendar-view-school-name` to 2
+     lines and gave cells a fixed `height:120px` (84px mobile). Commit `97c98fc`.
+  2. **Per-employee calendar modal** (`.calendar-cell`, the 📅 Calendario button) — THIS was
+     the one actually blowing up. Root cause: `aspect-ratio:1.2` with no `min-width:0` /
+     `overflow:hidden`, plus the JS overlay label forced `white-space:nowrap`. The long
+     single-line label set a wide min-content width → aspect-ratio dragged the height up.
+     Fix: added `min-width:0; overflow:hidden; text-align:center; padding:3px` to
+     `.calendar-cell`, and changed the JS label (admin.js ~1264) from nowrap+ellipsis to a
+     2-line `-webkit-line-clamp` block with `max-width:100%; word-break:break-word`.
+     Commit `a967399`.
+- Verified the deployed CSS on GitHub Pages (fetched the live file) to rule out a deploy/cache
+  delay before concluding it was the other calendar.
+- NOTE on frontend updates: GitHub Pages republishes ~1-2 min after push. Production has NO
+  cache-busting (only localhost appends `?v=timestamp`), so CSS/JS changes need a HARD REFRESH
+  (Ctrl+F5) on desktop; on mobile, close+reopen the tab. Consider adding a manual prod
+  `?v=` version string later so changes show without hard refresh.
+
+### 🐛 Atlas punch failure: wrong YEAR for bare month names
+- Symptom chain: "punch all january 9-17" → Atlas: "todos fuera de rango / ya fichados".
+- Root cause: the system prompt told Atlas today's date but NOT to default bare month names to
+  the current year. Gemini defaulted "enero" to **January 2025**, which is ~520 days back →
+  every day failed the 180-day MaxPastDays check → all rejected. (Jan 2026 = 22 valid workdays;
+  Jan 2025 = 23 workdays all >180 days.)
+- Fix (v39, then cleaned in v40): added an "AÑO ACTUAL" line + a dedicated **FECHAS — REGLA
+  CRÍTICA** block to the system prompt: bare months always assume the current year, never use a
+  past year unless the user says so explicitly, with a worked "fichar enero" example. Also made
+  the all-rejected message tell Atlas to re-check the YEAR so it self-corrects.
+- The earlier "formato inválido" (warm v34) and this "wrong year" bug are DIFFERENT issues;
+  both are now resolved.
+
+### Manual punch inserts during debugging (Test Account a050a494…)
+- Did several direct SQL inserts/deletes of Daniel's punches while diagnosing, each tagged in
+  `notes` so they were cleanly reversible:
+  - `Via Atlas (bulk YTD 9-17)` — Jan 1→Jun 5 YTD, 95 days (later deleted).
+  - `Via Atlas (bulk enero 9-17)` — Jan 2026, 18 days (later deleted so Atlas could be tested).
+- Current state: January 2026 has ONLY the pre-existing orphan Jan 9 IN (18:51, no OUT).
+  Daniel's account is otherwise clean for live Atlas testing.
+
+### Edge Function now tracked in the repo (no more drift)
+- Created `supabase/functions/class-helper/index.ts` — a clean, readable copy of the function
+  (UTF-8 source, `DEFAULT_MAX_PAST_DAYS` constant instead of a bottom-of-file helper hack).
+- Redeployed that EXACT source as **v40** so the live function == the repo copy byte-for-byte.
+- This closes the recurring drift problem: the function was only in Supabase before, so prompt/
+  logic changes (v34–v39) were untracked and would be lost on a rebuild.
+
+### Edge Function version history (this session)
+| Version | Change |
+|---------|--------|
+| v38 | Clear warm v34; punches[] tolerance + clearer error; range-mode prompt hardening |
+| v39 | FECHAS rule: bare month names default to current year; all-rejected hints at year |
+| v40 | Clean source committed to repo; live == repo (no functional change vs v39) |
+
+### Files created/modified
+- `css/admin.css` — both calendar fixes
+- `js/admin.js` — per-employee calendar overlay label clamp
+- `supabase/functions/class-helper/index.ts` — NEW, tracked copy of the Edge Function
+- `SESSION-LOG-ASSISTANT.md` — this entry
+
+### Still pending (unchanged + new)
+- Remove the orphan Jan 9 IN if a fully clean January is wanted for testing.
+- Optional: production cache-busting (`?v=` version string) so frontend changes show without
+  hard refresh.
+- Reconcile local `supabase/migrations/` with remote migration history (still drifted).
+- Schedule data, admin stats page, PDF parsing, Pi cron (long-standing).
