@@ -616,3 +616,39 @@ All three exclusion layers behave exactly as the v37 code intends.
   hard refresh.
 - Reconcile local `supabase/migrations/` with remote migration history (still drifted).
 - Schedule data, admin stats page, PDF parsing, Pi cron (long-standing).
+
+---
+
+## Session: June 5, 2026 (continued — restored confirm/cancel buttons)
+
+### 🐛 Confirm/Cancel buttons stopped appearing in the chat widget
+- Symptom: after a punch/holiday preview, Atlas asked "¿me confirmas...?" but the
+  ✓ Confirmar / ✗ Cancelar buttons no longer showed.
+- Root cause: the buttons were triggered by string-matching Atlas's reply for EXACT phrases
+  (`chat-widget.js`): `Confirma para enviar` / `Confirma para añadir` / `¿Procedo?` /
+  `¿Confirmas?`. The v38/v39 prompt changes made Atlas PARAPHRASE the confirmation question
+  ("¿Me confirmas que quieres añadir estos fichajes?"), so none of the exact phrases matched →
+  no buttons. (Same brittle "match the LLM's free-form text" pattern as other bugs this session.)
+- Fix (v41): replaced text-guessing with a STRUCTURED signal.
+  - Edge Function: tracks `needsConfirmation = result?.status === "needs_confirmation"` in the
+    tool loop and returns it as `needs_confirmation: true|false` in the JSON response.
+  - Frontend (`chat-widget.js`): `send()` passes `data.needs_confirmation` into `addMsg(...)`;
+    the button trigger is now `needsConfirmation === true || <old phrase match as fallback>`.
+  - The phrase match is kept ONLY as a fallback (covers paraphrases / older deployments).
+- Behavior unchanged on click: ✓ sends "Sí, confirmo... confirmed=true", ✗ cancels.
+- After the action executes, the tool returns a normal result (not needs_confirmation), so the
+  flag is false and no buttons render on the success message — correct.
+
+### Edge Function version history (this session, cont.)
+| Version | Change |
+|---------|--------|
+| v41 | Returns structured `needs_confirmation` flag so the frontend shows confirm/cancel buttons reliably (no text matching) |
+
+### Files modified
+- `supabase/functions/class-helper/index.ts` — returns `needs_confirmation` (live == repo, v41)
+- `js/chat-widget.js` — confirm buttons triggered by the structured flag (phrase match = fallback)
+- `SESSION-LOG-ASSISTANT.md` — this entry
+
+### Reminder
+- Frontend changes need a HARD REFRESH on prod (no cache-busting in production yet).
+- `class-helper` repo source is kept byte-for-byte in sync with the deployed version on each change.
