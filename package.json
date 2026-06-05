@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.0"
+    "@supabase/supabase-js": "^2.103.0",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^6.0.227",
+    "xlsx": "^0.18.5"
   }
 }
