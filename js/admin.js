@@ -3601,7 +3601,7 @@ async function loadAtlasStats() {
     var { data: recent } = await db.from('chat_logs').select('user_question, bot_response, topic, helpful, response_time_ms, created_at').order('created_at', { ascending: false }).limit(20);
     recent = recent || [];
     var recentHtml = recent.length ? '<table style="width:100%;font-size:0.82rem;border-collapse:collapse">' +
-      '<thead><tr style="border-bottom:1px solid #e5e7eb"><th style="text-align:left;padding:8px">Pregunta</th><th style="width:80px">Tema</th><th style="width:50px">👍/👎</th><th style="width:60px">Tiempo</th><th style="width:100px">Fecha</th></tr></thead><tbody>' +
+      '<thead><tr style="border-bottom:1px solid #e5e7eb"><th style="text-align:left;padding:8px">Pregunta</th><th style="width:80px">Tema</th><th style="width:70px;white-space:nowrap">👍/👎</th><th style="width:60px">Tiempo</th><th style="width:100px">Fecha</th></tr></thead><tbody>' +
       recent.map(function(r) {
         var topicShort = (topicLabels[r.topic] || r.topic || '').split(' ')[0];
         var fb = r.helpful === true ? '👍' : r.helpful === false ? '👎' : '—';
