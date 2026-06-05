@@ -593,7 +593,7 @@
           conversationHistory = conversationHistory.slice(-10);
         }
         lastLogId = data.log_id || null;
-        addMsg(data.response, 'assistant', lastLogId);
+        addMsg(data.response, 'assistant', lastLogId, data.needs_confirmation);
         if (data.pending_approval) {
           addApproval(data.pending_approval);
         }
@@ -607,7 +607,7 @@
     document.getElementById('chatWidgetSendBtn').disabled = false;
   }
 
-  function addMsg(text, type, logId) {
+  function addMsg(text, type, logId, needsConfirmation) {
     const container = document.getElementById('chatWidgetMessages');
     const div = document.createElement('div');
     div.className = `chat-msg chat-msg-${type}`;
@@ -619,9 +619,10 @@
         .replace(/`(.*?)`/g, '<code>$1</code>')
         .replace(/(https?:\/\/[^\s<]+)/g, function(match) { if (match.includes('"')) return match; return '<a href="'+match+'" target="_blank" style="color:#4f46e5;text-decoration:underline">📄 Abrir archivo</a>'; })
         .replace(/\n/g, '<br>');
-      // Add confirm/cancel buttons ONLY when Atlas is asking to execute a specific action
-      // (holiday request or punch submission with a summary shown)
-      const hasActionSummary = text.includes('Confirma para enviar') || text.includes('Confirma para añadir') || text.includes('¿Procedo?') || text.includes('¿Confirmas?');
+      // Show confirm/cancel buttons when Atlas is asking to execute a specific action.
+      // Primary signal: structured needs_confirmation flag from the Edge Function.
+      // Fallback: phrase match (covers older deployments / paraphrased text).
+      const hasActionSummary = needsConfirmation === true || text.includes('Confirma para enviar') || text.includes('Confirma para añadir') || text.includes('¿Procedo?') || text.includes('¿Confirmas?');
       if (hasActionSummary) {
         const btnWrap = document.createElement('div');
         btnWrap.style.cssText = 'margin-top:10px;display:flex;gap:8px;';

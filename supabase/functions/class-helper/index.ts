@@ -366,10 +366,13 @@ Fichajes (add_punches):
     let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: { function_calling_config: { mode: "AUTO" } } }) });
     if (!res.ok) { return new Response(JSON.stringify({ error: "No disponible" }), { status: 502, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }); }
     let data = await res.json();
+    let needsConfirmation = false;
     for (let i = 0; i < 3; i++) {
       const fc = data.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
       if (!fc) break;
       const result = await executeTool(fc.functionCall.name, fc.functionCall.args || {}, ctx, db);
+      // Structured signal for the frontend confirm/cancel buttons (don't rely on text matching)
+      needsConfirmation = result?.status === "needs_confirmation";
       if (fc.functionCall.name === "search_materials" && result.resultados) {
         sourcesUsed = result.resultados.map((r: any) => r.nombre).filter(Boolean);
       }
@@ -385,7 +388,7 @@ Fichajes (add_punches):
     await incrementUsage(db, user.id);
     const logId = await logChat(db, message, text, session_id, sourcesUsed, responseTimeMs);
 
-    return new Response(JSON.stringify({ response: text, remaining: limit.remaining - 1, log_id: logId }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    return new Response(JSON.stringify({ response: text, remaining: limit.remaining - 1, log_id: logId, needs_confirmation: needsConfirmation }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: "Error", details: String(e).substring(0, 150) }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   }
