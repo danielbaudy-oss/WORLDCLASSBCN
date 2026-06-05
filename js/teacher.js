@@ -31,6 +31,13 @@ async function initTeacher() {
   await loadHolidaySummary();
 }
 
+// Refresh teacher views after Atlas (chat widget) changes punch/holiday data.
+window.onAtlasDataChanged = function() {
+  loadDay(selectedDate);
+  loadProgress();
+  loadHolidaySummary();
+};
+
 // ========================================
 // DATE HELPERS
 // ========================================

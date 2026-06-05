@@ -538,6 +538,14 @@
     input.style.height = Math.min(input.scrollHeight, 80) + 'px';
   }
 
+  // Notify the host page (teacher.html / admin.html) that Atlas changed punch/holiday data,
+  // so it can refresh its views without a manual reload. The page defines window.onAtlasDataChanged.
+  function notifyDataChanged() {
+    try {
+      if (typeof window.onAtlasDataChanged === 'function') window.onAtlasDataChanged();
+    } catch (e) { /* no-op */ }
+  }
+
   async function send() {
     const input = document.getElementById('chatWidgetInput');
     const message = input.value.trim();
@@ -594,6 +602,7 @@
         }
         lastLogId = data.log_id || null;
         addMsg(data.response, 'assistant', lastLogId, data.needs_confirmation);
+        if (data.data_changed) notifyDataChanged();
         if (data.pending_approval) {
           addApproval(data.pending_approval);
         }
@@ -684,7 +693,8 @@
         const data = await response.json();
         conversationHistory.push({ role: 'assistant', content: data.response });
         if (conversationHistory.length > 10) conversationHistory = conversationHistory.slice(-10);
-        addMsg(data.response, 'assistant');
+        addMsg(data.response, 'assistant', data.log_id || null, data.needs_confirmation);
+        if (data.data_changed) notifyDataChanged();
       }
     } catch(e) { removeTyping(); addMsg('Error de conexión.', 'error'); }
 

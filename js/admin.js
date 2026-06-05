@@ -68,6 +68,16 @@ async function loadData(forceRefresh) {
   ]);
 }
 
+// Refresh admin views after Atlas (chat widget) changes punch/holiday data.
+// Only refresh what's already been loaded to avoid unnecessary queries.
+window.onAtlasDataChanged = function() {
+  if (sectionsLoaded['teachers']) loadData(true);
+  if (sectionsLoaded['holidays'] && typeof loadHolidayData === 'function') {
+    cachedHolidays = null;
+    loadHolidayData();
+  }
+};
+
 // --- Sidebar Navigation ---
 function showSection(section) {
   document.querySelectorAll('.content-section').forEach(function(s) { s.classList.remove('active'); });
@@ -1111,6 +1121,16 @@ var calendarUserId = null;
 var calendarUserName = '';
 var calendarMonthOffset = 0;
 
+// Refresh the background stats + employee tables after an admin punch CRUD action
+// in the calendar modal, so Total/progress columns don't go stale. Modal stays open.
+function refreshTablesAfterPunchChange() {
+  cachedPunches = null;
+  cachedHolidays = null;
+  if (typeof loadStatsGrid === 'function') loadStatsGrid();
+  if (typeof loadTeachersTable === 'function') loadTeachersTable();
+  if (typeof loadAdminWorkersTable === 'function') loadAdminWorkersTable();
+}
+
 async function openCalendarModal(userId, userName) {
   calendarUserId = userId;
   calendarUserName = userName;
@@ -1410,6 +1430,7 @@ async function saveNewPunch(dateStr) {
   showToast('Fichaje añadido', 'success');
   await showDayDetail(dateStr);
   await renderCalendarModal();
+  refreshTablesAfterPunchChange();
 }
 
 function showEditPunchForm(punchId, currentTime, dateStr) {
@@ -1435,6 +1456,7 @@ async function saveEditPunch(punchId, dateStr) {
   showToast('Fichaje actualizado', 'success');
   await showDayDetail(dateStr);
   await renderCalendarModal();
+  refreshTablesAfterPunchChange();
 }
 
 async function deletePunch(punchId, dateStr) {
@@ -1495,6 +1517,7 @@ async function confirmDeletePunchAdmin(punchId, dateStr) {
   closeAdminDeletePunchModal();
   await showDayDetail(dateStr);
   await renderCalendarModal();
+  refreshTablesAfterPunchChange();
 }
 
 

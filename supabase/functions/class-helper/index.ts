@@ -367,12 +367,18 @@ Fichajes (add_punches):
     if (!res.ok) { return new Response(JSON.stringify({ error: "No disponible" }), { status: 502, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }); }
     let data = await res.json();
     let needsConfirmation = false;
+    let dataChanged = false;
+    const writeTools = new Set(["add_punches", "request_holiday"]);
     for (let i = 0; i < 3; i++) {
       const fc = data.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
       if (!fc) break;
       const result = await executeTool(fc.functionCall.name, fc.functionCall.args || {}, ctx, db);
       // Structured signal for the frontend confirm/cancel buttons (don't rely on text matching)
       needsConfirmation = result?.status === "needs_confirmation";
+      // Structured signal for the frontend to auto-refresh after a real write (punch/holiday saved)
+      if (writeTools.has(fc.functionCall.name) && result?.mensaje && !result?.error && result?.status !== "needs_confirmation") {
+        dataChanged = true;
+      }
       if (fc.functionCall.name === "search_materials" && result.resultados) {
         sourcesUsed = result.resultados.map((r: any) => r.nombre).filter(Boolean);
       }
@@ -388,7 +394,7 @@ Fichajes (add_punches):
     await incrementUsage(db, user.id);
     const logId = await logChat(db, message, text, session_id, sourcesUsed, responseTimeMs);
 
-    return new Response(JSON.stringify({ response: text, remaining: limit.remaining - 1, log_id: logId, needs_confirmation: needsConfirmation }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    return new Response(JSON.stringify({ response: text, remaining: limit.remaining - 1, log_id: logId, needs_confirmation: needsConfirmation, data_changed: dataChanged }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: "Error", details: String(e).substring(0, 150) }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   }
