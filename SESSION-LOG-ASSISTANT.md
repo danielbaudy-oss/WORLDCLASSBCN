@@ -1,5 +1,14 @@
 # Session Log: Class Helper Assistant Build
 
+> ⚠️ **PUSH ONLY THROUGH THE RASPBERRY PI.**
+> This laptop has NO access to GitHub (github.com is blocked at the network level).
+> `git push` from this machine ALWAYS fails. Every commit/push must go via the Pi:
+> 1. `scp "<file>" baudy@baudypi.local:~/WORLDCLASSBCN/<file>` (one per changed file)
+> 2. `ssh baudy@baudypi.local "cd ~/WORLDCLASSBCN && git add -A && git commit -m '...' && git push origin main 2>&1"`
+> Note: this laptop's local git is far behind `origin` (all real pushes happen from the Pi),
+> so `git log`/`git status` here do NOT reflect what's actually on GitHub.
+> Full details in `.kiro/steering/pi-relay.md` and `PI-INTERACTION-GUIDE.md`.
+
 ## Date: May 28, 2026
 
 ## What was built
