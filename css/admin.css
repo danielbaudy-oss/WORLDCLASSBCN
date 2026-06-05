@@ -337,7 +337,7 @@ tbody tr:hover { background:#f0f9ff; }
 /* Calendar (teacher punch calendar) */
 .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
 .calendar-header-cell { text-align:center; font-weight:600; color:var(--gray-500); padding:10px; font-size:13px; }
-.calendar-cell { aspect-ratio:1.2; border:2px solid #e0e7ff; border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; background:#fff; }
+.calendar-cell { aspect-ratio:1.2; min-width:0; overflow:hidden; border:2px solid #e0e7ff; border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:3px; cursor:pointer; transition:all 0.2s; background:#fff; }
 .calendar-cell:hover:not(.empty) { border-color:var(--accent); background:#f0f9ff; }
 .calendar-cell.empty { border:none; cursor:default; background:transparent; }
 .calendar-cell.today { border-color:var(--accent); box-shadow:0 0 0 3px rgba(89,210,255,0.2); }

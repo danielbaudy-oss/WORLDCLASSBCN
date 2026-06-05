@@ -1260,7 +1260,7 @@ async function renderCalendarModal() {
       html += '<div class="calendar-punch-count">' + inOutPunches.length + ' fichajes</div>';
       html += '<div class="calendar-hours">' + hours.toFixed(1) + 'h</div>';
     } else if (overlayLabel) {
-      html += '<div style="font-size:10px;font-weight:600;line-height:1.2;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + overlayLabel + '">' + overlayLabel + '</div>';
+      html += '<div style="font-size:9px;font-weight:600;line-height:1.15;margin-top:2px;max-width:100%;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;word-break:break-word" title="' + overlayLabel + '">' + overlayLabel + '</div>';
     }
     html += '</div>';
   }
