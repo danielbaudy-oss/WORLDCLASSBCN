@@ -183,14 +183,16 @@
       <div class="holiday-card">
         <div class="section-title">📝 Nueva Solicitud</div>
         <div style="font-size:13px;color:var(--gray-500);margin-bottom:12px">Tipo de Permiso</div>
-        <div style="display:flex;justify-content:center;gap:16px;padding:4px 0">
-          <button class="holiday-type-btn" data-type="Annual" onclick="selectHolidayType(this,'Annual')" style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">🏖️</div><div style="font-size:7px;font-weight:700;color:#4f46e5">Vac.</div></button>
-          <button class="holiday-type-btn" data-type="Personal" onclick="selectHolidayType(this,'Personal')" style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">👤</div><div style="font-size:7px;font-weight:700;color:#4f46e5">D.R.E</div></button>
-          <button class="holiday-type-btn" data-type="Medical" onclick="selectHolidayType(this,'Medical')" style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">🏥</div><div style="font-size:7px;font-weight:700;color:#4f46e5">Baja</div></button>
-          <button class="holiday-type-btn" data-type="MedAppt" onclick="selectHolidayType(this,'MedAppt')" style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">⚕️</div><div style="font-size:7px;font-weight:700;color:#4f46e5">Visita</div></button>
-          <button class="holiday-type-btn" data-type="Permiso" onclick="selectHolidayType(this,'Permiso')" style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">📋</div><div style="font-size:7px;font-weight:700;color:#4f46e5">Permiso</div></button>
+        <div style="display:flex;justify-content:center;gap:12px;padding:4px 0;flex-wrap:wrap">
+          <button class="holiday-type-btn" data-type="Annual" onclick="selectHolidayType(this,'Annual')" title="Vacaciones anuales retribuidas." style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">🏖️</div><div style="font-size:7px;font-weight:700;color:#4f46e5">Vac.</div></button>
+          <button class="holiday-type-btn" data-type="Personal" onclick="selectHolidayType(this,'Personal')" title="Descanso Retribuido del Empleado (días de libre disposición)." style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">👤</div><div style="font-size:7px;font-weight:700;color:#4f46e5">D.R.E</div></button>
+          <button class="holiday-type-btn" data-type="Medical" onclick="selectHolidayType(this,'Medical')" title="Baja médica por incapacidad temporal." style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">🏥</div><div style="font-size:7px;font-weight:700;color:#4f46e5">Baja</div></button>
+          <button class="holiday-type-btn" data-type="MedAppt" onclick="selectHolidayType(this,'MedAppt')" title="Visita médica (Seguridad Social). Hasta 20h/año. Cuenta como tiempo trabajado." style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">⚕️</div><div style="font-size:7px;font-weight:700;color:#4f46e5">Visita</div></button>
+          <button class="holiday-type-btn" data-type="Permiso" onclick="selectHolidayType(this,'Permiso')" title="Permiso retribuido (Art. 28): boda, fallecimiento/enfermedad de familiar, deberes legales… Cuenta como tiempo trabajado: marca las horas." style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">📋</div><div style="font-size:7px;font-weight:700;color:#4f46e5">P. Retr.</div></button>
+          <button class="holiday-type-btn" data-type="PermisoNoRet" onclick="selectHolidayType(this,'PermisoNoRet')" title="Permiso no retribuido (Art. 29): sin sueldo. Máx. 10 días laborables/año, 15 días laborables de preaviso. No cuenta como trabajado." style="width:52px;height:52px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;border:2px solid #c7d2fe;background:#eef2ff;cursor:pointer;transition:all .2s;flex-direction:column;gap:1px;box-shadow:0 2px 6px rgba(9,43,80,0.08)"><div style="font-size:22px">🚫</div><div style="font-size:7px;font-weight:700;color:#4f46e5">P. No R.</div></button>
         </div>
         <div id="selectedTypeLabel" style="text-align:center;font-size:13px;color:var(--primary);font-weight:600;margin-top:8px;min-height:20px"></div>
+        <div id="selectedTypeDesc" style="text-align:center;font-size:11px;color:var(--gray-500);margin-top:2px;line-height:1.3;display:none"></div>
         <div id="dateRangeGroup">
           <div class="form-group" style="margin-top:16px">
             <label class="form-label" id="dateLabel">Fecha Inicio</label>
@@ -214,6 +216,26 @@
               <div style="flex:1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Hasta</div><input type="time" class="form-input" id="medApptEndTime" value="10:00" onchange="updateMedApptHours()" style="font-size:20px;text-align:center;font-weight:600"></div>
             </div>
             <div id="medApptHoursPreview" style="margin-top:12px;text-align:center;font-size:22px;font-weight:700;color:var(--primary)">1.0h</div>
+          </div>
+        </div>
+        <div id="permisoGroup" style="display:none">
+          <div class="form-group" style="margin-top:16px">
+            <label class="form-label">Motivo del permiso</label>
+            <select class="form-input" id="permisoMotive" onchange="onPermisoMotiveChange()"></select>
+            <div id="permisoMotiveInfo" style="font-size:12px;color:var(--gray-500);margin-top:6px;line-height:1.3"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-input" id="permisoDate">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Horas de ausencia (cuentan como trabajadas)</label>
+            <div style="display:flex;gap:12px;align-items:center">
+              <div style="flex:1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Desde</div><input type="time" class="form-input" id="permisoStartTime" value="09:00" onchange="updatePermisoHours()" style="font-size:20px;text-align:center;font-weight:600"></div>
+              <div style="font-size:20px;color:var(--gray-400);padding-top:20px">→</div>
+              <div style="flex:1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Hasta</div><input type="time" class="form-input" id="permisoEndTime" value="17:00" onchange="updatePermisoHours()" style="font-size:20px;text-align:center;font-weight:600"></div>
+            </div>
+            <div id="permisoHoursPreview" style="margin-top:12px;text-align:center;font-size:22px;font-weight:700;color:var(--primary)">8.0h</div>
           </div>
         </div>
         <div class="form-group">

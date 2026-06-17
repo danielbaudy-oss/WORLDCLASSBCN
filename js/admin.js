@@ -526,7 +526,8 @@ function buildTeacherHolidayDates(holidays, userId) {
   holidays.forEach(function(h) {
     if (h.user_id !== userId) return;
     if (h.status !== 'Approved') return;
-    if (h.type === 'Medical') return;
+    // Exclude hours-based partial absences (credited as worked hours, not full days off)
+    if (h.type === 'Medical' || h.type === 'MedAppt' || h.type === 'Permiso') return;
     var current = new Date(h.start_date + 'T12:00:00');
     var end = new Date(h.end_date + 'T12:00:00');
     while (current <= end) {
@@ -850,7 +851,8 @@ async function loadTeachersTable() {
       });
       medicalHours = Math.round(medicalHours * 100) / 100;
 
-      // MedAppt hours: from approved MedAppt holiday_requests (hours stored in total_days field)
+      // Hours-based paid absences credited as worked: Visita Médica + Permiso Retribuido.
+      // (hours are stored in the `days` column, same as the teacher form writes them)
       var userMedAppt = cachedHolidays.filter(function(h) {
         return h.user_id === t.id && h.type === 'MedAppt';
       });
@@ -858,13 +860,20 @@ async function loadTeachersTable() {
       userMedAppt.forEach(function(h) {
         var hDate = h.start_date || '';
         if (hDate >= yearStart && hDate <= cutoffDate) {
-          medApptHours += parseFloat(h.total_days) || 0;
+          medApptHours += parseFloat(h.days) || 0;
         }
       });
       medApptHours = Math.round(medApptHours * 100) / 100;
 
-      // Total hours = worked - paid + medical + medAppt (matches Code.js exactly)
-      var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours;
+      var permisoHours = 0;
+      cachedHolidays.filter(function(h) { return h.user_id === t.id && h.type === 'Permiso'; }).forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= yearStart && hDate <= cutoffDate) permisoHours += parseFloat(h.days) || 0;
+      });
+      permisoHours = Math.round(permisoHours * 100) / 100;
+
+      // Total hours = worked - paid + medical + medAppt + permiso retribuido
+      var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
 
       // Progress percent using Code.js formula
       var expectedToDate = expectedYearly * progress.progressRatio;
@@ -1057,13 +1066,20 @@ async function loadAdminWorkersTable() {
       userMedAppt.forEach(function(h) {
         var hDate = h.start_date || '';
         if (hDate >= yearStart && hDate <= cutoffDate) {
-          medApptHours += parseFloat(h.total_days) || 0;
+          medApptHours += parseFloat(h.days) || 0;
         }
       });
       medApptHours = Math.round(medApptHours * 100) / 100;
 
-      // Total hours = worked - paid + medical + medAppt (matches Code.js)
-      var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours;
+      var permisoHours = 0;
+      cachedHolidays.filter(function(h) { return h.user_id === a.id && h.type === 'Permiso'; }).forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= yearStart && hDate <= cutoffDate) permisoHours += parseFloat(h.days) || 0;
+      });
+      permisoHours = Math.round(permisoHours * 100) / 100;
+
+      // Total hours = worked - paid + medical + medAppt + permiso retribuido
+      var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
 
       // Progress using Code.js formula
       var expectedToDate = expectedYearly * progress.progressRatio;
@@ -1244,7 +1260,8 @@ async function renderCalendarModal() {
     School:   { bg: '#fce7f3', border: '#ec4899', emoji: '🏢', label: 'D.R. Empresa' },
     Medical:  { bg: '#fee2e2', border: '#ef4444', emoji: '🏥', label: 'Médico' },
     MedAppt:  { bg: '#fee2e2', border: '#ef4444', emoji: '⚕️', label: 'Visita Méd.' },
-    Permiso:  { bg: '#ccfbf1', border: '#14b8a6', emoji: '📋', label: 'Permiso' }
+    Permiso:  { bg: '#ccfbf1', border: '#14b8a6', emoji: '📋', label: 'P. Retribuido' },
+    PermisoNoRet: { bg: '#f3f4f6', border: '#6b7280', emoji: '🚫', label: 'P. No Retrib.' }
   };
 
   // Day cells
@@ -1327,7 +1344,8 @@ async function showDayDetail(dateStr) {
     School:   { bg: '#fce7f3', color: '#9d174d', emoji: '🏢', label: 'D.R. Empresa' },
     Medical:  { bg: '#fee2e2', color: '#991b1b', emoji: '🏥', label: 'Baja Médica' },
     MedAppt:  { bg: '#fee2e2', color: '#991b1b', emoji: '⚕️', label: 'Visita Médica' },
-    Permiso:  { bg: '#ccfbf1', color: '#115e59', emoji: '📋', label: 'Permiso' }
+    Permiso:  { bg: '#ccfbf1', color: '#115e59', emoji: '📋', label: 'P. Retribuido' },
+    PermisoNoRet: { bg: '#f3f4f6', color: '#374151', emoji: '🚫', label: 'P. No Retribuido' }
   };
   if (teacherHol && holidayColors[teacherHol.type]) {
     var c = holidayColors[teacherHol.type];
@@ -1579,6 +1597,10 @@ async function openEditTeacherModal(userId) {
         '<div class="setting-label">Visita Médica (horas)</div>' +
         '<input type="number" class="setting-input" id="editMedApptHours" value="' + (profile.med_appt_hours != null ? profile.med_appt_hours : DEFAULTS.MEDICAL_APPT_HOURS) + '">' +
       '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Permiso No Retribuido (días/año)</div>' +
+        '<input type="number" class="setting-input" id="editUnpaidDays" value="' + (profile.unpaid_days != null ? profile.unpaid_days : 10) + '">' +
+      '</div>' +
     '</div>' +
   '</div>';
 
@@ -1602,7 +1624,8 @@ async function saveTeacherSettings(userId) {
     annual_days: parseInt(document.getElementById('editAnnualDays').value) || DEFAULTS.ANNUAL_DAYS,
     personal_days: parseInt(document.getElementById('editPersonalDays').value) || DEFAULTS.PERSONAL_DAYS,
     school_days: parseInt(document.getElementById('editSchoolDays').value) || DEFAULTS.SCHOOL_DAYS,
-    med_appt_hours: parseFloat(document.getElementById('editMedApptHours').value) || DEFAULTS.MEDICAL_APPT_HOURS
+    med_appt_hours: parseFloat(document.getElementById('editMedApptHours').value) || DEFAULTS.MEDICAL_APPT_HOURS,
+    unpaid_days: parseInt(document.getElementById('editUnpaidDays').value) || 10
   };
 
   var { error } = await db.from('profiles').update(updates).eq('id', userId);
@@ -1687,6 +1710,10 @@ async function openEditAdminModal(userId) {
         '<div class="setting-label">Visita Médica (horas)</div>' +
         '<input type="number" class="setting-input" id="editAdminMedApptHours" value="' + (profile.med_appt_hours != null ? profile.med_appt_hours : ADMIN_DEFAULTS.MEDICAL_APPT_HOURS) + '">' +
       '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Permiso No Retribuido (días/año)</div>' +
+        '<input type="number" class="setting-input" id="editAdminUnpaidDays" value="' + (profile.unpaid_days != null ? profile.unpaid_days : 10) + '">' +
+      '</div>' +
     '</div>' +
   '</div>';
 
@@ -1709,7 +1736,8 @@ async function saveAdminSettings(userId) {
     annual_days: parseInt(document.getElementById('editAdminAnnualDays').value) || ADMIN_DEFAULTS.ANNUAL_DAYS,
     personal_days: parseInt(document.getElementById('editAdminPersonalDays').value) || ADMIN_DEFAULTS.PERSONAL_DAYS,
     school_days: parseInt(document.getElementById('editAdminSchoolDays').value) || ADMIN_DEFAULTS.SCHOOL_DAYS,
-    med_appt_hours: parseFloat(document.getElementById('editAdminMedApptHours').value) || ADMIN_DEFAULTS.MEDICAL_APPT_HOURS
+    med_appt_hours: parseFloat(document.getElementById('editAdminMedApptHours').value) || ADMIN_DEFAULTS.MEDICAL_APPT_HOURS,
+    unpaid_days: parseInt(document.getElementById('editAdminUnpaidDays').value) || 10
   };
 
   var { error } = await db.from('profiles').update(updates).eq('id', userId);

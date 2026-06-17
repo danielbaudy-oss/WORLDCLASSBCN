@@ -261,6 +261,8 @@ tbody tr:hover { background:#f0f9ff; }
 .type-badge.medical { background:#fee2e2; color:#991b1b; }
 .type-badge.school { background:#fef3c7; color:#92400e; }
 .type-badge.permiso { background:#ccfbf1; color:#0f766e; }
+.type-badge.permisonoret { background:#f3f4f6; color:#374151; }
+.type-badge.medappt { background:#fee2e2; color:#991b1b; }
 .status-badge.approved { background:#d1fae5; color:#065f46; }
 .status-badge.rejected { background:#fee2e2; color:#991b1b; }
 
@@ -286,6 +288,7 @@ tbody tr:hover { background:#f0f9ff; }
 .calendar-view-teacher-badge.medical { background:#fee2e2; color:#991b1b; }
 .calendar-view-teacher-badge.school { background:#d1fae5; color:#065f46; }
 .calendar-view-teacher-badge.permiso { background:#ccfbf1; color:#0f766e; }
+.calendar-view-teacher-badge.permisonoret { background:#f3f4f6; color:#374151; }
 .calendar-view-more { font-size:10px; color:var(--gray-500); font-weight:600; margin-top:2px; cursor:pointer; padding:2px 6px; background:var(--gray-100); border-radius:4px; display:inline-block; }
 .calendar-view-more:hover { background:var(--gray-200); color:var(--primary); }
 

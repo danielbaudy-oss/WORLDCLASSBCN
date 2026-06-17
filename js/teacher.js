@@ -690,13 +690,16 @@ async function loadHolidaySummary() {
     return;
   }
 
+  holidayRequestsCache = holidays || [];
+
   const summary = {
     annualUsed: 0, annualPending: 0,
     personalUsed: 0, personalPending: 0,
     schoolUsed: 0,
     medicalUsed: 0,
     medApptUsed: 0, medApptPending: 0,
-    permisoUsed: 0
+    permisoUsed: 0,
+    unpaidUsed: 0, unpaidPending: 0
   };
 
   (holidays || []).forEach(h => {
@@ -707,6 +710,7 @@ async function loadHolidaySummary() {
     else if (h.type === 'Medical' && h.status === 'Approved') summary.medicalUsed += days;
     else if (h.type === 'MedAppt') h.status === 'Approved' ? summary.medApptUsed += days : summary.medApptPending += days;
     else if (h.type === 'Permiso' && h.status === 'Approved') summary.permisoUsed += days;
+    else if (h.type === 'PermisoNoRet') h.status === 'Approved' ? summary.unpaidUsed += days : summary.unpaidPending += days;
   });
 
   const annualTotal = currentProfile.annual_days || DEFAULTS.ANNUAL_DAYS;
@@ -822,15 +826,68 @@ async function submitHolidayRequest() {
     });
     if (error) { showToast('Error: ' + error.message, 'error'); return; }
     showToast('Visita Médica enviada: ' + startTime + ' → ' + endTime + ' (' + hours + 'h) ✓');
+  } else if (type === 'Permiso') {
+    // Permiso Retribuido (Art. 28): motive + date + hours (credited as worked)
+    var motive = document.getElementById('permisoMotive').value;
+    var pDate = document.getElementById('permisoDate').value;
+    var pStart = document.getElementById('permisoStartTime').value;
+    var pEnd = document.getElementById('permisoEndTime').value;
+    if (!motive) { showToast('Selecciona el motivo', 'error'); return; }
+    if (!pDate) { showToast('Selecciona la fecha', 'error'); return; }
+    if (!pStart || !pEnd) { showToast('Indica el horario', 'error'); return; }
+    var psh = pStart.split(':').map(Number);
+    var peh = pEnd.split(':').map(Number);
+    var pHours = (peh[0] * 60 + peh[1] - psh[0] * 60 - psh[1]) / 60;
+    if (pHours <= 0) { showToast('El horario fin debe ser posterior', 'error'); return; }
+    pHours = Math.round(pHours * 10) / 10;
+
+    // Contingent check (distinct dates per motive this year)
+    var motiveDef = (typeof PERMISO_MOTIVES !== 'undefined') ? PERMISO_MOTIVES.find(function(m){ return m.code === motive; }) : null;
+    if (motiveDef && motiveDef.dayLimit != null) {
+      var usedCounts = permisoUsedByMotive();
+      var usedDates = new Set();
+      (holidayRequestsCache || []).forEach(function(h){
+        if (h.type === 'Permiso' && h.permiso_motive === motive && h.status !== 'Rejected') usedDates.add(h.start_date);
+      });
+      // Only blocks if this is a NEW date beyond the limit
+      if (!usedDates.has(pDate) && (usedCounts[motive] || 0) >= motiveDef.dayLimit) {
+        showToast('Has agotado el contingente de "' + motiveDef.label + '" (' + motiveDef.dayLimit + ' días)', 'error');
+        return;
+      }
+    }
+
+    const { error } = await db.from('holiday_requests').insert({
+      user_id: currentProfile.id,
+      start_date: pDate,
+      end_date: pDate,
+      days: pHours,
+      type: 'Permiso',
+      permiso_motive: motive,
+      reason: (motiveDef ? motiveDef.label : motive) + ': ' + pStart + ' → ' + pEnd + (reason ? ' • ' + reason : ''),
+      status: 'Pending'
+    });
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast('Permiso retribuido enviado (' + pHours + 'h) ✓');
   } else {
-    // Day-based request
+    // Day-based request (Annual, Personal, Medical, PermisoNoRet)
     const startDate = document.getElementById('holidayStartDate').value;
     const endDate = type === 'Medical' ? startDate : document.getElementById('holidayEndDate').value;
     if (!startDate) { showToast('Selecciona la fecha', 'error'); return; }
     if (!endDate) { showToast('Selecciona la fecha fin', 'error'); return; }
     if (endDate < startDate) { showToast('La fecha fin debe ser posterior', 'error'); return; }
-    if (type === 'Permiso' && !reason.trim()) { showToast('El motivo es obligatorio para Permiso', 'error'); return; }
+    if (type === 'PermisoNoRet' && !reason.trim()) { showToast('El motivo es obligatorio para Permiso No Retribuido', 'error'); return; }
     const days = calculateWorkingDays(startDate, endDate);
+
+    // Contingent check for unpaid leave
+    if (type === 'PermisoNoRet') {
+      var unpaidTotal = currentProfile.unpaid_days != null ? currentProfile.unpaid_days : 10;
+      var unpaidUsed = (holidayRequestsCache || []).filter(function(h){ return h.type === 'PermisoNoRet' && h.status !== 'Rejected'; })
+        .reduce(function(s, h){ return s + (h.days || 0); }, 0);
+      if (unpaidUsed + days > unpaidTotal) {
+        showToast('Supera tu contingente de permiso no retribuido (' + unpaidTotal + ' días, te quedan ' + Math.max(0, unpaidTotal - unpaidUsed) + ')', 'error');
+        return;
+      }
+    }
 
     const { error } = await db.from('holiday_requests').insert({
       user_id: currentProfile.id,
@@ -851,8 +908,14 @@ async function submitHolidayRequest() {
   document.getElementById('holidayStartDate').value = '';
   document.getElementById('holidayEndDate').value = '';
   document.getElementById('medApptDate').value = '';
+  if (document.getElementById('permisoDate')) document.getElementById('permisoDate').value = '';
   document.getElementById('dateRangeGroup').style.display = 'block';
   document.getElementById('medApptGroup').style.display = 'none';
+  if (document.getElementById('permisoGroup')) document.getElementById('permisoGroup').style.display = 'none';
+  var descEl = document.getElementById('selectedTypeDesc');
+  if (descEl) { descEl.textContent = ''; descEl.style.display = 'none'; }
+  var labelEl = document.getElementById('selectedTypeLabel');
+  if (labelEl) labelEl.textContent = '';
 }
 
 function calculateWorkingDays(startDate, endDate) {
@@ -900,10 +963,11 @@ async function loadProgress() {
   const { data: holidays } = await db.from('holiday_requests').select('*')
     .eq('user_id', currentProfile.id).eq('status', 'Approved');
 
-  // Build teacher holiday dates (exclude Medical)
+  // Build teacher holiday dates (full-day leave only). Exclude hours-based partial absences
+  // (Medical handled separately; MedAppt + Permiso are credited as worked hours instead).
   var teacherHolidayDates = new Set();
   (holidays || []).forEach(function(h) {
-    if (h.type === 'Medical') return;
+    if (h.type === 'Medical' || h.type === 'MedAppt' || h.type === 'Permiso') return;
     var cur = new Date(h.start_date + 'T12:00:00');
     var end = new Date(h.end_date + 'T12:00:00');
     while (cur <= end) {
@@ -966,7 +1030,13 @@ async function loadProgress() {
   const { data: paidData } = await db.from('paid_hours').select('hours').eq('user_id', currentProfile.id);
   var paidTotal = (paidData || []).reduce(function(s, p) { return s + (parseFloat(p.hours) || 0); }, 0);
 
-  var adjustedTotal = totalHours - paidTotal + medicalHours;
+  // Hours-based paid absences credited as worked time: Visita Médica + Permiso Retribuido
+  var medApptHours = (holidays || []).filter(function(h){ return h.type === 'MedAppt'; })
+    .reduce(function(s, h){ return s + (parseFloat(h.days) || 0); }, 0);
+  var permisoHours = (holidays || []).filter(function(h){ return h.type === 'Permiso'; })
+    .reduce(function(s, h){ return s + (parseFloat(h.days) || 0); }, 0);
+
+  var adjustedTotal = totalHours - paidTotal + medicalHours + medApptHours + permisoHours;
   var expectedToDate = expectedYearly * progressRatio;
   var percent = expectedToDate > 0 ? (adjustedTotal / expectedToDate) * 100 : 0;
 
@@ -1101,41 +1171,116 @@ function switchTab(tab) {
 
 function selectHolidayType(btn, type) {
   var label = document.getElementById('selectedTypeLabel');
+  var desc = document.getElementById('selectedTypeDesc');
+  var dateGroup = document.getElementById('dateRangeGroup');
+  var medApptGroup = document.getElementById('medApptGroup');
+  var permisoGroup = document.getElementById('permisoGroup');
 
+  // Deselect if clicking the active one
   if (btn.classList.contains('selected')) {
     btn.classList.remove('selected');
     if (label) label.textContent = '';
-    document.getElementById('dateRangeGroup').style.display = 'block';
-    document.getElementById('medApptGroup').style.display = 'none';
+    if (desc) { desc.textContent = ''; desc.style.display = 'none'; }
+    dateGroup.style.display = 'block';
+    medApptGroup.style.display = 'none';
+    permisoGroup.style.display = 'none';
     return;
   }
   document.querySelectorAll('.holiday-type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  if (label) label.textContent = {Annual:'Vacaciones',Personal:'D.R. Empleado',Medical:'Baja Médica',MedAppt:'Visita Médica',Permiso:'Permiso Retribuido'}[type] || type;
 
-  var dateGroup = document.getElementById('dateRangeGroup');
-  var medApptGroup = document.getElementById('medApptGroup');
-  var reasonLabel = document.querySelector('label[for="holidayReason"], .form-label:last-of-type');
-
-  if (type === 'MedAppt') {
-    dateGroup.style.display = 'none';
-    medApptGroup.style.display = 'block';
-  } else {
-    dateGroup.style.display = 'block';
-    medApptGroup.style.display = 'none';
+  var info = (typeof HOLIDAY_TYPES !== 'undefined' && HOLIDAY_TYPES[type]) ? HOLIDAY_TYPES[type] : null;
+  if (label) label.textContent = info ? info.name : type;
+  if (desc) {
+    if (info && info.description) { desc.textContent = info.description; desc.style.display = 'block'; }
+    else { desc.textContent = ''; desc.style.display = 'none'; }
   }
 
-  // Update reason field label for Permiso
+  // Show the right input group
+  dateGroup.style.display = (type === 'MedAppt' || type === 'Permiso') ? 'none' : 'block';
+  medApptGroup.style.display = type === 'MedAppt' ? 'block' : 'none';
+  permisoGroup.style.display = type === 'Permiso' ? 'block' : 'none';
+
+  if (type === 'Permiso') {
+    populatePermisoMotives();
+    updatePermisoHours();
+  }
+
+  // Medical is single-date: hide the end-date field
+  var endDateGroup = document.getElementById('endDateGroup');
+  if (endDateGroup) endDateGroup.style.display = (type === 'Medical') ? 'none' : 'block';
+
+  // Reason required for Permiso and PermisoNoRet
   var reasonEl = document.getElementById('holidayReason');
   if (reasonEl) {
-    if (type === 'Permiso') {
-      reasonEl.placeholder = 'Motivo del permiso (obligatorio)';
-      reasonEl.previousElementSibling.textContent = 'Motivo *';
+    if (info && info.requiresReason) {
+      reasonEl.placeholder = 'Motivo (obligatorio)';
+      if (reasonEl.previousElementSibling) reasonEl.previousElementSibling.textContent = 'Motivo *';
     } else {
       reasonEl.placeholder = 'Motivo de la solicitud...';
-      reasonEl.previousElementSibling.textContent = 'Motivo (opcional)';
+      if (reasonEl.previousElementSibling) reasonEl.previousElementSibling.textContent = 'Motivo (opcional)';
     }
   }
+}
+
+// Count distinct dates already used per Permiso motive this year (approved + pending)
+function permisoUsedByMotive() {
+  var used = {};
+  var year = new Date().getFullYear();
+  (holidayRequestsCache || []).forEach(function(h) {
+    if (h.type !== 'Permiso' || !h.permiso_motive) return;
+    if (h.status === 'Rejected') return;
+    if ((h.start_date || '').slice(0, 4) !== String(year)) return;
+    if (!used[h.permiso_motive]) used[h.permiso_motive] = new Set();
+    used[h.permiso_motive].add(h.start_date);
+  });
+  var counts = {};
+  Object.keys(used).forEach(function(k) { counts[k] = used[k].size; });
+  return counts;
+}
+
+function populatePermisoMotives() {
+  var sel = document.getElementById('permisoMotive');
+  if (!sel || typeof PERMISO_MOTIVES === 'undefined') return;
+  var used = permisoUsedByMotive();
+  sel.innerHTML = PERMISO_MOTIVES.map(function(m) {
+    var label = m.code + ') ' + m.label;
+    if (m.dayLimit != null) {
+      var left = Math.max(0, m.dayLimit - (used[m.code] || 0));
+      label += ' — ' + left + '/' + m.dayLimit + ' días';
+    } else {
+      label += ' — tiempo indispensable';
+    }
+    return '<option value="' + m.code + '">' + label + '</option>';
+  }).join('');
+  onPermisoMotiveChange();
+}
+
+function onPermisoMotiveChange() {
+  var sel = document.getElementById('permisoMotive');
+  var infoEl = document.getElementById('permisoMotiveInfo');
+  if (!sel || !infoEl || typeof PERMISO_MOTIVES === 'undefined') return;
+  var m = PERMISO_MOTIVES.find(function(x) { return x.code === sel.value; });
+  if (!m) { infoEl.textContent = ''; return; }
+  var used = permisoUsedByMotive();
+  if (m.dayLimit != null) {
+    var left = Math.max(0, m.dayLimit - (used[m.code] || 0));
+    infoEl.textContent = 'Contingente: ' + m.dayLimit + ' días/año. Te quedan ' + left + '.' + (m.note ? ' (' + m.note + ')' : '');
+  } else {
+    infoEl.textContent = 'Sin límite fijo: ' + (m.note || 'tiempo indispensable') + '.';
+  }
+}
+
+function updatePermisoHours() {
+  var s = document.getElementById('permisoStartTime');
+  var e = document.getElementById('permisoEndTime');
+  var prev = document.getElementById('permisoHoursPreview');
+  if (!s || !e || !prev) return;
+  var sh = (s.value || '0:0').split(':').map(Number);
+  var eh = (e.value || '0:0').split(':').map(Number);
+  var hours = (eh[0] * 60 + eh[1] - sh[0] * 60 - sh[1]) / 60;
+  hours = Math.round(hours * 10) / 10;
+  prev.textContent = (hours > 0 ? hours : 0) + 'h';
 }
 
 function updateMedApptHours() {
@@ -1162,6 +1307,7 @@ function setCurrentTime() {
 // ========================================
 
 var calendarDate = new Date();
+var holidayRequestsCache = [];
 var calendarPunchedDays = {};
 var calendarSchoolHolidays = {};
 var calendarTeacherHolidays = {};
