@@ -867,3 +867,46 @@ All three exclusion layers behave exactly as the v37 code intends.
   valuation is ever needed (old period at old rate, new period at new rate), implement a
   `contract_history` table (expected_yearly_hours with effective-from/to dates) and sum each
   segment with its own rate. Deferred until a real case requires it.
+
+### Why baja is recomputed (not frozen) — and the preferred future approach
+
+Q: Why recalculate a baja day's hours every time instead of freezing the value at the time?
+A: The whole app is "compute from raw facts on read" — it stores only raw facts (leave date
+ranges, punches, profile config) and derives every metric live. Nothing is stored as a computed
+value, so nothing drifts when an input is corrected (contract change, school-holiday edit, leave
+dates fixed, ongoing leave growing day by day). Freezing ONLY the baja output in isolation would
+desync from the rest of the year (denominator still recomputes), so it only makes sense as part
+of a broader snapshot/historize change.
+
+THREE options for period-accuracy (all deferred until a real case needs it):
+1. `contract_history` table — historize the INPUT (expected_yearly_hours with effective dates),
+   compute each period at its own rate. Keeps "compute on read" intact.
+2. Freeze the baja output on read — fragile in isolation (desyncs with recomputed denominator).
+3. **LOG the would-have-worked hours (PREFERRED).** Treat a baja day like the new hours-based
+   types (MedAppt / Permiso Retribuido) and like a punch: when the baja day passes, STORE the
+   hours the person would have worked (frozen at the then-current average) in the `days` column,
+   and have the progress calc just SUM stored hours instead of recomputing the average.
+   - Pros: one consistent "log hours" model across all hours-based absences; stable/auditable
+     history; AUTOMATICALLY fixes the mid-year contract-change problem (past baja keeps its
+     then-rate, future expectation uses the new rate) — no contract_history table needed.
+   - Decisions to settle: WHEN to compute & store — (a) once at approval (simple, but extended/
+     open leaves need re-logging) vs (b) a daily Pi cron job that logs each active baja day
+     (accurate for long leaves, needs the recurring job). Still the same average estimate, just
+     frozen at log time. Migration: `Medical` currently stores `days` = working-day COUNT (hours
+     computed on read); switching to store HOURS changes that field's meaning and needs the 4
+     existing Medical records converted (or a new dedicated column).
+- DECISION (June 2026): defer all three. When it comes up, option 3 (log would-have-worked hours)
+  is the leading choice; decide approval-time vs daily-cron logging at that point.
+
+### Holidays vs baja — different models, on purpose (decision: keep as-is)
+- Holidays (Annual / Personal / School) work by REDUCING expected working days (the denominator
+  via teacherHolidayDates / allocatedDays) — you're simply not expected to work those days. No
+  hours logged or credited.
+- Baja credits AVERAGE HOURS (numerator) because the person is absent but should still count
+  toward their total.
+- The "log would-have-worked hours" idea (option 3 above) could in theory apply to holidays too,
+  BUT it would be bad UX — you'd have to enter hours for every vacation day, for something that's
+  cleanly handled by just not expecting those days.
+- DECISION (June 2026): keep holidays on the denominator-reduction model as-is. Do NOT switch
+  holidays to hours-logging. (Baja's future option-3 logging, if/when built, does not apply to
+  ordinary holidays.)
