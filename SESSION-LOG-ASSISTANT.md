@@ -823,3 +823,47 @@ All three exclusion layers behave exactly as the v37 code intends.
 - Optional: teacher "Tu Saldo" card box for the two new permiso types (currently shown in the
   dropdown + enforced on submit).
 - BAJA MÉDICA reconciliation review (see discussion) — possible follow-up.
+
+---
+
+## Baja Médica (sick leave) — how it works + design decisions (June 2026)
+
+### Convenio (II Conveni Catalunya, Art. 25 — Incapacitat Temporal)
+- IT is effectively FULLY PAID but time-limited by seniority:
+  - First 3 months: company complements Social Security up to 100% of total salary.
+  - If it continues: 100% for 1 extra month per trienio (3 yrs) of seniority, max 7 months in a
+    12-month period.
+  - If the worker isn't entitled to the SS benefit, no complement.
+- NOTE: pay/complement is RRHH's job (Milena), NOT this app. The app only handles the
+  hours-compliance/progress side.
+
+### How the app computes Baja Médica (the code)
+- `hoursPerWorkingDay = expected_yearly_hours / totalWorkingDays`
+  (totalWorkingDays = year Mon–Fri minus school holidays minus the person's allocated holiday days)
+- `medicalHours = (working days during the baja) × hoursPerWorkingDay` — credited (added) to the
+  total: `adjustedTotal = worked − paid + medicalHours + medAppt + permiso`.
+- Medical dates are NOT removed from the expected-to-date denominator AND the average hours are
+  credited → a person out half the year shows ~on-track and is NOT expected to cram a full year's
+  hours into the remaining half. Same logic in teacher.js and admin.js.
+- So YES: baja hours are ESTIMATED via a flat yearly average (expected yearly ÷ working days),
+  applied to the baja days. We can't know real per-day hours during leave, so the average is the
+  fair proxy (same approach as the legacy Apps Script).
+
+### Known divergences from convenio (accepted for now)
+- App has NO time cap on the hours-credit (convenio caps PAY at 3 months + seniority, max 7).
+  Intentional: the app tracks hours-compliance, not pay — a long-term sick teacher shouldn't be
+  flagged "behind" regardless of pay status.
+- Flat average, not the person's real schedule.
+
+### Contract change mid-year (expected_yearly_hours edited) — DECISION
+- Current behavior: `expected_yearly_hours` is a SINGLE live column on profiles. Every recalc
+  reads the CURRENT value, so editing it (new contract) immediately recomputes the whole year —
+  including baja credit — from the new number. ✅ This satisfies "baja must use the always-current
+  total."
+- CAVEAT: it is FULLY RETROACTIVE — no history, no proration. The current value is applied to the
+  ENTIRE year (e.g. 1000→1300 in July makes the whole year compute as 1300; a March baja day is
+  credited at the new rate). It rewrites the past rather than blending periods.
+- DECISION (June 2026): leave as-is for now. Do NOT build proration yet. If period-accurate
+  valuation is ever needed (old period at old rate, new period at new rate), implement a
+  `contract_history` table (expected_yearly_hours with effective-from/to dates) and sum each
+  segment with its own rate. Deferred until a real case requires it.
