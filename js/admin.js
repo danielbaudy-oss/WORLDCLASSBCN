@@ -636,14 +636,14 @@ async function loadStatsGrid(teacherData, adminData) {
         }
       });
 
-      // MedAppt hours for period
+      // MedAppt + Permiso Retribuido hours for period (hours stored in `days`)
       var periodMedApptHours = 0;
       cachedHolidays.filter(function(h) {
-        return h.user_id === profile.id && h.type === 'MedAppt';
+        return h.user_id === profile.id && (h.type === 'MedAppt' || h.type === 'Permiso');
       }).forEach(function(h) {
         var hDate = h.start_date || '';
         if (hDate >= periodRange.start && hDate <= periodRange.end) {
-          periodMedApptHours += parseFloat(h.total_days) || 0;
+          periodMedApptHours += parseFloat(h.days) || 0;
         }
       });
 
@@ -678,11 +678,11 @@ async function loadStatsGrid(teacherData, adminData) {
       });
       var yearlyMedApptHours = 0;
       cachedHolidays.filter(function(h) {
-        return h.user_id === profile.id && h.type === 'MedAppt';
+        return h.user_id === profile.id && (h.type === 'MedAppt' || h.type === 'Permiso');
       }).forEach(function(h) {
         var hDate = h.start_date || '';
         if (hDate >= yearStart && hDate <= cutoffDate) {
-          yearlyMedApptHours += parseFloat(h.total_days) || 0;
+          yearlyMedApptHours += parseFloat(h.days) || 0;
         }
       });
       var yearlyPaidHours = 0;
