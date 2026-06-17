@@ -756,3 +756,70 @@ All three exclusion layers behave exactly as the v37 code intends.
 - `index.html`, `teacher.html`, `admin.html` — production cache-busting (APP_VERSION)
 - `supabase/migrations/` — 10 new files mirroring the deployed DB
 - `SESSION-LOG-ASSISTANT.md` — this entry
+
+---
+
+## Session: June 2026 (continued — Permiso Retribuido / No Retribuido feature)
+
+### New request types (Convenio Catalunya, Arts. 28 & 29)
+- **Permiso Retribuido** (type `Permiso`, repurposed — was an unused generic "Permiso"):
+  paid leave that COUNTS AS WORKED TIME. Entered by HOURS (stored in `days` column, like
+  MedAppt), credited into totalHours. Has a **motive dropdown** (Art. 28 a–j, minus g which is
+  the existing Visita Médica). Each motive has a day-contingent shown live with remaining count;
+  contingent = distinct dates used per motive this year. Motives f/h/i = "tiempo indispensable"
+  (no limit). New column `permiso_motive` (a–j).
+- **Permiso No Retribuido** (type `PermisoNoRet`, NEW): unpaid leave, by DAYS, NOT credited as
+  worked (treated as full day off, excluded from expected working days). Annual contingent via
+  new profile column `unpaid_days` (default 10, editable in admin teacher/admin settings modals).
+
+### Migrations (tracked)
+- 20260605120000_add_permiso_types_and_unpaid_contingent.sql — type constraint += PermisoNoRet,
+  profiles.unpaid_days default 10.
+- 20260605120100_add_permiso_motive_column.sql — holiday_requests.permiso_motive.
+
+### Bug fixed along the way
+- Admin/teacher credited Visita Médica (MedAppt) hours from a NON-EXISTENT `total_days` field
+  (always 0). Fixed to read `days` everywhere. Same fix applied to get_holidays in the edge fn
+  (it read the empty `hours` column). Only existing MedAppt data: 2 records (Rocío, 1.2h total),
+  so impact is negligible and in the correct direction.
+- Excluded hours-based types (MedAppt, Permiso) from the full-day teacherHolidayDates sets in
+  both teacher.js and admin.js (they're partial absences credited as hours, not days off).
+
+### Calc consistency
+- Credited Permiso (and fixed MedAppt) hours in all THREE dashboard calc sites: teacher table,
+  admin-workers table, stats grid. XLS export left as-is (separate report, pre-existing; noted).
+
+### Data safety verified
+- All changes additive; no rows mutated. unpaid_days backfilled to 10 on all 34 profiles
+  (no NULLs); permiso_motive NULL on all existing rows; type constraint still validates every
+  existing record.
+
+### Atlas updated (v43)
+- request_holiday now handles `Permiso` (requires permiso_motive a–j + hours; validates the
+  per-motive contingent) and `PermisoNoRet` (days + obligatory reason; validates the 10-day
+  unpaid contingent). System prompt teaches the motive list + rules. get_holidays reports both
+  new types. Flows through the existing needs_confirmation + data_changed plumbing.
+
+### Cache-busting
+- Bumped APP_VERSION 20260605b → c → d as JS/CSS changed, so the release shows without hard refresh.
+
+### Edge Function version history (cont.)
+| Version | Change |
+|---------|--------|
+| v43 | request_holiday: Permiso Retribuido (motive+hours+contingent) + Permiso No Retribuido (days+contingent); get_holidays reports both |
+
+### Files changed
+- supabase/functions/class-helper/index.ts (v43, live==repo)
+- js/supabase-config.js (HOLIDAY_TYPES + PERMISO_MOTIVES + descriptions)
+- teacher.html, js/teacher.js (form: motive dropdown, hours UI, tooltips, contingent checks)
+- js/admin.js (hours crediting, buildTeacherHolidayDates exclusion, unpaid_days settings, colors)
+- css/admin.css (badge colors), index/teacher/admin .html (cache-bust)
+- 2 new migrations
+
+### Still pending
+- Atlas: teacher form is the richer path; Atlas is the conversational equivalent (both write
+  identical records). Verified deploy + code; live chat click-through test still recommended.
+- Optional: align XLS export "H. Totales" to credit MedAppt/Permiso hours like the dashboard.
+- Optional: teacher "Tu Saldo" card box for the two new permiso types (currently shown in the
+  dropdown + enforced on submit).
+- BAJA MÉDICA reconciliation review (see discussion) — possible follow-up.
