@@ -77,19 +77,21 @@ const tools = [{ function_declarations: [
   { name: "get_holidays", description: "Consultar saldo de vacaciones y permisos.", parameters: { type: "object", properties: { user_id: { type: "string" } } } },
   { name: "get_work_hours", description: "Consultar horas trabajadas. Por defecto mes actual.", parameters: { type: "object", properties: { user_id: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" } } } },
   { name: "search_materials", description: "Buscar en la base de conocimiento de la escuela: procedimientos, normas, materiales, convenio, programas, evaluaciones y cualquier información sobre cómo funciona WorldClass BCN. USA ESTA HERRAMIENTA para CUALQUIER pregunta sobre procedimientos o 'cómo se hace X'.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
-  { name: "request_holiday", description: "Solicitar vacaciones/permiso.", parameters: { type: "object", properties: { type: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, days: { type: "number" }, reason: { type: "string" }, hours: { type: "number" }, confirmed: { type: "boolean" } }, required: ["type", "start_date", "end_date", "days"] } },
+  { name: "request_holiday", description: "Solicitar vacaciones o permiso. Tipos: Annual, Personal, School, Medical, MedAppt (horas), Permiso (Permiso Retribuido — REQUIERE permiso_motive a-j y hours), PermisoNoRet (Permiso No Retribuido — por días).", parameters: { type: "object", properties: { type: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, days: { type: "number" }, reason: { type: "string" }, hours: { type: "number", description: "Horas de ausencia para Permiso Retribuido (cuentan como trabajadas)" }, permiso_motive: { type: "string", description: "Motivo del Permiso Retribuido (Art. 28): una letra a-j" }, confirmed: { type: "boolean" } }, required: ["type"] } },
   { name: "add_punches", description: "Añadir fichajes. Para rangos usa start_date+end_date+in_time+out_time+days_of_week. El sistema excluye festivos y días ya fichados automáticamente. Siempre confirmed=false primero.", parameters: { type: "object", properties: { start_date: { type: "string", description: "Fecha inicio YYYY-MM-DD" }, end_date: { type: "string", description: "Fecha fin YYYY-MM-DD" }, in_time: { type: "string", description: "Hora entrada HH:MM" }, out_time: { type: "string", description: "Hora salida HH:MM" }, days_of_week: { type: "string", description: "Días de la semana a incluir. Opciones: 'workdays' (lun-vie, por defecto), 'mon,tue,wed,thu,fri,sat,sun' (días específicos separados por coma)" }, punches: { type: "string", description: "JSON para días sueltos: [{date:'YYYY-MM-DD',in_time:'HH:MM',out_time:'HH:MM'}]" }, confirmed: { type: "boolean" } } } },
 ]}];
 
 async function executeTool(name: string, args: any, ctx: any, db: any) {
   if (name === "get_holidays") {
     const uid = ctx.role === "teacher" ? ctx.userId : (args.user_id || ctx.userId);
-    const { data: p } = await db.from("profiles").select("annual_days, personal_days, school_days, med_appt_hours").eq("id", uid).single();
+    const { data: p } = await db.from("profiles").select("annual_days, personal_days, school_days, med_appt_hours, unpaid_days").eq("id", uid).single();
     const { data: h } = await db.from("holiday_requests").select("type, days, hours").eq("user_id", uid).eq("status", "Approved");
     if (!p) return { error: "Perfil no encontrado" };
-    const u: any = { Annual: 0, Personal: 0, School: 0, Medical: 0, MedAppt: 0, Permiso: 0 };
-    for (const x of h || []) { if (x.type === "MedAppt") u.MedAppt += x.hours || 0; else u[x.type] = (u[x.type] || 0) + (x.days || 0); }
-    return { Vacaciones: `${p.annual_days - u.Annual}/${p.annual_days} días`, "D.R. Empleado": `${p.personal_days - u.Personal}/${p.personal_days}`, "D.R. Empresa": `${p.school_days - u.School}/${p.school_days}`, "Visita Médica": `${p.med_appt_hours - u.MedAppt}/${p.med_appt_hours}h`, "Baja Médica": `${u.Medical} (sin límite)`, Permiso: `${u.Permiso} (sin límite)` };
+    const u: any = { Annual: 0, Personal: 0, School: 0, Medical: 0, MedAppt: 0, Permiso: 0, PermisoNoRet: 0 };
+    // hours-based types (MedAppt, Permiso) store hours in the `days` column, same as day-based store days
+    for (const x of h || []) { u[x.type] = (u[x.type] || 0) + (x.days || 0); }
+    const unpaidCap = p.unpaid_days != null ? p.unpaid_days : 10;
+    return { Vacaciones: `${p.annual_days - u.Annual}/${p.annual_days} días`, "D.R. Empleado": `${p.personal_days - u.Personal}/${p.personal_days}`, "D.R. Empresa": `${p.school_days - u.School}/${p.school_days}`, "Visita Médica": `${p.med_appt_hours - u.MedAppt}/${p.med_appt_hours}h`, "Baja Médica": `${u.Medical} (sin límite)`, "Permiso Retribuido": `${Math.round(u.Permiso*10)/10}h usadas (cuentan como trabajadas; sin límite de horas)`, "Permiso No Retribuido": `${unpaidCap - u.PermisoNoRet}/${unpaidCap} días` };
   }
   if (name === "get_work_hours") {
     const uid = ctx.role === "teacher" ? ctx.userId : (args.user_id || ctx.userId);
@@ -117,8 +119,60 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     }) };
   }
   if (name === "request_holiday") {
+    const tn: any = { Annual: "Vacaciones", Personal: "D.R. Empleado", School: "D.R. Empresa", Medical: "Baja Médica", MedAppt: "Visita Médica", Permiso: "Permiso Retribuido", PermisoNoRet: "Permiso No Retribuido" };
+    const PERMISO_MOTIVES: any = { a: { label: "Matrimonio", limit: 15 }, b: { label: "Hospitalización/enfermedad grave de familiar", limit: 5 }, c: { label: "Fallecimiento de familiar", limit: 3 }, d: { label: "Traslado de domicilio", limit: 1 }, e: { label: "Boda de hijo/a, hermano/a o familiar 1er grado", limit: 1 }, f: { label: "Deber público (votar, etc.)", limit: null }, h: { label: "Funciones sindicales", limit: null }, i: { label: "Exámenes prenatales / adopción", limit: null }, j: { label: "Imposibilidad de acceder al centro", limit: 4 } };
+
+    // --- Permiso Retribuido (Art. 28): hours-based, motive + date + hours, credited as worked ---
+    if (args.type === "Permiso") {
+      const motive = (args.permiso_motive || "").toLowerCase().trim();
+      const md = PERMISO_MOTIVES[motive];
+      if (!md) return { error: "Falta el motivo del permiso retribuido. Pregunta al usuario el motivo (a-j) y envíalo en permiso_motive." };
+      const hrs = Math.round((args.hours || 0) * 10) / 10;
+      if (!hrs || hrs <= 0) return { error: "Falta el número de horas de ausencia (hours)." };
+      const date = args.start_date;
+      if (!date) return { error: "Falta la fecha del permiso." };
+      // Contingent: distinct dates per motive this year (approved + pending)
+      let contingentMsg = "sin límite fijo";
+      if (md.limit != null) {
+        const year = date.slice(0, 4);
+        const { data: existing } = await db.from("holiday_requests").select("start_date").eq("user_id", ctx.userId).eq("type", "Permiso").eq("permiso_motive", motive).neq("status", "Rejected");
+        const usedDates = new Set((existing || []).map((r: any) => r.start_date).filter((d: string) => (d || "").slice(0, 4) === year));
+        const left = Math.max(0, md.limit - usedDates.size);
+        contingentMsg = `${left}/${md.limit} días`;
+        if (!usedDates.has(date) && usedDates.size >= md.limit) {
+          return { error: `Has agotado el contingente de "${md.label}" (${md.limit} días/año).` };
+        }
+      }
+      if (!args.confirmed) {
+        return { status: "needs_confirmation", resumen: { tipo: "Permiso Retribuido", motivo: md.label, fecha: date, horas: hrs, contingente: contingentMsg }, mensaje: "Confirma para enviar." };
+      }
+      const { error } = await db.from("holiday_requests").insert({ user_id: ctx.userId, type: "Permiso", start_date: date, end_date: date, days: hrs, permiso_motive: motive, reason: md.label + (args.reason ? " • " + args.reason : ""), status: "Pending" });
+      if (error) return { error: error.message };
+      return { mensaje: `✅ Permiso retribuido enviado (${md.label}, ${hrs}h). Pendiente de aprobación.` };
+    }
+
+    // --- Permiso No Retribuido (Art. 29): day-based, with annual contingent ---
+    if (args.type === "PermisoNoRet") {
+      if (!args.start_date || !args.end_date) return { error: "Faltan las fechas (inicio y fin)." };
+      if (!args.reason || !args.reason.trim()) return { error: "El motivo es obligatorio para el permiso no retribuido." };
+      const reqDays = args.days || 0;
+      const { data: prof } = await db.from("profiles").select("unpaid_days").eq("id", ctx.userId).single();
+      const cap = prof?.unpaid_days != null ? prof.unpaid_days : 10;
+      const { data: existing } = await db.from("holiday_requests").select("days").eq("user_id", ctx.userId).eq("type", "PermisoNoRet").neq("status", "Rejected");
+      const used = (existing || []).reduce((s: number, r: any) => s + (r.days || 0), 0);
+      if (used + reqDays > cap) {
+        return { error: `Supera el contingente de permiso no retribuido (${cap} días/año, te quedan ${Math.max(0, cap - used)}).` };
+      }
+      if (!args.confirmed) {
+        return { status: "needs_confirmation", resumen: { tipo: "Permiso No Retribuido", inicio: args.start_date, fin: args.end_date, dias: reqDays, restante_tras_solicitud: Math.max(0, cap - used - reqDays), motivo: args.reason }, mensaje: "Confirma para enviar." };
+      }
+      const { error } = await db.from("holiday_requests").insert({ user_id: ctx.userId, type: "PermisoNoRet", start_date: args.start_date, end_date: args.end_date, days: reqDays, reason: args.reason, status: "Pending" });
+      if (error) return { error: error.message };
+      return { mensaje: "✅ Permiso no retribuido enviado. Pendiente de aprobación." };
+    }
+
+    // --- All other day-based types (Annual, Personal, School, Medical, MedAppt) ---
     if (!args.confirmed) {
-      const tn: any = { Annual: "Vacaciones", Personal: "D.R. Empleado", School: "D.R. Empresa", Medical: "Baja Médica", MedAppt: "Visita Médica", Permiso: "Permiso" };
       return { status: "needs_confirmation", resumen: { tipo: tn[args.type] || args.type, inicio: args.start_date, fin: args.end_date, dias: args.days, horas: args.hours || null, motivo: args.reason || null }, mensaje: "Confirma para enviar." };
     }
     const d: any = { user_id: ctx.userId, type: args.type, start_date: args.start_date, end_date: args.end_date, days: args.days, status: "Pending" };
@@ -342,11 +396,16 @@ FECHAS — REGLA CRÍTICA:
 - Ejemplo: hoy es ${week.today}. Si el usuario dice "fichar enero", usa start_date=${week.year}-01-01 y end_date=${week.year}-01-31.
 - Los fichajes solo se permiten hasta ${DEFAULT_MAX_PAST_DAYS} días atrás; un año equivocado dará "fuera de rango".
 
-Vacaciones (request_holiday):
+Vacaciones y permisos (request_holiday):
 - confirmed=false primero (muestra resumen), luego confirmed=true cuando confirme.
-- Tipos: Annual, Personal, School, Medical, MedAppt (único por horas), Permiso.
-- TODOS días completos EXCEPTO MedAppt. Si dice "vacaciones" usa Annual.
-- Calcula días laborables (excluye fines de semana).
+- Tipos: Annual (Vacaciones), Personal (D.R. Empleado), School (D.R. Empresa), Medical (Baja Médica), MedAppt (Visita Médica, por horas), Permiso (Permiso Retribuido), PermisoNoRet (Permiso No Retribuido).
+- Annual/Personal/School/Medical: días completos, calcula días laborables (excluye fines de semana). Si dice "vacaciones" usa Annual.
+- MedAppt (Visita Médica Seg. Social, 20h/año): por horas.
+- Permiso RETRIBUIDO (type=Permiso): ausencia pagada que CUENTA como trabajada. SIEMPRE pregunta el MOTIVO y mándalo en permiso_motive (una letra a-j). Pide la fecha (start_date) y las HORAS de ausencia (hours), NO días. Motivos y contingente anual:
+  a) Matrimonio — 15 días; b) Hospitalización/enfermedad grave de familiar — 5 días; c) Fallecimiento de familiar — 3 días; d) Traslado de domicilio — 1 día; e) Boda de hijo/a, hermano/a o familiar 1er grado — 1 día; f) Deber público (votar, etc.) — tiempo indispensable; h) Funciones sindicales — según ley; i) Exámenes prenatales/adopción — tiempo indispensable; j) Imposibilidad de acceder al centro — 4 días.
+  IMPORTANTE: la visita médica de la Seguridad Social (20h) NO es Permiso, usa MedAppt.
+- Permiso NO RETRIBUIDO (type=PermisoNoRet): ausencia SIN sueldo, por días. Máximo 10 días laborables/año. Pide fechas (inicio/fin) y motivo (obligatorio).
+- El sistema valida los contingentes automáticamente; si se supera, avisa al usuario.
 
 Fichajes (add_punches):
 - Para RANGOS (ej. "todo enero", "del 5 al 30", "esta semana"): usa SIEMPRE start_date, end_date, in_time, out_time, days_of_week. NUNCA uses el parámetro punches para rangos.
