@@ -2284,12 +2284,13 @@ async function loadPendingRequests() {
       var endDisplay = new Date(r.end_date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
       var dateRange = startDisplay + (r.start_date !== r.end_date ? ' hasta ' + endDisplay : '');
       var requestDate = new Date(r.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      var amount = typeInfo.isHoursBased ? (r.days + 'h') : (r.days + ' día' + (r.days == 1 ? '' : 's'));
 
       return '<tr>' +
         '<td><div class="teacher-name">' + name + '</div><div class="teacher-email">' + email + '</div></td>' +
         '<td><span class="type-badge ' + typeInfo.color + '">' + typeInfo.emoji + ' ' + typeInfo.shortName + '</span></td>' +
         '<td>' + dateRange + '</td>' +
-        '<td>' + r.days + '</td>' +
+        '<td>' + amount + '</td>' +
         '<td>' + (r.reason || '-') + '</td>' +
         '<td>' + requestDate + '</td>' +
         '<td>' +
@@ -2378,12 +2379,13 @@ function renderApprovedRequests(items) {
     var dateRange = startDisplay + (r.start_date !== r.end_date ? ' hasta ' + endDisplay : '');
     var approvedBy = r.processed_by ? 'Admin' : '-';
     var approvedDate = r.processed_at ? new Date(r.processed_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '';
+    var amount = typeInfo.isHoursBased ? (r.days + 'h') : (r.days + ' día' + (r.days == 1 ? '' : 's'));
 
     return '<tr>' +
       '<td><div class="teacher-name">' + name + '</div><div class="teacher-email">' + email + '</div></td>' +
       '<td><span class="type-badge ' + typeInfo.color + '">' + typeInfo.emoji + ' ' + typeInfo.shortName + '</span></td>' +
       '<td>' + dateRange + '</td>' +
-      '<td>' + r.days + '</td>' +
+      '<td>' + amount + '</td>' +
       '<td>' + (r.reason || '-') + '</td>' +
       '<td>' + approvedBy + (approvedDate ? ' · ' + approvedDate : '') + '</td>' +
       '<td><button class="action-btn-small reject" onclick="deleteApprovedRequest(\'' + r.id + '\')">🗑️ Eliminar</button></td>' +

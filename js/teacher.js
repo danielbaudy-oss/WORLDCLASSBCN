@@ -782,6 +782,7 @@ function renderHolidayRequests(requests) {
     const endDate = new Date(r.end_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
     // Only allow dismissing Approved/Rejected requests — keep Pending visible so the employee tracks them
     const canDismiss = r.status !== 'Pending';
+    const amount = typeConfig.isHoursBased ? (r.days + 'h') : (r.days + ' día' + (r.days !== 1 ? 's' : ''));
 
     return `
       <div class="request-item ${statusClass}" style="position:relative">
@@ -791,7 +792,7 @@ function renderHolidayRequests(requests) {
           <span class="request-status ${statusClass}">${r.status === 'Approved' ? '✓ Aprobado' : r.status === 'Pending' ? '⏳ Pendiente' : '✗ Rechazado'}</span>
         </div>
         <div class="request-dates">${startDate} → ${endDate}</div>
-        <div class="request-days">${r.days} día${r.days !== 1 ? 's' : ''}</div>
+        <div class="request-days">${amount}</div>
       </div>`;
   }).join('');
 }
