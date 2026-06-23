@@ -78,7 +78,7 @@ const tools = [{ function_declarations: [
   { name: "get_work_hours", description: "Consultar horas trabajadas. Por defecto mes actual.", parameters: { type: "object", properties: { user_id: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" } } } },
   { name: "search_materials", description: "Buscar en la base de conocimiento de la escuela: procedimientos, normas, materiales, convenio, programas, evaluaciones y cualquier información sobre cómo funciona WorldClass BCN. USA ESTA HERRAMIENTA para CUALQUIER pregunta sobre procedimientos o 'cómo se hace X'.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "request_holiday", description: "Solicitar vacaciones o permiso. Tipos: Annual, Personal, School, Medical, MedAppt (horas), Permiso (Permiso Retribuido — REQUIERE permiso_motive a-j y hours), PermisoNoRet (Permiso No Retribuido — por días).", parameters: { type: "object", properties: { type: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, days: { type: "number" }, reason: { type: "string" }, hours: { type: "number", description: "Horas de ausencia para Permiso Retribuido (cuentan como trabajadas)" }, permiso_motive: { type: "string", description: "Motivo del Permiso Retribuido (Art. 28): una letra a-j" }, confirmed: { type: "boolean" } }, required: ["type"] } },
-  { name: "add_punches", description: "Añadir fichajes. Para rangos usa start_date+end_date+in_time+out_time+days_of_week. El sistema excluye festivos y días ya fichados automáticamente. Siempre confirmed=false primero.", parameters: { type: "object", properties: { start_date: { type: "string", description: "Fecha inicio YYYY-MM-DD" }, end_date: { type: "string", description: "Fecha fin YYYY-MM-DD" }, in_time: { type: "string", description: "Hora entrada HH:MM" }, out_time: { type: "string", description: "Hora salida HH:MM" }, days_of_week: { type: "string", description: "Días de la semana a incluir. Opciones: 'workdays' (lun-vie, por defecto), 'mon,tue,wed,thu,fri,sat,sun' (días específicos separados por coma)" }, punches: { type: "string", description: "JSON para días sueltos: [{date:'YYYY-MM-DD',in_time:'HH:MM',out_time:'HH:MM'}]" }, confirmed: { type: "boolean" } } } },
+  { name: "add_punches", description: "Añadir fichajes. Para horario uniforme usa start_date+end_date+in_time+out_time+days_of_week. Para horario que VARÍA según el día de la semana usa start_date+end_date+schedule. El sistema excluye festivos y días ya fichados automáticamente. Siempre confirmed=false primero.", parameters: { type: "object", properties: { start_date: { type: "string", description: "Fecha inicio YYYY-MM-DD" }, end_date: { type: "string", description: "Fecha fin YYYY-MM-DD" }, in_time: { type: "string", description: "Hora entrada HH:MM (horario uniforme)" }, out_time: { type: "string", description: "Hora salida HH:MM (horario uniforme)" }, days_of_week: { type: "string", description: "Días a incluir: 'workdays' (lun-vie, por defecto), 'mon,tue,wed,thu,fri,sat,sun', o 'all'" }, schedule: { type: "string", description: "Horario semanal en JSON cuando las horas cambian según el día. Claves: mon,tue,wed,thu,fri,sat,sun; cada una con in y out (HH:MM). Ej: {mon:{in:'09:30',out:'14:30'},tue:{in:'17:00',out:'21:00'}}. Úsalo con start_date+end_date." }, punches: { type: "string", description: "JSON para días sueltos no consecutivos: [{date:'YYYY-MM-DD',in_time:'HH:MM',out_time:'HH:MM'}]" }, confirmed: { type: "boolean" } } } },
 ]}];
 
 async function executeTool(name: string, args: any, ctx: any, db: any) {
@@ -184,7 +184,38 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
   if (name === "add_punches") {
     // Build punch list
     let punchList: Array<{date: string, in_time: string, out_time: string}>;
-    if (args.start_date && args.end_date && args.in_time && args.out_time) {
+    if (args.start_date && args.end_date && args.schedule) {
+      // Weekly-schedule mode: different hours per weekday over a date range
+      let sched: any;
+      try { sched = typeof args.schedule === 'string' ? JSON.parse(args.schedule) : args.schedule; }
+      catch(_e) { return { error: "El horario (schedule) debe ser un JSON tipo {mon:{in:'09:30',out:'14:30'},...}." }; }
+      const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
+      const holidayDates = new Set<string>();
+      const { data: schoolHolidays } = await db.from('school_holidays').select('start_date, end_date');
+      for (const h of schoolHolidays || []) {
+        const cur = new Date(h.start_date + 'T12:00:00'); const end = new Date(h.end_date + 'T12:00:00');
+        while (cur <= end) { holidayDates.add(`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`); cur.setDate(cur.getDate() + 1); }
+      }
+      const { data: userHolidays } = await db.from('holiday_requests').select('start_date, end_date').eq('user_id', ctx.userId).eq('status', 'Approved');
+      for (const h of userHolidays || []) {
+        const cur = new Date(h.start_date + 'T12:00:00'); const end = new Date(h.end_date + 'T12:00:00');
+        while (cur <= end) { holidayDates.add(`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`); cur.setDate(cur.getDate() + 1); }
+      }
+      punchList = [];
+      const cur = new Date(args.start_date + 'T12:00:00');
+      const end = new Date(args.end_date + 'T12:00:00');
+      while (cur <= end) {
+        const wd = dayNames[cur.getDay()];
+        const ds = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
+        const slot = sched[wd];
+        const inT = slot && (slot.in || slot.in_time);
+        const outT = slot && (slot.out || slot.out_time);
+        if (inT && outT && !holidayDates.has(ds)) {
+          punchList.push({ date: ds, in_time: inT, out_time: outT });
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else if (args.start_date && args.end_date && args.in_time && args.out_time) {
       // Range mode — parse days_of_week
       const dayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
       let allowedDays: number[];
@@ -411,6 +442,8 @@ Fichajes (add_punches):
 - Para RANGOS (ej. "todo enero", "del 5 al 30", "esta semana"): usa SIEMPRE start_date, end_date, in_time, out_time, days_of_week. NUNCA uses el parámetro punches para rangos.
 - Usa el año ${week.year} para meses sin año (ver FECHAS arriba).
 - days_of_week: "workdays" (lun-vie por defecto), o días específicos "mon,wed,fri", o "all".
+- HORARIO QUE VARÍA POR DÍA: si las horas cambian según el día de la semana (ej. lun/mié 9:30-14:30, mar/jue 17:00-21:00, vie 11:30-14:30, sáb 9:30-13:30), usa el parámetro 'schedule' (JSON {mon:{in,out},tue:{in,out},...}) junto con start_date+end_date, en UNA SOLA llamada. NO hagas varias llamadas ni uses in_time/out_time en ese caso.
+- Los fichajes de días pasados están permitidos (hasta 180 días atrás). NO hay restricción por fecha de alta: un profe nuevo puede fichar fechas anteriores a su registro (p.ej. desde el inicio de su contrato), siempre dentro de los 180 días.
 - El sistema AUTOMÁTICAMENTE excluye: festivos de la escuela, días de vacaciones aprobadas del usuario, y días ya fichados. No se sobrescriben fichajes existentes. NO necesitas calcular tú los días.
 - Para días SUELTOS no consecutivos: usa punches con JSON válido [{date,in_time,out_time}].
 - SIEMPRE confirmed=false primero, y confirmed=true SOLO cuando el usuario confirme.
@@ -428,7 +461,7 @@ Fichajes (add_punches):
     let needsConfirmation = false;
     let dataChanged = false;
     const writeTools = new Set(["add_punches", "request_holiday"]);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const fc = data.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
       if (!fc) break;
       const result = await executeTool(fc.functionCall.name, fc.functionCall.args || {}, ctx, db);
