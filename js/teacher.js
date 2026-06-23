@@ -872,7 +872,7 @@ async function submitHolidayRequest() {
   } else {
     // Day-based request (Annual, Personal, Medical, PermisoNoRet)
     const startDate = document.getElementById('holidayStartDate').value;
-    const endDate = type === 'Medical' ? startDate : document.getElementById('holidayEndDate').value;
+    const endDate = document.getElementById('holidayEndDate').value;
     if (!startDate) { showToast('Selecciona la fecha', 'error'); return; }
     if (!endDate) { showToast('Selecciona la fecha fin', 'error'); return; }
     if (endDate < startDate) { showToast('La fecha fin debe ser posterior', 'error'); return; }
@@ -1207,9 +1207,9 @@ function selectHolidayType(btn, type) {
     updatePermisoHours();
   }
 
-  // Medical is single-date: hide the end-date field
+  // End-date field shown for all day-based types (Annual, Personal, Medical, PermisoNoRet)
   var endDateGroup = document.getElementById('endDateGroup');
-  if (endDateGroup) endDateGroup.style.display = (type === 'Medical') ? 'none' : 'block';
+  if (endDateGroup) endDateGroup.style.display = 'block';
 
   // Reason required for Permiso and PermisoNoRet
   var reasonEl = document.getElementById('holidayReason');

@@ -962,3 +962,46 @@ THREE options for period-accuracy (all deferred until a real case needs it):
 - Live function = v44 = repo copy (in sync, pushed d11e7e2).
 - Cache-bust at 20260605e.
 - Laptop git: as always, the Pi is source of truth (push via Pi; laptop git lags — see top banner).
+
+---
+
+## Session: June 23, 2026 (continued — cleared both pending items)
+
+Picked up the two items left "NOT done" at the previous handoff.
+
+### 1. ✅ Baja Médica UI now supports START + END date
+- Removed the single-date special-casing for `Medical` in BOTH places (`js/teacher.js`):
+  - `submitHolidayRequest`: `endDate` now always reads `#holidayEndDate` (was
+    `type==='Medical' ? startDate : ...`). `days` = `calculateWorkingDays(start,end)`, which
+    matches how the progress calc already expands a Medical start→end range for medicalHours.
+  - `selectHolidayType`: `#endDateGroup` is now shown for all day-based types; the Fecha Fin
+    field appears for Medical too. (MedAppt/Permiso still hide the whole `#dateRangeGroup`
+    wrapper via the existing `dateGroup` logic, so they're unaffected.)
+- admin.js had no equivalent special-casing (verified) — no change needed there.
+- `node --check js/teacher.js` → clean.
+- Cache-bust bumped `20260605e → 20260623a` across index/teacher/admin .html (JS block +
+  CSS `<link>`s) per the established release process.
+
+### 2. ✅ Punched Felipe's actual request (June 8–22, 2026)
+- Profile: FELIPE AGUILAR (`30d6f9e3-6e0c-44a8-bbe6-710ee07967da`).
+- Pre-checks (all clear, no conflicts): no existing punches in range, no school_holidays
+  overlapping, no approved holiday_requests overlapping.
+- Inserted 13 workdays (26 rows) with his per-weekday schedule, Sundays skipped:
+  - lun/mié 09:30–14:30 (5h), mar/jue 17:00–21:00 (4h), vie 11:30–14:30 (3h),
+    sáb 09:30–13:30 (4h). Total = 55h over the two weeks.
+- All rows tagged `notes='Manual insert (Felipe schedule Jun 8-22)'` so the batch is cleanly
+  reversible. Verified every IN/OUT pair matches the request via SQL.
+- Done via direct SQL (option b from the handoff) rather than re-asking Atlas — the v44
+  `schedule` param exists if he wants to self-serve future ranges.
+
+### Files modified
+- `js/teacher.js` — Medical start+end date (2 spots)
+- `index.html`, `teacher.html`, `admin.html` — cache-bust 20260623a
+- DB: 26 time_punches rows for Felipe (additive, tagged)
+- `SESSION-LOG-ASSISTANT.md` — this entry
+
+### Still pending (long-standing, unchanged)
+- Schedule data (Super Excel / Google Sheets access), admin stats page, PDF parsing in Drive
+  indexer, Pi cron for daily re-indexing.
+- Reminder: push via the Pi (GitHub blocked on this laptop); frontend needs a hard refresh on
+  prod unless the cache-bust bump propagates.
