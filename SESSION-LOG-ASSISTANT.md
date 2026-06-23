@@ -910,3 +910,55 @@ THREE options for period-accuracy (all deferred until a real case needs it):
 - DECISION (June 2026): keep holidays on the denominator-reduction model as-is. Do NOT switch
   holidays to hours-logging. (Baja's future option-3 logging, if/when built, does not apply to
   ordinary holidays.)
+
+---
+
+## Session: June 23, 2026 — display fixes, Atlas schedule param, handoff
+
+### Done & live
+1. **days/hours display bug FIXED** (commit 81ce487): for hours-based types (Permiso Retribuido,
+   Visita Médica) the `days` column stores HOURS, but all request tables showed it as "X días"
+   (e.g. an 8h permiso showed "8 días"). Now renders "8h" for hours-based types and "X días"
+   otherwise, in: admin pending table, admin approved table, and teacher's own requests list
+   (via `typeInfo.isHoursBased`). Cache-bust bumped to 20260605e.
+2. **Atlas v44 DEPLOYED + pushed** (commit d11e7e2): 
+   - New `schedule` param on add_punches: JSON {mon:{in,out},tue:{in,out},...} + start_date +
+     end_date → punches a date range with DIFFERENT hours per weekday in ONE call. This fixes
+     Felipe's failure (see below).
+   - Tool-call loop cap raised 3 → 6 (multi-step requests were exhausting it).
+   - Prompt note: NO signup-date restriction on punches — a new teacher CAN punch dates before
+     their registration (e.g. from contract start), within the 180-day MaxPastDays window.
+
+### Root-cause learnings (IMPORTANT for next session)
+- **Felipe "couldn't punch past days" was a MISDIAGNOSIS.** Real cause: he asked to punch a range
+  with 4 different schedules (lun/mié 9:30-14:30, mar/jue 17-21, vie 11:30-14:30, sáb 9:30-13:30).
+  The single-schedule range tool couldn't express that, and 4 tool calls exceeded the 3-iteration
+  loop → Atlas returned "No pude procesar". There is NO past-date/signup restriction; June 8-22
+  is well within 180 days. Fixed via the `schedule` param + loop cap 6 (v44).
+- **DEPLOY GOTCHA (cost a failed deploy):** Do NOT put backticks inside the system-prompt template
+  literal — the `sys` string is delimited by backticks, so writing `schedule` with backticks
+  terminated the string and broke parsing ("Expected a semicolon"). Use single quotes inside the
+  prompt. v44 first attempt failed on this; fixed and redeployed OK.
+
+### STILL PENDING (not done — do next session)
+1. **Punch Felipe's actual request** — NOT done yet. He wanted June 8–22, 2026 with:
+   lun/mié 09:30-14:30, mar/jue 17:00-21:00, vie 11:30-14:30, sáb 09:30-13:30.
+   Now that v44 has the `schedule` param, either: (a) have him ask Atlas again, or (b) insert
+   directly via SQL for his user_id (look up profile by name/email 'felipe'), excluding any
+   school holidays / already-punched days. Note Sat is included in his schedule (days_of_week
+   normally excludes weekends, but `schedule` honors whatever weekday keys are provided).
+2. **Baja Médica UI: support START + END date** — NOT done yet. Currently the teacher form
+   treats Medical as SINGLE-date: in selectHolidayType `endDateGroup` is hidden for Medical, and
+   submitHolidayRequest does `endDate = type==='Medical' ? startDate : ...`. The user wants Baja
+   to have start AND end date. Fix: remove Medical from the single-date special-casing in BOTH
+   places (show endDateGroup for Medical; use the holidayEndDate input). teacher.html/teacher.js.
+
+### Edge Function version history (cont.)
+| Version | Change |
+|---------|--------|
+| v44 | add_punches `schedule` param (per-weekday hours over a range); loop cap 3→6; signup-date clarification in prompt |
+
+### State at handoff
+- Live function = v44 = repo copy (in sync, pushed d11e7e2).
+- Cache-bust at 20260605e.
+- Laptop git: as always, the Pi is source of truth (push via Pi; laptop git lags — see top banner).
