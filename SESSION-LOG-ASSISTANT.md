@@ -1356,3 +1356,41 @@ that were really the baja period. DB-only data change (no code/migration):
 - Kept (outside baja): Jan 24 Personal, Aug 3–23 + Aug 24–26 Annual, Sep 4 Personal (Pending).
 - Medical hours now credit cleanly for the range with no double-count (no overlapping
   Annual/Personal remain inside the baja).
+
+---
+
+## Session: June 25, 2026 (continued — schedule importer built; digest/alert planning)
+
+### Done this session (schedule feature foundation)
+- Validated the **service-account → Sheets API** read path (production mechanism).
+- Full per-tab analysis of the ATLAS copy (30 tabs) → `CHATBOT-SCHEDULE-DESIGN.md`.
+- `scripts/schedule-map.json` (structure map; match by header not index) + `scripts/parse-schedule.js` (cell parser, unit-tested).
+- Migration `schedule_v1_tables`: `schedule_classes/trials/privates/tutorias` + `schedule_sync` + `schedule_changes` (RLS on, read-only authenticated, service-role writes).
+- **`index-schedule` Edge Function deployed + DRY-RUN VALIDATED** against the live sheet:
+  87 classes / 2793 trials / 33 privates / 19 tutorías, zero warnings. Has modifiedTime guard,
+  diff→schedule_changes, schedule_sync log. NOT yet writing (dry-run only).
+- `peek-schedule` introspection function neutralized (410).
+
+### NEXT SESSION — pick up here
+1. **First real populate run** of `index-schedule` (writes). TWEAK FIRST: suppress
+   change-logging when a table starts empty (else first run logs ~2900 "insert" rows as noise).
+2. **Atlas `get_schedule` tool** in class-helper (teacher: "¿qué clases tengo hoy?" → targeted SQL).
+3. **Morning digest email** (Resend) — admin overview to Rocío first: today's classes + trials + recent schedule_changes.
+4. **Coverage-gap alert to ROCÍO, looking TWO WEEKS ahead** (decided): teachers with approved
+   holidays who have classes in the next 14 days → flag "check coverage". Caveat: subs (Sustis)
+   not imported yet (v2), so it's "check coverage" not confirmed-uncovered until then.
+5. **Pi cron**: morning sync → digest/alert (~07:00 Europe/Madrid) + hourly sync backstop.
+
+### BLOCKERS / user to-do before email works
+- Verify `worldclassbcn.com` domain in Resend (SPF/DKIM DNS) so mail can come FROM a school
+  address TO staff. Test sender `onboarding@resend.dev` only reaches the Resend signup address.
+- **ROTATE the Resend API key** (it was shared in plaintext in chat) and add the new key to
+  Supabase Edge Function secrets as `RESEND_API_KEY` (never hardcode/commit it).
+
+### HARDENING
+- `index-schedule` uses a placeholder `SYNC_TOKEN` constant for Pi-cron auth so it could be
+  dry-run tested. Move to a Supabase secret before wiring the real cron.
+
+### Edge function inventory note
+- New: `index-schedule` (v1). `peek-schedule` exists but is neutralized (410) — safe to leave or
+  delete via dashboard (no MCP delete tool).
