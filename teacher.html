@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" href="e.png">
   <link rel="manifest" href="manifest.json">
   <title>WorldClass BCN - Fichaje</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260623a">
+  <link rel="stylesheet" href="css/styles.css?v=20260623b">
 </head>
 <body class="teacher-body">
   <div class="container">
@@ -229,12 +229,8 @@
             <input type="date" class="form-input" id="permisoDate">
           </div>
           <div class="form-group">
-            <label class="form-label">Horas de ausencia (cuentan como trabajadas)</label>
-            <div style="display:flex;gap:12px;align-items:center">
-              <div style="flex:1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Desde</div><input type="time" class="form-input" id="permisoStartTime" value="09:00" onchange="updatePermisoHours()" style="font-size:20px;text-align:center;font-weight:600"></div>
-              <div style="font-size:20px;color:var(--gray-400);padding-top:20px">→</div>
-              <div style="flex:1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Hasta</div><input type="time" class="form-input" id="permisoEndTime" value="17:00" onchange="updatePermisoHours()" style="font-size:20px;text-align:center;font-weight:600"></div>
-            </div>
+            <label class="form-label">Horas trabajadas (cuentan como trabajadas)</label>
+            <input type="number" class="form-input" id="permisoHoursInput" min="0.5" max="24" step="0.5" value="8" onchange="updatePermisoHours()" oninput="updatePermisoHours()" style="font-size:20px;text-align:center;font-weight:600">
             <div id="permisoHoursPreview" style="margin-top:12px;text-align:center;font-size:22px;font-weight:700;color:var(--primary)">8.0h</div>
           </div>
         </div>
@@ -309,7 +305,7 @@
     // Cache-busting: live timestamp on localhost; fixed release version in production.
     // BUMP APP_VERSION on every release so browsers fetch fresh CSS/JS (also update the
     // ?v= on the stylesheet <link> in <head>). Keep these in sync.
-    var APP_VERSION = '20260623a';
+    var APP_VERSION = '20260623b';
     var V = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? '?v=' + Date.now() : '?v=' + APP_VERSION;
     document.write('<script src="js/supabase-config.js'+V+'"><\/script><script src="js/auth.js'+V+'"><\/script><script src="js/teacher.js'+V+'"><\/script><script src="js/chat-widget.js'+V+'"><\/script>');
   </script>

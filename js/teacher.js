@@ -831,15 +831,10 @@ async function submitHolidayRequest() {
     // Permiso Retribuido (Art. 28): motive + date + hours (credited as worked)
     var motive = document.getElementById('permisoMotive').value;
     var pDate = document.getElementById('permisoDate').value;
-    var pStart = document.getElementById('permisoStartTime').value;
-    var pEnd = document.getElementById('permisoEndTime').value;
+    var pHours = parseFloat(document.getElementById('permisoHoursInput').value) || 0;
     if (!motive) { showToast('Selecciona el motivo', 'error'); return; }
     if (!pDate) { showToast('Selecciona la fecha', 'error'); return; }
-    if (!pStart || !pEnd) { showToast('Indica el horario', 'error'); return; }
-    var psh = pStart.split(':').map(Number);
-    var peh = pEnd.split(':').map(Number);
-    var pHours = (peh[0] * 60 + peh[1] - psh[0] * 60 - psh[1]) / 60;
-    if (pHours <= 0) { showToast('El horario fin debe ser posterior', 'error'); return; }
+    if (pHours <= 0) { showToast('Indica las horas trabajadas', 'error'); return; }
     pHours = Math.round(pHours * 10) / 10;
 
     // Contingent check (distinct dates per motive this year)
@@ -864,7 +859,7 @@ async function submitHolidayRequest() {
       days: pHours,
       type: 'Permiso',
       permiso_motive: motive,
-      reason: (motiveDef ? motiveDef.label : motive) + ': ' + pStart + ' → ' + pEnd + (reason ? ' • ' + reason : ''),
+      reason: (motiveDef ? motiveDef.label : motive) + ': ' + pHours + 'h' + (reason ? ' • ' + reason : ''),
       status: 'Pending'
     });
     if (error) { showToast('Error: ' + error.message, 'error'); return; }
@@ -1273,13 +1268,10 @@ function onPermisoMotiveChange() {
 }
 
 function updatePermisoHours() {
-  var s = document.getElementById('permisoStartTime');
-  var e = document.getElementById('permisoEndTime');
+  var inp = document.getElementById('permisoHoursInput');
   var prev = document.getElementById('permisoHoursPreview');
-  if (!s || !e || !prev) return;
-  var sh = (s.value || '0:0').split(':').map(Number);
-  var eh = (e.value || '0:0').split(':').map(Number);
-  var hours = (eh[0] * 60 + eh[1] - sh[0] * 60 - sh[1]) / 60;
+  if (!inp || !prev) return;
+  var hours = parseFloat(inp.value) || 0;
   hours = Math.round(hours * 10) / 10;
   prev.textContent = (hours > 0 ? hours : 0) + 'h';
 }

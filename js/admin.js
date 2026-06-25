@@ -1210,7 +1210,7 @@ async function renderCalendarModal() {
     var cur = new Date(h.start_date + 'T12:00:00');
     var end = new Date(h.end_date + 'T12:00:00');
     while (cur <= end) {
-      teacherHolidayMap[formatDate(cur)] = { type: h.type, reason: h.reason };
+      teacherHolidayMap[formatDate(cur)] = { type: h.type, reason: h.reason, days: h.days };
       cur.setDate(cur.getDate() + 1);
     }
   });
@@ -1298,6 +1298,11 @@ async function renderCalendarModal() {
       html += '<div class="calendar-hours">' + hours.toFixed(1) + 'h</div>';
     } else if (overlayLabel) {
       html += '<div style="font-size:9px;font-weight:600;line-height:1.15;margin-top:2px;max-width:100%;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;word-break:break-word" title="' + overlayLabel + '">' + overlayLabel + '</div>';
+      // Hours-based paid absences (Permiso Retribuido, Visita Médica) store hours in `days`
+      // and count toward the total — surface them on the cell so it's not mistaken for 0h.
+      if (teacherHol && (teacherHol.type === 'Permiso' || teacherHol.type === 'MedAppt') && parseFloat(teacherHol.days) > 0) {
+        html += '<div class="calendar-hours">' + parseFloat(teacherHol.days).toFixed(1) + 'h</div>';
+      }
     }
     html += '</div>';
   }

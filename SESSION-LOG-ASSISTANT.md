@@ -1005,3 +1005,54 @@ Picked up the two items left "NOT done" at the previous handoff.
   indexer, Pi cron for daily re-indexing.
 - Reminder: push via the Pi (GitHub blocked on this laptop); frontend needs a hard refresh on
   prod unless the cache-bust bump propagates.
+
+---
+
+## Session: June 23, 2026 (continued — Permiso Retribuido hours input + calendar display)
+
+User report (viewing PAULA's per-employee calendar modal): P. Retribuido hours "not logged to
+the total," and the input should be a single hours field, not a from/to time range.
+
+### Investigation — where permiso IS credited
+- Verified the dashboard DOES credit Permiso Retribuido hours (stored in `days`):
+  - teacher table (`js/admin.js` ~876), admin-workers table (~1082), and stats grid
+    (~681/694, lumped into `yearlyMedApptHours` via the `MedAppt || Permiso` filter).
+  - `cachedHolidays` is loaded `status='Approved'` only → no pending double-count.
+  - teacher.js `adjustedTotal` also credits `permisoHours`.
+- Paula's 3 approved Permiso records (Apr 7/8/9 = 8+4+8 = 20h) are within range → credited.
+- The ACTUAL visible gap: the **per-employee calendar modal day cells** only printed hours
+  when a day had punches. Permiso/MedAppt days (no punches) showed just the label
+  ("📋 P. Retribuido") with NO hours → looked like 0h / uncounted, even though the total
+  includes them. That mismatch is what triggered the report.
+- (XLS export at ~3231 still omits medAppt+permiso — pre-existing, intentionally deferred,
+  left as-is. Noted for later.)
+
+### Fix 1 — calendar modal now shows hours on hours-based absence days (`js/admin.js`)
+- `teacherHolidayMap` now carries `days`.
+- In the no-punch overlay branch, for `Permiso` / `MedAppt` days with `days > 0`, render a
+  `calendar-hours` line (e.g. "8.0h") under the label. Now the calendar visually reflects the
+  credited hours, matching the dashboard total.
+
+### Fix 2 — Permiso form: single "hours worked" input instead of Desde/Hasta time range
+- `teacher.html`: replaced the two `<input type="time">` (permisoStartTime/permisoEndTime) with
+  one `<input type="number" id="permisoHoursInput" min=0.5 max=24 step=0.5 value=8>`; live
+  preview kept.
+- `js/teacher.js`:
+  - `updatePermisoHours()` reads the number input directly.
+  - submit branch reads `pHours` from `permisoHoursInput` (was computed from start/end times);
+    validation "Indica las horas trabajadas"; `reason` now records `"<motivo>: Xh"`.
+- No leftover references to the removed time inputs (grep clean). `node --check` clean on both
+  teacher.js and admin.js.
+
+### Cache-bust
+- Bumped 20260623a → 20260623b (index/teacher/admin .html + CSS links).
+
+### Files modified
+- `js/teacher.js`, `teacher.html` — single hours input for Permiso
+- `js/admin.js` — calendar modal shows hours on Permiso/MedAppt days
+- `index.html`, `teacher.html`, `admin.html` — cache-bust 20260623b
+
+### Note
+- Storage unchanged: Permiso hours still stored in `holiday_requests.days`. Existing records
+  (incl. Paula's) are unaffected and already credited. Atlas (`request_holiday`) is a separate
+  path and already takes hours directly — no change needed there.
