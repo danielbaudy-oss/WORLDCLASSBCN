@@ -897,7 +897,8 @@ async function loadTeachersTable() {
 
       var status = getProgressStatus(progressPercent);
 
-      // Medical hours display for period
+      // Period credited hours — keep "Horas Semana/Mes" consistent with "Horas Totales"
+      // (worked - paid + medical + medAppt + permiso), bounded to the displayed period.
       var periodMedicalHours = 0;
       userMedical.forEach(function(h) {
         // Check if medical request overlaps with period
@@ -910,13 +911,34 @@ async function loadTeachersTable() {
       });
       periodMedicalHours = Math.round(periodMedicalHours * 10) / 10;
 
-      var medicalInline = periodMedicalHours > 0
-        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">🏥 incl. ' + periodMedicalHours.toFixed(1) + 'h méd.</div>'
+      // MedAppt + Permiso Retribuido hours within the period (hours stored in `days`)
+      var periodMedApptHours = 0, periodPermisoHours = 0;
+      cachedHolidays.filter(function(h) { return h.user_id === t.id && (h.type === 'MedAppt' || h.type === 'Permiso'); }).forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= periodRange.start && hDate <= periodRange.end) {
+          if (h.type === 'MedAppt') periodMedApptHours += parseFloat(h.days) || 0;
+          else periodPermisoHours += parseFloat(h.days) || 0;
+        }
+      });
+      var periodPaidHours = 0;
+      userPaidHours.forEach(function(ph) {
+        var phDate = ph.date || '';
+        if (phDate >= periodRange.start && phDate <= periodRange.end) periodPaidHours += parseFloat(ph.hours) || 0;
+      });
+      var adjustedPeriodHours = Math.round((periodHours - periodPaidHours + periodMedicalHours + periodMedApptHours + periodPermisoHours) * 10) / 10;
+
+      var periodCreditParts = [
+        periodMedicalHours > 0 ? '🏥 ' + periodMedicalHours.toFixed(1) + 'h' : '',
+        periodMedApptHours > 0 ? '⚕️ ' + periodMedApptHours.toFixed(1) + 'h' : '',
+        periodPermisoHours > 0 ? '📋 ' + periodPermisoHours.toFixed(1) + 'h' : ''
+      ].filter(Boolean);
+      var medicalInline = periodCreditParts.length
+        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">incl. ' + periodCreditParts.join(' · ') + '</div>'
         : '';
 
       return '<tr onclick="if(typeof openEditTeacherModal===\'function\')openEditTeacherModal(\'' + t.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + t.name + '</div><div class="teacher-email">' + (t.email || '') + '</div></td>' +
-        '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span></td>' +
+        '<td><span class="hours-badge">' + adjustedPeriodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
         '<td>' + totalHours.toFixed(1) + 'h</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
@@ -1088,7 +1110,8 @@ async function loadAdminWorkersTable() {
 
       var status = getProgressStatus(progressPercent);
 
-      // Period medical hours
+      // Period credited hours — consistent with "Horas Totales" (worked - paid + medical +
+      // medAppt + permiso), bounded to the displayed period.
       var periodMedicalHours = 0;
       userMedical.forEach(function(h) {
         var overlapStart = h.start_date > periodRange.start ? h.start_date : periodRange.start;
@@ -1100,13 +1123,33 @@ async function loadAdminWorkersTable() {
       });
       periodMedicalHours = Math.round(periodMedicalHours * 10) / 10;
 
-      var medicalInline = periodMedicalHours > 0
-        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">🏥 incl. ' + periodMedicalHours.toFixed(1) + 'h méd.</div>'
+      var periodMedApptHours = 0, periodPermisoHours = 0;
+      cachedHolidays.filter(function(h) { return h.user_id === a.id && (h.type === 'MedAppt' || h.type === 'Permiso'); }).forEach(function(h) {
+        var hDate = h.start_date || '';
+        if (hDate >= periodRange.start && hDate <= periodRange.end) {
+          if (h.type === 'MedAppt') periodMedApptHours += parseFloat(h.days) || 0;
+          else periodPermisoHours += parseFloat(h.days) || 0;
+        }
+      });
+      var periodPaidHours = 0;
+      cachedPaidHours.filter(function(ph) { return ph.user_id === a.id; }).forEach(function(ph) {
+        var phDate = ph.date || '';
+        if (phDate >= periodRange.start && phDate <= periodRange.end) periodPaidHours += parseFloat(ph.hours) || 0;
+      });
+      var adjustedPeriodHours = Math.round((periodHours - periodPaidHours + periodMedicalHours + periodMedApptHours + periodPermisoHours) * 10) / 10;
+
+      var periodCreditParts = [
+        periodMedicalHours > 0 ? '🏥 ' + periodMedicalHours.toFixed(1) + 'h' : '',
+        periodMedApptHours > 0 ? '⚕️ ' + periodMedApptHours.toFixed(1) + 'h' : '',
+        periodPermisoHours > 0 ? '📋 ' + periodPermisoHours.toFixed(1) + 'h' : ''
+      ].filter(Boolean);
+      var medicalInline = periodCreditParts.length
+        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">incl. ' + periodCreditParts.join(' · ') + '</div>'
         : '';
 
       return '<tr onclick="if(typeof openEditAdminModal===\'function\')openEditAdminModal(\'' + a.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + a.name + '</div><div class="teacher-email">' + (a.email || '') + '</div></td>' +
-        '<td><span class="hours-badge">' + periodHours.toFixed(1) + 'h</span></td>' +
+        '<td><span class="hours-badge">' + adjustedPeriodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
         '<td>' + totalHours.toFixed(1) + 'h</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
@@ -3246,6 +3289,28 @@ async function exportCSV() {
       if (hDate >= yearStart && hDate <= cutoffDate) permisoHours += parseFloat(h.days) || 0;
     });
 
+    // Period-bounded credited hours so "H. Periodo" matches the dashboard period column.
+    var periodMedicalHours = 0;
+    userMedical.forEach(function(h) {
+      var oS = h.start_date > periodRange.start ? h.start_date : periodRange.start;
+      var oE = h.end_date < periodRange.end ? h.end_date : periodRange.end;
+      if (oS <= oE) periodMedicalHours += countWorkingDays(oS, oE, schoolHolidayDates) * hoursPerWorkingDay;
+    });
+    var periodMedApptHours = 0, periodPermisoHours = 0;
+    approvedHolidays.filter(function(h) { return h.user_id === p.id && (h.type === 'MedAppt' || h.type === 'Permiso'); }).forEach(function(h) {
+      var hDate = h.start_date || '';
+      if (hDate >= periodRange.start && hDate <= periodRange.end) {
+        if (h.type === 'MedAppt') periodMedApptHours += parseFloat(h.days) || 0;
+        else periodPermisoHours += parseFloat(h.days) || 0;
+      }
+    });
+    var periodPaidHours = 0;
+    userPaid.forEach(function(ph) {
+      var phDate = ph.date || '';
+      if (phDate >= periodRange.start && phDate <= periodRange.end) periodPaidHours += parseFloat(ph.hours) || 0;
+    });
+    var adjustedPeriod = periodHours - periodPaidHours + periodMedicalHours + periodMedApptHours + periodPermisoHours;
+
     var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
     var expectedToDate = expectedYearly * progress.progressRatio;
     var pct = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
@@ -3266,14 +3331,14 @@ async function exportCSV() {
       else if (h.type === 'MedAppt') ma += d; else if (h.type === 'Permiso') pe += d;
     });
 
-    totals.period += periodHours; totals.total += totalHours; totals.paid += paidTotal; totals.medical += medicalHours;
+    totals.period += adjustedPeriod; totals.total += totalHours; totals.paid += paidTotal; totals.medical += medicalHours;
     var rc = isAdmin ? 'adm' : 'prof';
 
     html += '<tr>' +
       '<td class="' + rc + ' num">' + (isAdmin ? 'Admin' : 'Profesor') + '</td>' +
       '<td class="' + rc + '">' + (p.name || '') + '</td>' +
       '<td class="' + rc + '">' + (p.email || '') + '</td>' +
-      '<td class="' + rc + ' num">' + periodHours.toFixed(2) + '</td>' +
+      '<td class="' + rc + ' num">' + adjustedPeriod.toFixed(2) + '</td>' +
       '<td class="' + rc + ' num">' + totalHours.toFixed(2) + '</td>' +
       '<td class="' + rc + ' num">' + paidTotal.toFixed(2) + '</td>' +
       '<td class="' + rc + ' num">' + (medicalHours > 0 ? medicalHours.toFixed(2) : '') + '</td>' +

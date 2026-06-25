@@ -1185,3 +1185,34 @@ Implemented the two cheap safeguards instead of a queue:
 - `js/chat-widget.js` (429 shows server message, both send + sendSilent)
 - `supabase/migrations/20260625133004_unique_in_out_punches.sql` (NEW)
 - `index.html`, `teacher.html`, `admin.html` — cache-bust 20260625b
+
+---
+
+## Session: June 25, 2026 (continued — period column didn't credit Permiso)
+
+### Symptom
+Weekly view (Sem 15: 6–12 abr), PAULA: "Horas Semana" showed 8.0h but should be 28h (8h worked
++ 20h Permiso Retribuido that week). "Horas Totales" was already correct (credits permiso).
+
+### Cause
+The period column ("Horas Semana/Mes") displayed RAW `periodHours` (punches only). Only the
+yearly "Horas Totales" credited medical/medAppt/permiso. The teacher/admin tables even computed
+a `medicalInline` note but it was never rendered (dead var) — so period showed worked-only.
+
+### Fix (js/admin.js) — make the period column consistent with Horas Totales
+Added period-bounded credited hours (medical working-day estimate + MedAppt + Permiso stored
+hours, minus period paid) in all three remaining sites and displayed the adjusted value:
+- **Teacher table**: `adjustedPeriodHours = periodHours - periodPaid + periodMedical +
+  periodMedAppt + periodPermiso`; badge now shows that, with a small "incl. 🏥/⚕️/📋 Xh" note.
+- **Admin table**: same.
+- **XLS export "H. Periodo"** column + period total now use `adjustedPeriod` (matches dashboard).
+- Stats-grid overview already credited permiso in its period calc (unchanged).
+Paula Sem 15 now reads 8 + (8+4+8) = 28.0h.
+
+### Cache-bust
+- 20260625b → 20260625c. node --check admin.js clean.
+
+### Files
+- `js/admin.js` (period column credits medical/medAppt/permiso in teacher table, admin table,
+  and XLS export)
+- `index.html`, `teacher.html`, `admin.html` — cache-bust 20260625c
