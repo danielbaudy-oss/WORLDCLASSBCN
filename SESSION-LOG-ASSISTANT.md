@@ -1338,3 +1338,21 @@ holiday_requests hr`, the bare `reason` matched BOTH the function parameter and 
 
 ### Files
 - `supabase/migrations/20260625211020_fix_delete_holiday_reason_ambiguous.sql` (NEW)
+
+---
+
+## Session: June 25, 2026 (continued — Lourdes baja Apr 27 → Jun 15, data fix)
+
+After fixing the delete RPC, recorded Lourdes's (1f143537…) baja médica and removed the holidays
+that were really the baja period. DB-only data change (no code/migration):
+- Extended her existing Apr 27 Medical ("Lesión", 6571760d) → end_date 2026-06-15, days=36,
+  reason "Baja médica (lesión)". This is the single Baja Médica Apr 27–Jun 15.
+- Deleted superseded records (all logged in audit_log; values kept here for reversibility):
+  - c56f857d — Medical Apr 27 (Approved, empty) — duplicate of the baja start.
+  - 17224808 — Medical Apr 27 (Rejected, empty).
+  - 8366dddb — Personal Apr 28 (Approved) — within baja.
+  - a2cea760 — Annual May 18–24 (Approved, "Vacaciones") — within baja; deletion returns the
+    vacation days to her balance (can be rescheduled later, per baja-interrupts-vacation rule).
+- Kept (outside baja): Jan 24 Personal, Aug 3–23 + Aug 24–26 Annual, Sep 4 Personal (Pending).
+- Medical hours now credit cleanly for the range with no double-count (no overlapping
+  Annual/Personal remain inside the baja).
