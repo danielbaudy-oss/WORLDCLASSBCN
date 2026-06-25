@@ -1216,3 +1216,37 @@ Paula Sem 15 now reads 8 + (8+4+8) = 28.0h.
 - `js/admin.js` (period column credits medical/medAppt/permiso in teacher table, admin table,
   and XLS export)
 - `index.html`, `teacher.html`, `admin.html` — cache-bust 20260625c
+
+---
+
+## Session: June 25, 2026 (continued — view navigation continuity)
+
+Two UX requests on the admin "Todos los Profesores" overview (js/admin.js):
+
+### 1. Monthly → Semanal jumps to the FIRST week of the viewed month
+- `setHoursViewMode('weekly')` used to reset `weekOffset = 0` (current week). Now it sets
+  `weekOffset = weekOffsetForFirstWeekOfMonth(monthOffset)` so switching from a selected month
+  to weekly lands on that month's first week (the week containing the 1st), not the current one.
+- New helper `weekOffsetForFirstWeekOfMonth(monthOff)`: computes the offset (in weeks from the
+  current week) of the Monday of the week containing the 1st of the target month; clamped to
+  <= 0 (never a future week).
+
+### 2. "📅 Calendario" pre-selects the viewed month
+- `openCalendarModal` used to force `calendarMonthOffset = 0` (current month). Now it uses
+  `calendarOffsetForCurrentView()`:
+  - Monthly mode → the viewed month (`monthOffset`).
+  - Weekly mode → the month that owns the viewed week (ISO Thursday of the week).
+  - Clamped to <= 0 so it never opens on a future month (handles the current-week-straddling-
+    into-next-month edge case).
+
+### Notes
+- Both helpers use `function` declarations (hoisted), so `setHoursViewMode` (defined earlier)
+  can call them. node --check clean.
+- Only the per-employee calendar modal (the 📅 button) was changed; the Vacaciones overview
+  calendar is untouched.
+
+### Cache-bust
+- 20260625c → 20260625d.
+
+### Files
+- `js/admin.js`, `index.html`, `teacher.html`, `admin.html`

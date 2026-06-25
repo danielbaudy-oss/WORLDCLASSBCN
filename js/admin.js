@@ -203,7 +203,9 @@ document.addEventListener('click', function(e) {
 
 function setHoursViewMode(mode) {
   viewMode = mode;
-  if (mode === 'weekly') weekOffset = 0;
+  // When switching to weekly, jump to the FIRST week of the currently-viewed month
+  // (not the current week), so monthly -> semanal keeps the same month context.
+  if (mode === 'weekly') weekOffset = weekOffsetForFirstWeekOfMonth(monthOffset);
 
   // Update all toggle buttons across both tabs
   document.querySelectorAll('.toggle-btn').forEach(function(btn) {
@@ -1180,6 +1182,39 @@ var calendarUserId = null;
 var calendarUserName = '';
 var calendarMonthOffset = 0;
 
+// weekOffset (relative to the current week) for the week that contains the 1st of the
+// month that is `monthOff` months from the current month. Never returns a future offset.
+function weekOffsetForFirstWeekOfMonth(monthOff) {
+  var now = new Date();
+  var day = now.getDay();
+  var diff = day === 0 ? -6 : 1 - day;
+  var currentMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+  currentMonday.setHours(0, 0, 0, 0);
+
+  var firstOfMonth = new Date(now.getFullYear(), now.getMonth() + monthOff, 1);
+  var fday = firstOfMonth.getDay();
+  var fdiff = fday === 0 ? -6 : 1 - fday;
+  var targetMonday = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), firstOfMonth.getDate() + fdiff);
+  targetMonday.setHours(0, 0, 0, 0);
+
+  var off = Math.round((targetMonday.getTime() - currentMonday.getTime()) / (7 * 86400000));
+  return off > 0 ? 0 : off;
+}
+
+// calendarMonthOffset (months from current month) matching the currently-viewed period:
+// the viewed month in monthly mode, or the month that owns the viewed week (ISO Thursday)
+// in weekly mode. Clamped to <= 0 so it never opens on a future month.
+function calendarOffsetForCurrentView() {
+  var now = new Date();
+  var curIdx = now.getFullYear() * 12 + now.getMonth();
+  if (viewMode === 'monthly') return monthOffset;
+  var wr = getWeekRange();
+  var monday = new Date(wr.start + 'T12:00:00');
+  var thursday = new Date(monday); thursday.setDate(monday.getDate() + 3);
+  var tgtIdx = thursday.getFullYear() * 12 + thursday.getMonth();
+  return Math.min(0, tgtIdx - curIdx);
+}
+
 // Refresh the background stats + employee tables after an admin punch CRUD action
 // in the calendar modal, so Total/progress columns don't go stale. Modal stays open.
 function refreshTablesAfterPunchChange() {
@@ -1193,7 +1228,9 @@ function refreshTablesAfterPunchChange() {
 async function openCalendarModal(userId, userName) {
   calendarUserId = userId;
   calendarUserName = userName;
-  calendarMonthOffset = 0;
+  // Pre-select the month being viewed (monthly), or the month of the viewed week (weekly),
+  // instead of always defaulting to the current month.
+  calendarMonthOffset = calendarOffsetForCurrentView();
   await renderCalendarModal();
 }
 
