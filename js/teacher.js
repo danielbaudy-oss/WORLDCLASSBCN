@@ -834,7 +834,7 @@ async function submitHolidayRequest() {
     var pHours = parseFloat(document.getElementById('permisoHoursInput').value) || 0;
     if (!motive) { showToast('Selecciona el motivo', 'error'); return; }
     if (!pDate) { showToast('Selecciona la fecha', 'error'); return; }
-    if (pHours <= 0) { showToast('Indica las horas trabajadas', 'error'); return; }
+    if (pHours <= 0) { showToast('Indica las horas previstas ese día', 'error'); return; }
     pHours = Math.round(pHours * 10) / 10;
 
     // Contingent check (distinct dates per motive this year)

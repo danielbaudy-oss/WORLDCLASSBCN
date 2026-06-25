@@ -1056,3 +1056,34 @@ the total," and the input should be a single hours field, not a from/to time ran
 - Storage unchanged: Permiso hours still stored in `holiday_requests.days`. Existing records
   (incl. Paula's) are unaffected and already credited. Atlas (`request_holiday`) is a separate
   path and already takes hours directly — no change needed there.
+
+---
+
+## Session: June 23, 2026 (continued — XLS export total + Permiso label wording)
+
+### 1. XLS export "H. Totales" now credits MedAppt + Permiso (matches dashboard)
+- The audit/hours XLS export (`js/admin.js`, ~3237) computed
+  `totalHours = yearlyHours - paidTotal + medicalHours` — omitting Visita Médica and Permiso
+  Retribuido hours, so the exported total diverged from the on-screen dashboard total.
+- Added period-bounded `medApptHours` + `permisoHours` (approved, `days` within
+  yearStart→cutoffDate — identical logic to the teacher/admin tables) and changed the export
+  to `yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours`.
+- The Vis.Méd / Permiso day-count columns are unchanged; only the totals column now reconciles
+  with the dashboard. (This was the last remaining calc site that didn't credit them.)
+
+### 2. Permiso input relabeled to reflect EXPECTED hours (not actually worked)
+- The permiso time isn't worked; we credit the hours the person WOULD have been expected to
+  work that day. Relabeled the field "Horas trabajadas" → **"Horas previstas ese día (cuentan
+  como trabajadas)"** (`teacher.html`), and the validation toast to "Indica las horas previstas
+  ese día" (`js/teacher.js`). Storage/credit behavior unchanged (still `days` = hours).
+
+### Cache-bust
+- 20260623b → 20260623c (index/teacher/admin .html + CSS links).
+
+### Files modified
+- `js/admin.js` — XLS export totals credit medAppt + permiso
+- `teacher.html`, `js/teacher.js` — Permiso "Horas previstas ese día" wording
+- `index.html`, `teacher.html`, `admin.html` — cache-bust 20260623c
+
+### node --check
+- admin.js + teacher.js both clean.

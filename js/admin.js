@@ -3233,7 +3233,20 @@ async function exportCSV() {
       if (medStart <= medEnd) medicalHours += countWorkingDays(medStart, medEnd, schoolHolidayDates) * hoursPerWorkingDay;
     });
 
-    var totalHours = yearlyHours - paidTotal + medicalHours;
+    // Hours-based paid absences credited as worked (same as the dashboard total):
+    // Visita Médica + Permiso Retribuido, hours stored in `days`, bounded by the cutoff.
+    var medApptHours = 0;
+    approvedHolidays.filter(function(h) { return h.user_id === p.id && h.type === 'MedAppt'; }).forEach(function(h) {
+      var hDate = h.start_date || '';
+      if (hDate >= yearStart && hDate <= cutoffDate) medApptHours += parseFloat(h.days) || 0;
+    });
+    var permisoHours = 0;
+    approvedHolidays.filter(function(h) { return h.user_id === p.id && h.type === 'Permiso'; }).forEach(function(h) {
+      var hDate = h.start_date || '';
+      if (hDate >= yearStart && hDate <= cutoffDate) permisoHours += parseFloat(h.days) || 0;
+    });
+
+    var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
     var expectedToDate = expectedYearly * progress.progressRatio;
     var pct = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
     var pctClass = pct >= 98 ? 'on-track' : pct >= 80 ? 'warning' : 'behind';
