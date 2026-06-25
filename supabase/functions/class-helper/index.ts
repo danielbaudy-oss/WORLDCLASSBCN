@@ -54,6 +54,19 @@ function isRealDriveId(id: string): boolean {
   return /^1[a-zA-Z0-9_-]{10,}$/.test(id);
 }
 
+// Retry Gemini calls on transient rate-limit / overload responses with exponential backoff.
+async function fetchWithRetry(url: string, options: any, maxRetries = 2): Promise<Response> {
+  let res = await fetch(url, options);
+  let attempt = 0;
+  while ((res.status === 429 || res.status === 503) && attempt < maxRetries) {
+    const wait = 800 * Math.pow(2, attempt); // 800ms, then 1600ms
+    await new Promise(r => setTimeout(r, wait));
+    res = await fetch(url, options);
+    attempt++;
+  }
+  return res;
+}
+
 // Generate dates between start and end, filtered by allowed days of week and excluding holidays
 function generateDatesForRange(startDate: string, endDate: string, allowedDays: number[], holidayDates: Set<string>): string[] {
   const dates: string[] = [];
@@ -105,7 +118,7 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     return { periodo: `${s} a ${e}`, horas_totales: Math.round(tot*100)/100, dias_trabajados: Object.keys(byD).length };
   }
   if (name === "search_materials") {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: `models/${EMBEDDING_MODEL}`, content: { parts: [{ text: args.query }] } }) });
+    const r = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: `models/${EMBEDDING_MODEL}`, content: { parts: [{ text: args.query }] } }) });
     if (!r.ok) return { message: "Error en búsqueda" };
     const emb = await r.json();
     const { data } = await db.rpc("search_materials", { query_embedding: `[${emb.embedding.values.join(",")}]`, match_threshold: 0.45, match_count: 5 });
@@ -456,8 +469,13 @@ Fichajes (add_punches):
     const contents: any[] = history.slice(-10).map((m: any) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] }));
     contents.push({ role: "user", parts: [{ text: message }] });
     let sourcesUsed: string[] = [];
-    let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: { function_calling_config: { mode: "AUTO" } } }) });
-    if (!res.ok) { return new Response(JSON.stringify({ error: "No disponible" }), { status: 502, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }); }
+    let res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: { function_calling_config: { mode: "AUTO" } } }) });
+    if (!res.ok) {
+      const msg = res.status === 429
+        ? "Uf, ahora mismo estoy saturada 😅 Prueba otra vez en unos segundos, porfa."
+        : "No disponible";
+      return new Response(JSON.stringify({ error: msg }), { status: res.status === 429 ? 429 : 502, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    }
     let data = await res.json();
     let needsConfirmation = false;
     let dataChanged = false;
@@ -477,7 +495,7 @@ Fichajes (add_punches):
       }
       contents.push({ role: "model", parts: data.candidates[0].content.parts });
       contents.push({ role: "user", parts: [{ functionResponse: { name: fc.functionCall.name, response: { content: result } } }] });
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: { function_calling_config: { mode: "AUTO" } } }) });
+      res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: { function_calling_config: { mode: "AUTO" } } }) });
       if (!res.ok) break;
       data = await res.json();
     }

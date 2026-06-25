@@ -1141,3 +1141,47 @@ correctly once the user typed sí — verified in DB: Jun 22 & 23, days=4, motiv
 - `supabase/functions/class-helper/index.ts` (v46 prompt: forced tool-call confirmation flow)
 - `js/chat-widget.js` (fallback matches "¿Confirmo")
 - `index.html`, `teacher.html`, `admin.html` — cache-bust 20260625a
+
+---
+
+## Session: June 25, 2026 (continued — concurrency hardening: 429 backoff + dup-punch guard)
+
+User asked how Atlas handles concurrent requests (knowledge/read/write) on a single Gemini key
+— queue? throttle? Conclusion: NO queue needed. Edge Functions auto-scale (isolated per
+request) and Postgres handles concurrent reads/writes; the only shared resource is the Gemini
+key's rate limit (RPM/TPM). At ~30 teachers capped 20 msg/day, load is far below Tier 1
+(~150-300 RPM, 250K+ TPM as of early 2026). The per-user daily cap is already the throttle.
+Implemented the two cheap safeguards instead of a queue:
+
+### 1. Gemini 429/503 backoff (Edge Function v47)
+- New `fetchWithRetry(url, options, maxRetries=2)` helper: retries on 429/503 with exponential
+  backoff (800ms, 1600ms). Wired into all THREE Gemini calls: search_materials embedding,
+  initial generateContent, and the tool-loop generateContent.
+- On a final 429 the function now returns a friendly Spanish message ("Uf, ahora mismo estoy
+  saturada 😅 Prueba otra vez...") with status 429 instead of the generic 502 "No disponible".
+- Frontend (`js/chat-widget.js`): the 429 branch now shows the SERVER's error message (was a
+  hardcoded "Límite diario alcanzado (50 mensajes)" — wrong number AND wrong reason for a rate
+  limit). Now both the daily-limit 429 and the rate-limit 429 display their correct text.
+  Same fix applied to the sendSilent (confirm-button) path.
+
+### 2. Duplicate-punch guard (DB constraint, migration 20260625133004)
+- The real write race is ONE user double-confirming (two taps/devices) in the window of the
+  date-only "already punched" check. Added a PARTIAL unique index:
+  `time_punches_unique_in_out` ON (user_id, date, time, punch_type) WHERE punch_type IN
+  ('IN','OUT'). PREP excluded (it legitimately shares date+time 00:00:00, keyed by notes).
+- Cleaned the ONE pre-existing real dup first: FELIPE... no — user f1d43fa7 had IN 09:00 +
+  OUT 15:00 + OUT 15:00 (created 6 min apart) on 2026-06-12. Deleted the later duplicate OUT
+  (doesn't change the calc: one IN pairs with one OUT). The 3 PREP "dups" are fine (excluded).
+- add_punches already does `if (e1/e2) continue;` on insert errors, so a constraint violation
+  in a race just skips that day gracefully (no crash, no orphan — e1 skips the whole day).
+- Local migration file created to mirror the DB (no drift).
+
+### Deploy / cache-bust
+- class-helper v46 → v47 (build OK, ACTIVE, verify_jwt=false, logs clean). Repo == live.
+- Cache-bust 20260625a → 20260625b.
+
+### Files
+- `supabase/functions/class-helper/index.ts` (v47: fetchWithRetry + friendly 429)
+- `js/chat-widget.js` (429 shows server message, both send + sendSilent)
+- `supabase/migrations/20260625133004_unique_in_out_punches.sql` (NEW)
+- `index.html`, `teacher.html`, `admin.html` — cache-bust 20260625b

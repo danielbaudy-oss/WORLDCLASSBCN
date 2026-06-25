@@ -589,7 +589,8 @@
       removeTyping();
 
       if (response.status === 429) {
-        addMsg('Límite diario alcanzado (50 mensajes). Inténtalo mañana.', 'error');
+        const err = await response.json().catch(() => ({}));
+        addMsg(err.error || 'Has alcanzado tu límite diario. Inténtalo mañana.', 'error');
       } else if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         addMsg(err.error || 'Atlas no disponible.', 'error');
@@ -688,7 +689,8 @@
       removeTyping();
 
       if (!response.ok) {
-        addMsg('Error al procesar.', 'error');
+        const err = await response.json().catch(() => ({}));
+        addMsg(err.error || 'Error al procesar.', 'error');
       } else {
         const data = await response.json();
         conversationHistory.push({ role: 'assistant', content: data.response });
