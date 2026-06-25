@@ -1199,7 +1199,6 @@ function selectHolidayType(btn, type) {
 
   if (type === 'Permiso') {
     populatePermisoMotives();
-    updatePermisoHours();
   }
 
   // End-date field shown for all day-based types (Annual, Personal, Medical, PermisoNoRet)
@@ -1265,15 +1264,6 @@ function onPermisoMotiveChange() {
   } else {
     infoEl.textContent = 'Sin límite fijo: ' + (m.note || 'tiempo indispensable') + '.';
   }
-}
-
-function updatePermisoHours() {
-  var inp = document.getElementById('permisoHoursInput');
-  var prev = document.getElementById('permisoHoursPreview');
-  if (!inp || !prev) return;
-  var hours = parseFloat(inp.value) || 0;
-  hours = Math.round(hours * 10) / 10;
-  prev.textContent = (hours > 0 ? hours : 0) + 'h';
 }
 
 function updateMedApptHours() {

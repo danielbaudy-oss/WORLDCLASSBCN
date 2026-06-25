@@ -1087,3 +1087,13 @@ the total," and the input should be a single hours field, not a from/to time ran
 
 ### node --check
 - admin.js + teacher.js both clean.
+
+---
+
+## Session: June 23, 2026 (continued — removed redundant Permiso hours preview)
+
+- With the explicit number input, the "X.Xh" live preview (`#permisoHoursPreview`) was
+  redundant. Removed it from `teacher.html`, removed the now-dead `updatePermisoHours()`
+  function and its call in `selectHolidayType` (`js/teacher.js`). Input no longer has
+  onchange/oninput handlers. node --check clean.
+- Cache-bust 20260623c → 20260623d.
