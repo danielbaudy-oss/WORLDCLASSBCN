@@ -1314,3 +1314,27 @@ Request: in Semanal view, "Progreso Anual" column should become "Progreso Semana
 
 ### Files
 - `admin.html`, `js/admin.js`, `index.html`, `teacher.html`
+
+---
+
+## Session: June 25, 2026 (continued — fix "column reference reason is ambiguous" on holiday delete)
+
+### Symptom
+Deleting a holiday request (e.g. Lourdes, to replace with a baja) failed with:
+`Error: column reference "reason" is ambiguous`.
+
+### Cause
+`delete_holiday_with_reason(request_id uuid, reason text)`: in the
+`INSERT INTO audit_log ... SELECT ... jsonb_build_object('deletion_reason', reason) FROM
+holiday_requests hr`, the bare `reason` matched BOTH the function parameter and the
+`holiday_requests.reason` column → ambiguous, so the delete threw every time.
+(`delete_punch_with_reason` is NOT affected — `time_punches` has no `reason` column.)
+
+### Fix (migration 20260625211020_fix_delete_holiday_reason_ambiguous)
+- Copy the param into a local `v_reason text := reason;` and use `v_reason` in the SELECT;
+  also qualified `hr.id::text`. Parameter name kept as `reason` → frontend rpc call unchanged
+  (no JS change needed). Applied via MCP + mirrored to a local migration file.
+- Admin can now delete holiday requests with a reason again.
+
+### Files
+- `supabase/migrations/20260625211020_fix_delete_holiday_reason_ambiguous.sql` (NEW)
