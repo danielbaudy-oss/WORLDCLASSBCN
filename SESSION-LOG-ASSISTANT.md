@@ -1260,3 +1260,30 @@ Two UX requests on the admin "Todos los Profesores" overview (js/admin.js):
   `weekOffset = monthOffset === 0 ? 0 : weekOffsetForFirstWeekOfMonth(monthOffset)`.
 - Cache-bust 20260625d → 20260625e. node --check clean.
 - Files: js/admin.js, index/teacher/admin .html
+
+---
+
+## Session: June 25, 2026 (continued — search filter lost on view/period change)
+
+### Symptom
+Typed a name in the teacher/admin search box, then switched semanal↔mensual (or changed
+month/week): the search text stayed in the box but the table showed ALL rows again.
+
+### Cause
+`filterTeachers`/`filterAdmins` only toggle row `display` on the CURRENT rows. Any table reload
+(`loadTeachersTable`/`loadAdminWorkersTable`, triggered by view toggle, month/week nav, or data
+refresh) rebuilds the `<tbody>` rows fresh (all visible), and the filter was never reapplied.
+The search `<input>` itself isn't re-rendered, so its value persisted but had no effect.
+
+### Fix (js/admin.js)
+After `tbody.innerHTML = rows.join('')` in BOTH table loaders, reapply the active filter by
+reading the (still-populated) search input and calling filter again:
+- teachers: `filterTeachers(document.getElementById('teacherSearch').value)`
+- admins: `filterAdmins(document.getElementById('adminSearchInput').value)`
+Covers every re-render path automatically (no need to touch each caller). node --check clean.
+
+### Cache-bust
+- 20260625e → 20260625f.
+
+### Files
+- `js/admin.js`, `index.html`, `teacher.html`, `admin.html`

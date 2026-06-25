@@ -956,6 +956,10 @@ async function loadTeachersTable() {
 
     tbody.innerHTML = rows.join('');
 
+    // Re-apply the active search filter (rows were just re-rendered)
+    var teacherSearchEl = document.getElementById('teacherSearch');
+    if (teacherSearchEl && teacherSearchEl.value) filterTeachers(teacherSearchEl.value);
+
   } catch (err) {
     console.error('Error loading teachers table:', err);
     tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Error al cargar datos</td></tr>';
@@ -1164,6 +1168,10 @@ async function loadAdminWorkersTable() {
     });
 
     tbody.innerHTML = rows.join('');
+
+    // Re-apply the active search filter (rows were just re-rendered)
+    var adminSearchEl = document.getElementById('adminSearchInput');
+    if (adminSearchEl && adminSearchEl.value) filterAdmins(adminSearchEl.value);
 
   } catch (err) {
     console.error('Error loading admin workers table:', err);
