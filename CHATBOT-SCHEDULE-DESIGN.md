@@ -211,3 +211,61 @@ HAVING SUM(c.hours_per_week) + 20 <= p.expected_yearly_hours / 47
 | open_until | time | Latest available time |
 
 This table gets populated from the column headers in "Salas Raval" and "Salas Glories" sheets.
+
+
+---
+
+## Real Sheet Findings (June 25, 2026) — read live via service account + Sheets API
+
+Source: "ATLAS of Super excel 25-26" (copy), id `14IJWB6FZ79TnVF1jnkREJN9yJNFCot0AWRlNlvOqZNU`,
+shared with the service account `worldclass-assistant@worldclass-bcn.iam.gserviceaccount.com`.
+Read works via the SAME service-account JWT auth used by `index-materials` (scope added:
+`spreadsheets.readonly`). Sheets API is enabled on the `worldclass-bcn` project. This is the
+production mechanism — no download needed.
+
+### ⚠️ SECURITY: room credentials live in the sheet
+- In `Salas Raval` / `Salas Glories`, **row 2** holds each room's virtual-account email + password
+  (e.g. `worldclassvirtualN@gmail.com; <password>`). The importer MUST skip row 2 and NEVER store
+  or expose these (same rule as the no-passwords-in-RAG policy).
+
+### Tab inventory (30 tabs)
+Canonical for the chatbot (per original design): **Salas Raval** (46×15), **Salas Glories**
+(31×15), **Privadas** (349×857), **Conv** (1341×857), **Sustis** (3654×23), **Pruebas**
+(5822×22, this is the tab the shared gid 17694604 points to), plus **tutorías** (996×26).
+Other tabs are working/planning grids, likely NOT needed for v1: `20`, `10`, `6 MJ`, `9 + 6`,
+`4 L&X R`, `4 L&X G`, `4 M&J R`, `4 M&J G`, `4 Sab` (huge, hundreds of cols — per-group
+week-by-week tracking), per-teacher tabs (`Connie`, `Ana`, `Silvia`, `Itzi`, `Alazne`, `Giulia`,
+`Marina`), `Priv`, `PLANTILLA 24`, `Planificacion cursos`, `Recuento horas`, `Hoja 72`,
+`calendario clases`, `info util`.
+
+### Salas Raval layout (confirmed)
+- Row 1: room names across columns C+ (Mallorca, Buenos Aires, Granada, La Mancha, La Habana,
+  Cusco, Cancún, Ometepe).
+- Row 2: room credentials (SKIP — see security note).
+- Row 3+: col A = section label ("MAÑANAS LUNES-VIERNES"), col B = time slot ("9-9.30"), each
+  room column = a class cell. The class cell sits at the TOP of its time block; the rows below
+  (9.30-10, 10-10.30…) are blank — the real duration comes from the cell's own time text.
+
+### Cell format (confirmed, with real-world variation)
+```
+SARA A2.1/M1 ⚽
+10h L-V 9-10.50
+A1.2: 4.05
+12p  1.9-a2.2 m6
+```
+- Line 1: TEACHER LEVEL/MODULE + status emoji(s). Emojis seen: ⚽ (active), 💐 (new/start),
+  ⚠️ (attention), ⛔️ (blocked). (Design doc guessed 🥝 — actual is ⚽.)
+- Line 2: hours + days + time, e.g. `10h L-V 9-10.50`, `20h L-V 11-15`.
+- Line 3: `level: end_date` (DD.MM) OR `Start: 8/6/26`. Sometimes blank.
+- Line 4: `<count>p` + free-text transition note (e.g. `12p 1.9-a2.2 m6`, `se une con andres 6.7?`).
+- Variations: "ROT" (rotation), trailing notes, partially-filled lines → parser must be tolerant.
+
+### Next steps (when production sheet is shared tomorrow)
+- Build `index-schedule` Edge Function (admin-gated, like index-materials): reads Salas
+  Raval/Glories + Privadas + Conv + Sustis + Pruebas via Sheets API, parses cells (tolerant),
+  SKIPS the credentials row, writes to `classes`/`substitutions`/`trials`/`rooms` tables.
+- Confirm with Rocío which tabs are authoritative vs scratch (the many planning tabs).
+
+### Note
+- The one-off `peek-schedule` Edge Function used for this introspection was neutralized
+  (returns 410) immediately after, because it could read the credential row.
