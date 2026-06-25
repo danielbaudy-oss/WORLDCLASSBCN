@@ -230,6 +230,13 @@ function setHoursViewMode(mode) {
   if (teacherHeader) teacherHeader.textContent = headerText;
   if (adminHeader) adminHeader.textContent = headerText;
 
+  // Progress column: annual progress in monthly view, weekly progress in weekly view
+  var progressHeaderText = mode === 'weekly' ? 'Progreso Semanal' : 'Progreso Anual';
+  var teacherProgressHeader = document.getElementById('teacherProgressHeader');
+  var adminProgressHeader = document.getElementById('adminProgressHeader');
+  if (teacherProgressHeader) teacherProgressHeader.textContent = progressHeaderText;
+  if (adminProgressHeader) adminProgressHeader.textContent = progressHeaderText;
+
   updateMonthDisplay();
   updateWeekDisplay();
 
@@ -938,14 +945,27 @@ async function loadTeachersTable() {
         ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">incl. ' + periodCreditParts.join(' · ') + '</div>'
         : '';
 
+      // Weekly view: progress relative to THIS period's expected hours (not year-to-date).
+      // Expected = working days in the period (up to cutoff, excl. school + teacher holidays)
+      // × hoursPerWorkingDay. Monthly view keeps the annual progress.
+      var dispPercent = progressPercent, dispExpected = expectedToDate, dispStatus = status;
+      if (viewMode === 'weekly') {
+        var periodHolidaySet = new Set(schoolHolidayDates);
+        teacherHolidayDates.forEach(function(dt) { periodHolidaySet.add(dt); });
+        var periodWorkingDays = countWorkingDays(periodRange.start, cutoffDate, periodHolidaySet);
+        var weekExpected = Math.round(periodWorkingDays * hoursPerWorkingDay * 10) / 10;
+        var weekPercent = weekExpected > 0 ? Math.round((adjustedPeriodHours / weekExpected) * 100) : 100;
+        dispPercent = weekPercent; dispExpected = weekExpected; dispStatus = getProgressStatus(weekPercent);
+      }
+
       return '<tr onclick="if(typeof openEditTeacherModal===\'function\')openEditTeacherModal(\'' + t.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + t.name + '</div><div class="teacher-email">' + (t.email || '') + '</div></td>' +
         '<td><span class="hours-badge">' + adjustedPeriodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
         '<td>' + totalHours.toFixed(1) + 'h</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
-          '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
-          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
+          '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
+          '<div class="progress-text"><span class="progress-percent ' + dispStatus + '">' + dispPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(dispExpected) + 'h esp</span></div>' +
         '</div></td>' +
         '<td style="font-size:12px;white-space:nowrap"><span class="' + prepColor + '" style="font-weight:600">' + prepTimeTotal + 'h</span><span style="color:var(--gray-400)"> / ' + prepTimeYearly + 'h</span>' +
           (prepWeeksLogged.size > 0 ? '<div style="font-size:10px;color:var(--gray-400);margin-top:2px">' + prepWeeksLogged.size + ' sem</div>' : '') + '</td>' +
@@ -1153,14 +1173,25 @@ async function loadAdminWorkersTable() {
         ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">incl. ' + periodCreditParts.join(' · ') + '</div>'
         : '';
 
+      // Weekly view: progress vs THIS period's expected hours (not year-to-date).
+      var dispPercent = progressPercent, dispExpected = expectedToDate, dispStatus = status;
+      if (viewMode === 'weekly') {
+        var periodHolidaySet = new Set(schoolHolidayDates);
+        teacherHolidayDates.forEach(function(dt) { periodHolidaySet.add(dt); });
+        var periodWorkingDays = countWorkingDays(periodRange.start, cutoffDate, periodHolidaySet);
+        var weekExpected = Math.round(periodWorkingDays * hoursPerWorkingDay * 10) / 10;
+        var weekPercent = weekExpected > 0 ? Math.round((adjustedPeriodHours / weekExpected) * 100) : 100;
+        dispPercent = weekPercent; dispExpected = weekExpected; dispStatus = getProgressStatus(weekPercent);
+      }
+
       return '<tr onclick="if(typeof openEditAdminModal===\'function\')openEditAdminModal(\'' + a.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + a.name + '</div><div class="teacher-email">' + (a.email || '') + '</div></td>' +
         '<td><span class="hours-badge">' + adjustedPeriodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
         '<td>' + totalHours.toFixed(1) + 'h</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
-          '<div class="progress-bar-wrapper"><div class="progress-bar ' + status + '" style="width:' + Math.min(progressPercent, 100) + '%"></div></div>' +
-          '<div class="progress-text"><span class="progress-percent ' + status + '">' + progressPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(expectedToDate) + 'h esp</span></div>' +
+          '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
+          '<div class="progress-text"><span class="progress-percent ' + dispStatus + '">' + dispPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(dispExpected) + 'h esp</span></div>' +
         '</div></td>' +
         '<td>' + expectedYearly + 'h</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +

@@ -1287,3 +1287,30 @@ Covers every re-render path automatically (no need to touch each caller). node -
 
 ### Files
 - `js/admin.js`, `index.html`, `teacher.html`, `admin.html`
+
+---
+
+## Session: June 25, 2026 (continued — weekly progress column)
+
+Request: in Semanal view, "Progreso Anual" column should become "Progreso Semanal" with the
+"esp" hours referring to the week.
+
+### Changes (admin.html + js/admin.js)
+- admin.html: gave the progress `<th>` IDs (`teacherProgressHeader`, `adminProgressHeader`).
+- `setHoursViewMode`: sets the progress header to "Progreso Semanal" (weekly) / "Progreso
+  Anual" (monthly), alongside the existing period-header swap.
+- Teacher + admin row builders: in weekly mode, compute period progress instead of annual:
+  - `weekExpected = countWorkingDays(periodRange.start, cutoffDate, school+teacher holidays)
+    × hoursPerWorkingDay` (cutoffDate = today for the current week, week-end for past weeks,
+    so the current week shows expected-to-date — consistent with the annual logic).
+  - `weekPercent = adjustedPeriodHours / weekExpected` (100% if nothing expected, e.g. a full
+    holiday week). Bar width, %, status colour, and "X h esp" all use the weekly values.
+  - Monthly view unchanged (still annual progress + annual esp).
+- Note: a mid-edit accidentally dropped the teacher `return '<tr…>'` line; caught and restored
+  in the same pass. node --check clean.
+
+### Cache-bust
+- 20260625f → 20260625g.
+
+### Files
+- `admin.html`, `js/admin.js`, `index.html`, `teacher.html`
