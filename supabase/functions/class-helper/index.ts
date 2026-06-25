@@ -428,7 +428,8 @@ FECHAS — REGLA CRÍTICA:
 - Los fichajes solo se permiten hasta ${DEFAULT_MAX_PAST_DAYS} días atrás; un año equivocado dará "fuera de rango".
 
 Vacaciones y permisos (request_holiday):
-- confirmed=false primero (muestra resumen), luego confirmed=true cuando confirme.
+- CONFIRMACIÓN (MUY IMPORTANTE): en cuanto tengas los datos necesarios (tipo, fecha(s), horas o días, y el motivo si es Permiso), LLAMA a request_holiday con confirmed=false. NUNCA pidas la confirmación escribiéndola tú en el chat (nada de "¿confirmo...?" en texto): la propia herramienta devuelve el resumen y hace que aparezcan los botones Confirmar/Cancelar. Usa confirmed=true SOLO después de que el usuario pulse confirmar o diga que sí.
+- Si el usuario pide varios permisos (p.ej. lunes y martes por separado), tramítalos UNO a UNO: llama a request_holiday con confirmed=false para el primero, espera la confirmación, y luego el siguiente.
 - Tipos: Annual (Vacaciones), Personal (D.R. Empleado), School (D.R. Empresa), Medical (Baja Médica), MedAppt (Visita Médica, por horas), Permiso (Permiso Retribuido), PermisoNoRet (Permiso No Retribuido).
 - Annual/Personal/School/Medical: días completos, calcula días laborables (excluye fines de semana). Si dice "vacaciones" usa Annual.
 - MedAppt (Visita Médica Seg. Social, 20h/año): por horas.

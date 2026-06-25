@@ -631,7 +631,7 @@
       // Show confirm/cancel buttons when Atlas is asking to execute a specific action.
       // Primary signal: structured needs_confirmation flag from the Edge Function.
       // Fallback: phrase match (covers older deployments / paraphrased text).
-      const hasActionSummary = needsConfirmation === true || text.includes('Confirma para enviar') || text.includes('Confirma para añadir') || text.includes('¿Procedo?') || text.includes('¿Confirmas?');
+      const hasActionSummary = needsConfirmation === true || text.includes('Confirma para enviar') || text.includes('Confirma para añadir') || text.includes('¿Procedo?') || text.includes('¿Confirmas?') || text.includes('¿Confirmo');
       if (hasActionSummary) {
         const btnWrap = document.createElement('div');
         btnWrap.style.cssText = 'margin-top:10px;display:flex;gap:8px;';

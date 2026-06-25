@@ -1097,3 +1097,47 @@ the total," and the input should be a single hours field, not a from/to time ran
   function and its call in `selectHolidayType` (`js/teacher.js`). Input no longer has
   onchange/oninput handlers. node --check clean.
 - Cache-bust 20260623c → 20260623d.
+
+---
+
+## Session: June 25, 2026 — Atlas confirm buttons not appearing for permisos
+
+### Symptom
+User asked Atlas for two Permiso Retribuido (Mon Jun 22 + Tue Jun 23, 4h each, motive b).
+Atlas asked "¿Confirmo el permiso para el lunes...?" in PLAIN TEXT and the user had to type
+"sí" — the ✓ Confirmar / ✗ Cancelar buttons never appeared. (Both records DID get created
+correctly once the user typed sí — verified in DB: Jun 22 & 23, days=4, motive b, Pending.)
+
+### Root cause (same brittle pattern as before)
+- Confirm buttons render when the Edge Function returns the structured flag
+  `needs_confirmation:true`, which only happens when a WRITE tool is actually called with
+  `confirmed=false` (the tool returns `status:"needs_confirmation"`).
+- Here Atlas gathered the info conversationally and asked for confirmation IN TEXT without
+  calling `request_holiday` first → no tool call → `needsConfirmation` stayed false → no buttons.
+- The frontend phrase-match fallback only matched "Confirma para enviar/añadir", "¿Procedo?",
+  "¿Confirmas?" — NOT the paraphrase "¿Confirmo el permiso...?".
+- Multi-action requests (two separate permisos) made Atlas especially prone to free-texting.
+
+### Fixes
+1. **Edge Function v46** (`supabase/functions/class-helper/index.ts`): rewrote the
+   request_holiday CONFIRMACIÓN rule in the system prompt — Atlas must CALL request_holiday with
+   confirmed=false as soon as it has the data (NEVER ask "¿confirmo...?" in text; the tool's
+   preview is what shows the buttons), and must process multiple permisos ONE AT A TIME
+   (confirmed=false → wait → next). Deployed via Supabase MCP (build OK, ACTIVE, verify_jwt=false,
+   no log errors). Repo copy == live (no drift).
+2. **Frontend fallback** (`js/chat-widget.js`): broadened the button trigger to also match
+   "¿Confirmo" so paraphrased confirmations still surface buttons (defense-in-depth; structured
+   flag remains the primary signal). When clicked, sends "Sí, confirmo... confirmed=true" as before.
+
+### Deploy note
+- Live class-helper jumped 44 → 46 (build bump). verify_jwt stays false (manual auth in code).
+- Edge function deploys go through the Supabase MCP (the laptop has no supabase CLI; the Pi
+  doesn't either — only git relay). A failed build safely leaves the prior version live.
+
+### Cache-bust
+- 20260623d → 20260625a (chat-widget.js loads via the APP_VERSION ?v= block).
+
+### Files modified
+- `supabase/functions/class-helper/index.ts` (v46 prompt: forced tool-call confirmation flow)
+- `js/chat-widget.js` (fallback matches "¿Confirmo")
+- `index.html`, `teacher.html`, `admin.html` — cache-bust 20260625a
