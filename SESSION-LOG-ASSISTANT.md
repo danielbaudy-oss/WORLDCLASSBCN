@@ -1250,3 +1250,13 @@ Two UX requests on the admin "Todos los Profesores" overview (js/admin.js):
 
 ### Files
 - `js/admin.js`, `index.html`, `teacher.html`, `admin.html`
+
+---
+
+## Session: June 25, 2026 (continued — refine monthly->semanal for current month)
+
+- Tweak: switching to Semanal from the CURRENT month now stays on the CURRENT week; only a
+  PAST month jumps to that month's first week. `setHoursViewMode('weekly')`:
+  `weekOffset = monthOffset === 0 ? 0 : weekOffsetForFirstWeekOfMonth(monthOffset)`.
+- Cache-bust 20260625d → 20260625e. node --check clean.
+- Files: js/admin.js, index/teacher/admin .html

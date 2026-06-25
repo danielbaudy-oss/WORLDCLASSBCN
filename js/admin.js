@@ -203,9 +203,9 @@ document.addEventListener('click', function(e) {
 
 function setHoursViewMode(mode) {
   viewMode = mode;
-  // When switching to weekly, jump to the FIRST week of the currently-viewed month
-  // (not the current week), so monthly -> semanal keeps the same month context.
-  if (mode === 'weekly') weekOffset = weekOffsetForFirstWeekOfMonth(monthOffset);
+  // When switching to weekly: from a PAST month, jump to that month's first week; from the
+  // CURRENT month, stay on the current week.
+  if (mode === 'weekly') weekOffset = monthOffset === 0 ? 0 : weekOffsetForFirstWeekOfMonth(monthOffset);
 
   // Update all toggle buttons across both tabs
   document.querySelectorAll('.toggle-btn').forEach(function(btn) {
