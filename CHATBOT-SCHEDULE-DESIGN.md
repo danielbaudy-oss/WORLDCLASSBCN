@@ -269,3 +269,61 @@ A1.2: 4.05
 ### Note
 - The one-off `peek-schedule` Edge Function used for this introspection was neutralized
   (returns 410) immediately after, because it could read the credential row.
+
+
+---
+
+## Full Tab Analysis (June 25, 2026) — sampled all key tabs live
+
+Goal: know exactly where each kind of data lives so the importer reads ONLY what it needs and
+Atlas never scans the sheet. Three structural families emerged:
+
+### Family A — Room × time grids (the GROUP-CLASS source of truth)
+- **`Salas Raval`** (46×15): col A = section label ("MAÑANAS LUNES-VIERNES"), col B = time slot
+  ("9-9.30"), cols C+ = one column per room (Mallorca, Buenos Aires, Granada, La Mancha,
+  La Habana, Cusco, Cancún, Ometepe). Row 1 = room names, **row 2 = room credentials (SKIP)**.
+- **`Salas Glories`** (31×15): DIFFERENT — each room spans **two columns** (a `L&X&V` column and
+  an `M&J` column; see row 3 day-group header). Room name only in the first of the two (forward-
+  fill). col A = time slot directly (no section-label column). Row 2 = credentials (SKIP).
+- The cell's OWN line-2 text (`10h L-V 9-10.50`, `4h LX 9:30-11:20`, `9h LMV 9:30-12:30`) is the
+  authoritative day/time — so the parser takes days/time from the cell, room from the column.
+  → Parser must auto-detect the time column and forward-fill room names. (cell format already
+  validated in `scripts/parse-schedule.js`.)
+
+### Family B — Year-long daily attendance grids (very wide, ~857 cols)
+- **`Privadas`** (349×857) and **`Conv`** (1341×857): row 2 = weekday headers (lun/mar/…), row 3 =
+  dates (1/09, 2/09, … across the whole year), each student row marks "Sí" per attended day.
+  `Conv` group rows have a header cell like `CONV Martes 16-18:30 🪻\n3p`.
+  → Attendance detail. Heavy. v2 (only import current/future window if needed).
+- The format-planning grids share this shape: **`20`, `10`, `6 MJ`, `9 + 6`, `4 L&X R`,
+  `4 L&X G`, `4 M&J R`, `4 M&J G`, `4 Sab`** — per-format course planning (session progression
+  `A1.1/M1 S1-2`, `S3-4`…). Planning, not "today's schedule". → SKIP for v1.
+
+### Family C — Clean tabular tabs (record per row — easiest, highest value)
+- **`Pruebas`** (5822×22) — TRIALS. Headers: Day, Profe, Nivel, N/O, Horas, Time, R/G, Estudiante,
+  Status, Email, Who signed up, Did they come?, Signed up?, comments… → map by header. ✅ v1.
+- **`Priv`** (1005×28) — PRIVATES (clean!). Headers: Activo(si/no), Nombre estudiante, Nivel,
+  Días disponibles, Horario (free text), Raval/Monumental, ¿Quién se las queda? (teacher),
+  Comentarios. → map by header; schedule is free text (LLM-friendly). ✅ v1 (better than `Privadas`).
+- **`tutorías`** (996×26) — weekly grid: col A = time, cols B-F = Lun-Vie, cell = `teacher (G/R)`
+  (e.g. "paula (G)"). Simple. ✅ v1-ish.
+
+### Substitutions — the awkward one
+- **`Sustis`** (3654×23): NOT a clean sub log — it's a PARALLEL room×time grid (same layout as
+  Salas, incl. Monumental rooms `MON.1-6` split l/x · m/j) where subs are written INSIDE the
+  class cell as parentheticals: `SERGIO B1.1 (JOAN semana 1.12) (MAR Y KATHIA semana 9 y 15)`,
+  `JOAN (BEA) A2.2`. → Extracting structured subs = parse "(SUB) semana X" from free text →
+  **LLM-assisted extraction** is the sane route. v2.
+
+### Per-teacher private trackers (SKIP v1)
+- **`Connie`, `Ana`, `Silvia`, `Itzi`, `Alazne`, `Giulia`, `Marina`**: each is one private
+  teacher's own attendance grid (`*PRIVADAS`, Alumno, dates). Detail/redundant with `Priv`. v2.
+- Also skip: `calendario clases` (year calendar of class/holiday day-codes), `Planificacion
+  cursos`, `Recuento horas`, `Hoja 72`, `info util`, `PLANTILLA 24`.
+
+### v1 scope (decided)
+Import the high-value, tractable sources: **group classes** (Salas Raval + Salas Glories),
+**trials** (Pruebas), **privates** (Priv), **tutorías**. Defer to v2: **Conv** classes,
+**Sustis** (LLM-assisted), the wide attendance grids, and per-teacher trackers.
+Everything keyed by header/anchor (not column index) + a drift check, so added/moved columns
+don't break it.

@@ -1,0 +1,123 @@
+{
+  "_doc": "Structure map for the WorldClass schedule sheet. Drives the index-schedule importer so it reads ONLY the relevant tabs/ranges and knows how to interpret them. Update THIS file when the sheet structure changes (not the importer code). Tabs are matched by NAME; tabular columns by HEADER text (not index) so added/moved columns don't break parsing.",
+  "spreadsheet_id_default": "14IJWB6FZ79TnVF1jnkREJN9yJNFCot0AWRlNlvOqZNU",
+  "spreadsheet_note": "ATLAS copy of 'Super excel 25-26'. Production sheet id will differ — pass it in at run time.",
+
+  "sources": {
+    "group_classes": {
+      "enabled": true,
+      "layout": "room_time_grid",
+      "target": "classes",
+      "tabs": [
+        {
+          "tab": "Salas Raval",
+          "location": "Raval",
+          "room_header_row": 1,
+          "skip_rows": [2],
+          "time_column": "auto",
+          "room_columns": "auto",
+          "rooms_span_two_columns": false
+        },
+        {
+          "tab": "Salas Glories",
+          "location": "Glories",
+          "room_header_row": 1,
+          "daygroup_header_row": 3,
+          "skip_rows": [2],
+          "time_column": "auto",
+          "room_columns": "auto",
+          "rooms_span_two_columns": true,
+          "note": "Each room = two columns (L&X&V | M&J). Forward-fill room name across the blank paired column."
+        }
+      ],
+      "cell_parser": "parse-schedule.js:parseCell",
+      "credentials_warning": "Row 2 of each tab holds room login email+password. NEVER read/store/expose."
+    },
+
+    "trials": {
+      "enabled": true,
+      "layout": "table_by_header",
+      "target": "trials",
+      "tab": "Pruebas",
+      "header_row": 1,
+      "data_starts_row": 2,
+      "columns": {
+        "period_label": "Day",
+        "teacher": "Profe (El que hace la clase!!!)",
+        "level": "Nivel",
+        "new_or_old": "N/O",
+        "hours": "Horas",
+        "time": "Time",
+        "location": " R/G",
+        "student_name": "Estudiante",
+        "status": "Status",
+        "email": "Email",
+        "signed_up_by": "Who signed \nthem up?",
+        "attended": "Did they come?",
+        "signed_up": "Signed up?",
+        "comments": "After trial comments"
+      },
+      "match_columns_by": "header_contains_normalized",
+      "note": "Header text is messy (trailing spaces, newlines) — match case-insensitively on normalized contains."
+    },
+
+    "privates": {
+      "enabled": true,
+      "layout": "table_by_header",
+      "target": "privates",
+      "tab": "Priv",
+      "header_row": 1,
+      "data_starts_row": 2,
+      "columns": {
+        "active": "Activo",
+        "student_name": "Nombre estudiante",
+        "level": "Nivel",
+        "availability": "Días disponibles",
+        "schedule_text": "Horario",
+        "location": "Raval /Monumental",
+        "teacher": "Quién se las queda",
+        "comments": "Comentarios"
+      },
+      "match_columns_by": "header_contains_normalized",
+      "active_truthy": ["si", "sí", "yes", "x", "true"],
+      "note": "schedule_text is free-form Spanish — store raw; optional LLM normalization later."
+    },
+
+    "tutorias": {
+      "enabled": true,
+      "layout": "weekday_time_grid",
+      "target": "tutorias",
+      "tab": "tutorías",
+      "weekday_header_row": 1,
+      "time_column": 0,
+      "weekday_columns": { "LUNES": "L", "MARTES": "M", "MIÉRCOLES": "X", "JUEVES": "J", "VIERNES": "V" },
+      "cell_format": "teacher (location_code)  e.g. 'paula (G)' -> teacher=paula, location=Glories",
+      "location_codes": { "G": "Glories", "R": "Raval", "M": "Monumental" },
+      "note": "A second mirrored block of the same grid sits to the right — read only the first block (cols up to the first VIERNES)."
+    },
+
+    "conversation": {
+      "enabled": false,
+      "layout": "attendance_grid",
+      "target": "conv_classes",
+      "tab": "Conv",
+      "note": "v2: group header cell 'CONV <day> <time>' + enrolled students with daily attendance across a year-wide date grid."
+    },
+
+    "substitutions": {
+      "enabled": false,
+      "layout": "room_time_grid_with_inline_subs",
+      "target": "substitutions",
+      "tab": "Sustis",
+      "note": "v2 (LLM-assisted): parallel room×time grid; subs written inside class cells as '(SUB) semana X.Y'. Includes Monumental rooms MON.1-6 (split l/x · m/j). Row with 'Antiguo' + credentials must be skipped."
+    }
+  },
+
+  "skip_tabs": [
+    "20", "10", "6 MJ", "9 + 6", "4 L&X R", "4 L&X G", "4 M&J R", "4 M&J G", "4 Sab",
+    "Privadas", "Connie", "Ana", "Silvia", "Itzi", "Alazne", "Giulia", "Marina",
+    "PLANTILLA 24", "Planificacion cursos", "Recuento horas", "Hoja 72", "info util",
+    "calendario clases"
+  ],
+  "skip_tabs_reason": "Course-planning grids, year-long attendance detail, per-teacher private trackers, and misc scratch tabs — not needed for v1 'what's my schedule / trials / privates today'."
+}
