@@ -1934,3 +1934,27 @@ But "No pude procesar" is a latent bug worth fixing, so v57 hardens two things:
 
 ### Files
 - `supabase/functions/class-helper/index.ts`
+
+---
+
+## Session: June 26, 2026 (continued) — DETERMINISTIC confirm gate (v58)
+
+"fíchame la salida a las 12:30" → Atlas punched DIRECTLY (no buttons): the model set
+confirmed=true on the FIRST call, skipping the preview. Forcing a tool call (mode=ANY) guarantees
+a CALL but not confirmed=false. So the buttons were still at the model's mercy.
+
+### Fix (class-helper v58) — server enforces the preview
+- New `isConfirmTurn(message)`: true only when the message is a real confirmation — the Confirmar
+  button sends "Sí, confirmo. Ejecuta la acción con confirmed=true." (matches /confirm/), or a
+  short standalone "sí/vale/ok" (≤25 chars).
+- In the tool loop, for ANY write tool (add_punch/add_punches/request_holiday): if the model passes
+  `confirmed=true` but it's NOT a confirmation turn, the server OVERRIDES it to `confirmed=false`.
+  → The first request ALWAYS returns a preview (needs_confirmation) → buttons appear, deterministically.
+  → confirmed=true only takes effect after the user clicks Confirmar (or types a short sí/ok).
+- This is the code-level guarantee the user wanted: writes can't execute without the explicit
+  confirm step, no matter what the LLM emits. Combined with v57's final-AUTO fallback and the
+  forced-tool SOP, the confirm flow is now deterministic end to end.
+- v57→v58, ACTIVE, build OK, verify_jwt=false. live==repo.
+
+### Files
+- `supabase/functions/class-helper/index.ts`

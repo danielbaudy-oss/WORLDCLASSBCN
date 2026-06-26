@@ -66,6 +66,15 @@ function isPunchActionIntent(message: string): boolean {
       || /pon(er|me|)?\s+(mis\s+)?(hora|fichaj)/.test(m);
 }
 
+// Is the current user message an actual CONFIRMATION (button click "...confirmed=true", or a
+// short standalone "sí/vale/ok")? Used to gate execution: a write tool only runs with
+// confirmed=true on a real confirmation turn; otherwise the server forces a preview first.
+function isConfirmTurn(message: string): boolean {
+  const m = (message || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  if (/confirm/.test(m)) return true; // the Confirmar button sends "...confirmo... confirmed=true"
+  return m.length <= 25 && /^(si|vale|ok|okay|dale|adelante|hazlo|procede|perfecto|correcto|venga|de acuerdo)\b/.test(m);
+}
+
 // Retry Gemini calls on transient rate-limit / overload responses with exponential backoff.
 async function fetchWithRetry(url: string, options: any, maxRetries = 2): Promise<Response> {
   let res = await fetch(url, options);
@@ -586,6 +595,7 @@ Fichajes (add_punches):
     const PUNCH_TOOL_CFG = { function_calling_config: { mode: "ANY", allowed_function_names: ["get_work_hours", "add_punches", "add_punch"] } };
     const AUTO_TOOL_CFG = { function_calling_config: { mode: "AUTO" } };
     let forcePunch = isPunchActionIntent(message);
+    const confirmTurn = isConfirmTurn(message);
     let res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: forcePunch ? PUNCH_TOOL_CFG : AUTO_TOOL_CFG }) });
     if (!res.ok) {
       const msg = res.status === 429
@@ -600,7 +610,13 @@ Fichajes (add_punches):
     for (let i = 0; i < 6; i++) {
       const fc = data.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
       if (!fc) break;
-      const result = await executeTool(fc.functionCall.name, fc.functionCall.args || {}, ctx, db);
+      const fcArgs = fc.functionCall.args || {};
+      // DETERMINISTIC SOP: a write tool only EXECUTES (confirmed=true) on a real confirmation turn.
+      // Otherwise force a preview (confirmed=false) so the confirm buttons always appear first.
+      if (writeTools.has(fc.functionCall.name) && fcArgs.confirmed === true && !confirmTurn) {
+        fcArgs.confirmed = false;
+      }
+      const result = await executeTool(fc.functionCall.name, fcArgs, ctx, db);
       // Structured signal for the frontend confirm/cancel buttons (don't rely on text matching)
       needsConfirmation = result?.status === "needs_confirmation";
       // Structured signal for the frontend to auto-refresh after a real write (punch/holiday saved)
