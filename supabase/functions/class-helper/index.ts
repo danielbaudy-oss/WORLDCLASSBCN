@@ -55,18 +55,15 @@ function isRealDriveId(id: string): boolean {
 }
 
 // --- Punch SOP gate ---------------------------------------------------------
-// Detects a punch ACTION request ("ficha junio", "fichame como la primera semana", "registra
-// mis horas") - NOT a how-to question ("como ficho?"). When true, the punch flow runs with
-// forced tool-calling (Gemini mode=ANY) so Atlas MUST call get_work_hours/add_punches instead
-// of free-texting a confirmation. Makes the preview->buttons step deterministic.
+// Detects a punch ACTION request vs a how-to question or a confirmation. When true, the punch
+// flow uses forced tool-calling (mode=ANY) so Atlas must call a punch tool instead of free-texting.
 function isPunchActionIntent(message: string): boolean {
   const m = (message || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  // Procedural / how-to questions are NOT actions - let them go to search_materials.
-  if (/\b(como|que es|para que|puedo|se puede|cual|cuand|cuant)\b/.test(m)) return false;
-  return /\bfich[aeo]/.test(m)                       // ficha/fichar/fichame/fiche/fiches/ficho/fichaje/fichado
-      || /registra.*(hora|jornada)/.test(m)          // "registra mis horas"
-      || /anad(e|ir|ime).*(fichaj|hora)/.test(m)     // "anade un fichaje"
-      || /pon(er|me|)?\s+(mis\s+)?(hora|fichaj)/.test(m); // "ponme las horas"
+  if (/\b(como|que es|para que|puedo|se puede|cual|cuand|cuant|confirm)\b/.test(m)) return false;
+  return /\bfich[aeo]/.test(m)
+      || /registra.*(hora|jornada)/.test(m)
+      || /anad(e|ir|ime).*(fichaj|hora)/.test(m)
+      || /pon(er|me|)?\s+(mis\s+)?(hora|fichaj)/.test(m);
 }
 
 // Retry Gemini calls on transient rate-limit / overload responses with exponential backoff.
@@ -574,7 +571,7 @@ Fichajes (add_punches):
 - UN SOLO FICHAJE (add_punch): cuando el usuario quiere registrar UNA marca individual — "fíchame la salida ahora", "ficha mi entrada de hoy", o "ya fiché la entrada, ponme la salida" — usa add_punch (NO add_punches). Por defecto fecha=hoy y hora=ahora. El tipo (Entrada/Salida) se detecta solo según las marcas del día; no pidas el tipo salvo duda. add_punch SÍ puede añadir a un día que ya tiene marcas (p.ej. añadir la salida cuando ya hay una entrada). Si get_work_hours muestra "entrada_sin_salida", ese día tiene una entrada abierta sin salida: ofrece fichar la salida con add_punch.
 - "FICHAR IGUAL QUE..." (ej. "ficha junio igual que la primera semana", "lo mismo que el 2 de junio"): PRIMERO llama a get_work_hours sobre ese día o esa semana para LEER el detalle (cada día trae sus sesiones entrada/salida). Deduce el horario real (in_time/out_time, y si hay varias sesiones usa el parámetro punches o schedule) y luego ficha el rango pedido con add_punches. Los días ya fichados se saltan solos, así que puedes pasar todo el mes. NUNCA pidas al usuario las horas si puedes leerlas con get_work_hours.
 - SIEMPRE confirmed=false primero, y confirmed=true SOLO cuando el usuario confirme.
-- CONFIRMACIÓN (MUY IMPORTANTE): en cuanto tengas el horario y el rango, LLAMA a add_punches con confirmed=false. NUNCA preguntes "¿quieres que fiche?" / "¿confirmo?" / "¿lo confirmo?" escribiéndolo en el chat: la propia herramienta devuelve el resumen y hace aparecer los botones Confirmar/Cancelar. Si necesitas leer el horario primero (get_work_hours), hazlo y A CONTINUACIÓN llama a add_punches con confirmed=false en el mismo turno — no pares a preguntar en texto. Usa confirmed=true SOLO después de que el usuario pulse Confirmar o diga que sí.
+- CONFIRMACIÓN (MUY IMPORTANTE): en cuanto tengas el horario y el rango, LLAMA a add_punches (o add_punch) con confirmed=false. NUNCA preguntes "¿quieres que fiche?" / "¿confirmo?" / "¿lo confirmo?" escribiéndolo en el chat: la propia herramienta devuelve el resumen y hace aparecer los botones Confirmar/Cancelar. Si necesitas leer el horario primero (get_work_hours), hazlo y A CONTINUACIÓN llama a la herramienta de fichaje con confirmed=false en el mismo turno — no pares a preguntar en texto. Usa confirmed=true SOLO después de que el usuario pulse Confirmar o diga que sí.
 - ANTES de fichar un rango largo (más de una semana), PREGUNTA UNA VEZ: ¿Todos los días laborables o solo ciertos días (ej. lun/mié/vie)? Si el usuario ya respondió o dijo "todos"/"laborables", NO vuelvas a preguntar: llama directamente a add_punches.
 - "esta semana" = ${week.thisMonday} a ${week.thisFriday}
 - "semana pasada" = ${week.lastMonday} a ${week.lastFriday}
@@ -622,7 +619,14 @@ Fichajes (add_punches):
       if (!res.ok) break;
       data = await res.json();
     }
-    const text = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text || "No pude procesar.";
+    let text = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text;
+    if (!text) {
+      // The tool loop ended without a text reply (e.g. forced mode hit the cap). Do one final
+      // AUTO turn so we always return a natural-language summary instead of "No pude procesar".
+      const fr = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: AUTO_TOOL_CFG }) });
+      if (fr.ok) { const fd = await fr.json(); text = fd.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text; }
+    }
+    text = text || "No pude procesar.";
     const responseTimeMs = Date.now() - startTime;
 
     await incrementUsage(db, user.id);

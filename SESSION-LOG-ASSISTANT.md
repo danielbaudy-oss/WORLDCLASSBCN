@@ -1913,3 +1913,24 @@ also read the open IN as "0h / no sessions".
 
 ### Files
 - `supabase/functions/class-helper/index.ts`
+
+---
+
+## Session: June 26, 2026 (continued) — confirm-step robustness (v57)
+
+The "fíchame la salida a las 12:30 → ... → No pude procesar" test ran on v55 (per edge logs:
+version 55, before add_punch existed), so it failed on the pair-only tool. v56 added add_punch.
+But "No pude procesar" is a latent bug worth fixing, so v57 hardens two things:
+
+1. **Confirmations run in AUTO, not forced.** `isPunchActionIntent` now returns false when the
+   message contains "confirm" (e.g. the widget's "Sí, confirmo…"). So the confirm turn isn't
+   forced into mode=ANY (which could loop on reads and never emit text). The fresh punch request
+   still forces normally.
+2. **Final-AUTO fallback.** If the tool loop ever ends without a text reply (forced mode hit the
+   6-iteration cap), the function now does one final AUTO turn to produce a summary — so the user
+   gets a real reply instead of the generic "No pude procesar."
+- Also tweaked the add_punches CONFIRMACIÓN prompt line to mention add_punch.
+- v56→v57, ACTIVE, build OK, verify_jwt=false. live==repo (functional).
+
+### Files
+- `supabase/functions/class-helper/index.ts`
