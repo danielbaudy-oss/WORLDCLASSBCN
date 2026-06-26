@@ -1860,3 +1860,30 @@ add_punches (Fichajes) section did NOT.
 
 ### Files
 - `supabase/functions/class-helper/index.ts`
+
+---
+
+## Session: June 26, 2026 (continued) — Punch SOP: forced tool-calling (v55)
+
+User wanted a more DETERMINISTIC punch flow ("a skill with strict SOP") instead of relying on the
+LLM to choose to call the tool. Implemented option #1 (intent-gated forced tool-calling).
+
+### What changed (class-helper v55)
+- New code-level intent gate `isPunchActionIntent(message)`: detects a punch ACTION (ficha/
+  fíchame/registra mis horas) vs a how-to question (cómo/qué/puedo/cuánt → excluded). Accent-
+  stripped, ASCII regexes.
+- When a punch action is detected, the Gemini call uses
+  `function_calling_config: { mode: "ANY", allowed_function_names: ["get_work_hours","add_punches"] }`
+  — the model CANNOT free-text; it must call a tool. This deterministically forces the
+  read→preview(confirmed=false)→needs_confirmation→buttons path instead of "¿confirmo?" in text.
+- `forcePunch` flips to false as soon as add_punches returns (any result), so the next turn runs
+  in AUTO and writes the summary alongside the buttons.
+- Both generateContent calls (initial + tool loop) now use `forcePunch ? PUNCH_TOOL_CFG : AUTO_TOOL_CFG`.
+- Deployed via MCP. v54→v55, ACTIVE, build OK, verify_jwt=false. live==repo.
+
+### Docs
+- Added `PUNCH-SOP.md` (repo root) documenting the deterministic flow + known limits (intent gate
+  is keyword-based; fully-deterministic confirm via stored pending_action is the next step #2).
+
+### Files
+- `supabase/functions/class-helper/index.ts`, `PUNCH-SOP.md`

@@ -54,6 +54,22 @@ function isRealDriveId(id: string): boolean {
   return /^1[a-zA-Z0-9_-]{10,}$/.test(id);
 }
 
+// --- Punch SOP gate ---------------------------------------------------------
+// Detects a punch ACTION request ("ficha junio", "fichame como la primera semana", "registra
+// mis horas") - NOT a how-to question ("como ficho?"). When true, the punch flow runs with
+// forced tool-calling (Gemini mode=ANY) so Atlas MUST call get_work_hours/add_punches instead
+// of free-texting a confirmation. Makes the preview->buttons step deterministic.
+function isPunchActionIntent(message: string): boolean {
+  const m = (message || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // Procedural / how-to questions are NOT actions - let them go to search_materials.
+  if (/\b(como|que es|para que|puedo|se puede|cual|cuand|cuant)\b/.test(m)) return false;
+  return /\bficha(r|me|s)?\b/.test(m)               // ficha / fichar / fichame / fichas
+      || /\bfichaj/.test(m)                          // fichaje(s)
+      || /registra.*(hora|jornada)/.test(m)          // "registra mis horas"
+      || /anad(e|ir|ime).*(fichaj|hora)/.test(m)     // "anade un fichaje"
+      || /pon(er|me|)?\s+(mis\s+)?(hora|fichaj)/.test(m); // "ponme las horas"
+}
+
 // Retry Gemini calls on transient rate-limit / overload responses with exponential backoff.
 async function fetchWithRetry(url: string, options: any, maxRetries = 2): Promise<Response> {
   let res = await fetch(url, options);
@@ -530,7 +546,13 @@ Fichajes (add_punches):
     const contents: any[] = history.slice(-10).map((m: any) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] }));
     contents.push({ role: "user", parts: [{ text: message }] });
     let sourcesUsed: string[] = [];
-    let res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: { function_calling_config: { mode: "AUTO" } } }) });
+    // Punch SOP: while a punch action is in progress, FORCE tool-calling (mode=ANY) so Atlas
+    // must call get_work_hours/add_punches instead of free-texting a confirmation. We drop back
+    // to AUTO once add_punches has run (so the model can write the summary next to the buttons).
+    const PUNCH_TOOL_CFG = { function_calling_config: { mode: "ANY", allowed_function_names: ["get_work_hours", "add_punches"] } };
+    const AUTO_TOOL_CFG = { function_calling_config: { mode: "AUTO" } };
+    let forcePunch = isPunchActionIntent(message);
+    let res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: forcePunch ? PUNCH_TOOL_CFG : AUTO_TOOL_CFG }) });
     if (!res.ok) {
       const msg = res.status === 429
         ? "Uf, ahora mismo estoy saturada 😅 Prueba otra vez en unos segundos, porfa."
@@ -551,12 +573,15 @@ Fichajes (add_punches):
       if (writeTools.has(fc.functionCall.name) && result?.mensaje && !result?.error && result?.status !== "needs_confirmation") {
         dataChanged = true;
       }
+      // Once add_punches has produced any result (preview/exec/error), stop forcing tools so the
+      // model can write the natural-language summary that accompanies the confirm buttons.
+      if (fc.functionCall.name === "add_punches") forcePunch = false;
       if (fc.functionCall.name === "search_materials" && result.resultados) {
         sourcesUsed = result.resultados.map((r: any) => r.nombre).filter(Boolean);
       }
       contents.push({ role: "model", parts: data.candidates[0].content.parts });
       contents.push({ role: "user", parts: [{ functionResponse: { name: fc.functionCall.name, response: { content: result } } }] });
-      res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: { function_calling_config: { mode: "AUTO" } } }) });
+      res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: forcePunch ? PUNCH_TOOL_CFG : AUTO_TOOL_CFG }) });
       if (!res.ok) break;
       data = await res.json();
     }
