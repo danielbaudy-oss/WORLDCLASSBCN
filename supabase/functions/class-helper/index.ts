@@ -68,6 +68,18 @@ async function fetchWithRetry(url: string, options: any, maxRetries = 2): Promis
 }
 
 // Generate dates between start and end, filtered by allowed days of week and excluding holidays
+// Punches are restricted to 15-minute steps (00/15/30/45). Round any "HH:MM" to the nearest
+// quarter so a request like "de 9:10 a 13:50" is stored as 09:15–13:45.
+function roundToQuarter(t: string): string {
+  const m = (t || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return t;
+  let total = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  let r = Math.round(total / 15) * 15;
+  if (r >= 1440) r = 1425;
+  if (r < 0) r = 0;
+  return String(Math.floor(r / 60)).padStart(2, '0') + ':' + String(r % 60).padStart(2, '0');
+}
+
 function generateDatesForRange(startDate: string, endDate: string, allowedDays: number[], holidayDates: Set<string>): string[] {
   const dates: string[] = [];
   const current = new Date(startDate + 'T12:00:00');
@@ -314,6 +326,8 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     } else {
       return { error: "Necesito start_date + end_date + in_time + out_time para un rango, o un JSON de fichajes en punches." };
     }
+    // Snap all punch times to 15-min steps (00/15/30/45) — punches only allow quarter hours.
+    punchList = punchList.map(p => ({ ...p, in_time: roundToQuarter(p.in_time), out_time: roundToQuarter(p.out_time) }));
     const { data: configRows } = await db.from("app_config").select("key, value").in("key", ["FreezeDate", "AllowPastPunches", "MaxPastDays"]);
     const config: any = {}; for (const r of configRows || []) config[r.key] = r.value;
     const freezeDate = config.FreezeDate || null;
@@ -501,6 +515,7 @@ Fichajes (add_punches):
 - Para RANGOS (ej. "todo enero", "del 5 al 30", "esta semana"): usa SIEMPRE start_date, end_date, in_time, out_time, days_of_week. NUNCA uses el parámetro punches para rangos.
 - Usa el año ${week.year} para meses sin año (ver FECHAS arriba).
 - days_of_week: "workdays" (lun-vie por defecto), o días específicos "mon,wed,fri", o "all".
+- PASOS DE 15 MIN: los fichajes solo admiten horas en cuartos (:00, :15, :30, :45). Si el usuario da otra hora (ej. "de 9:10 a 13:50"), REDONDEA al cuarto más cercano (09:15–13:45) y dilo en la confirmación. El sistema también redondea por seguridad.
 - HORARIO QUE VARÍA POR DÍA: si las horas cambian según el día de la semana (ej. lun/mié 9:30-14:30, mar/jue 17:00-21:00, vie 11:30-14:30, sáb 9:30-13:30), usa el parámetro 'schedule' (JSON {mon:{in,out},tue:{in,out},...}) junto con start_date+end_date, en UNA SOLA llamada. NO hagas varias llamadas ni uses in_time/out_time en ese caso.
 - Los fichajes de días pasados están permitidos (hasta 180 días atrás). NO hay restricción por fecha de alta: un profe nuevo puede fichar fechas anteriores a su registro (p.ej. desde el inicio de su contrato), siempre dentro de los 180 días.
 - El sistema AUTOMÁTICAMENTE excluye: festivos de la escuela, días de vacaciones aprobadas del usuario, y días ya fichados. No se sobrescriben fichajes existentes. NO necesitas calcular tú los días.

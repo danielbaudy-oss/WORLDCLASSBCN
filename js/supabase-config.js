@@ -28,8 +28,8 @@ var TimePicker = {
     var base = 'text-align:center;text-align-last:center;font-weight:700;color:var(--primary);' +
       'border:2px solid var(--gray-200);border-radius:12px;-webkit-appearance:none;appearance:none;cursor:pointer;';
     return size === 'sm'
-      ? base + 'font-size:16px;padding:8px 6px;background:#fff;'
-      : base + 'font-size:30px;padding:12px 8px;background:var(--gray-50);';
+      ? base + 'font-size:15px;padding:7px 6px;background:#fff;'
+      : base + 'font-size:20px;padding:10px 12px;background:var(--gray-50);';
   },
   // Build the picker into the wrapper holding hidden input `id`. opts: { size:'lg'|'sm', onChange }
   mount: function(id, opts) {
@@ -52,7 +52,7 @@ var TimePicker = {
       var mm = String(m).padStart(2, '0');
       mOpts += '<option value="' + mm + '"' + (m === cm ? ' selected' : '') + '>' + mm + '</option>';
     });
-    var sep = size === 'sm' ? 'font-size:16px' : 'font-size:28px';
+    var sep = size === 'sm' ? 'font-size:15px' : 'font-size:20px';
     var wrap = document.createElement('div');
     wrap.id = id + '_qp';
     wrap.setAttribute('style', this._wrapStyle);

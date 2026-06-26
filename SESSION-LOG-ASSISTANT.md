@@ -1740,3 +1740,30 @@ limited to 00/15/30/45 — so the UI literally offers only four options.
 
 ### Files modified
 - `js/supabase-config.js`, `js/teacher.js`, `js/admin.js`, `teacher.html`, `index.html`, `admin.html`
+
+---
+
+## Session: June 26, 2026 (continued) — Atlas quarter-hour rule + picker size + medAppt no-snap
+
+### Atlas (class-helper) — DEPLOYED v51
+- `add_punches` now snaps every in/out time to the nearest 15-min step (00/15/30/45) via a new
+  `roundToQuarter()` helper, across all modes (range, per-weekday schedule, single-day punches).
+- System prompt gained a "PASOS DE 15 MIN" rule: if the user gives an odd time (e.g. "de 9:10 a
+  13:50"), Atlas rounds to 09:15–13:45 and says so in the confirmation.
+- Deployed live (version 51, verify_jwt=false). Live == repo (verified via get_edge_function).
+- NOTE on deploy mechanism: the Pi has NO stored Supabase access token (pasted manually each
+  time), so the Pi CLI deploy fails with "Access token not provided". This deploy went through.
+
+### Frontend — punch picker dialed down + medAppt reverted to free minutes
+- TimePicker font sizes reduced to look closer to the native field: lg 30px→20px (pad 12→10/12),
+  sm 16px→15px, separator 28→20px. (`js/supabase-config.js`)
+- Visita Médica (MedAppt) Desde/Hasta: plain native `<input type="time">` with NO step and NO
+  snap — any minute allowed (per user). Removed step=900 + onchange round (teacher.html) and the
+  submit-time roundToQuarter (teacher.js). Punches remain quarter-only dropdowns.
+
+### Cache-bust
+- 20260626e → 20260626f (index/teacher/admin .html APP_VERSION + styles.css / admin.css links).
+
+### Files modified
+- `supabase/functions/class-helper/index.ts` (live==repo, v51)
+- `js/supabase-config.js`, `js/teacher.js`, `teacher.html`, `index.html`, `admin.html`
