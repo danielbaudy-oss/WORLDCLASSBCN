@@ -1356,6 +1356,7 @@ async function renderCalendarModal() {
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fce7f3;border:1px solid #ec4899;border-radius:3px"></span>D.R. Empresa</span>' +
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px"></span>Médico</span>' +
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#ccfbf1;border:1px solid #14b8a6;border-radius:3px"></span>Permiso</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fff7ed;border:1px solid #f97316;border-radius:3px"></span>⚠️ Fichaje incompleto</span>' +
     '</div>' +
     '<div class="calendar-grid">';
 
@@ -1394,6 +1395,12 @@ async function renderCalendarModal() {
     var schoolHol = schoolHolidayMap[dateStr];
     var teacherHol = teacherHolidayMap[dateStr];
 
+    // Incomplete punch day: IN count != OUT count on a PAST day (today excluded — an open
+    // shift mid-day is legitimately unbalanced). Mirrors the teacher "Mi Fichaje" flag.
+    var insCount = inOutPunches.filter(function(p) { return p.punch_type === 'IN'; }).length;
+    var outsCount = inOutPunches.filter(function(p) { return p.punch_type === 'OUT'; }).length;
+    var isIncomplete = hasPunches && insCount !== outsCount && dateStr < todayStr;
+
     var classes = 'calendar-cell';
     if (hasPunches) classes += ' has-punches';
     if (isToday) classes += ' today';
@@ -1409,11 +1416,15 @@ async function renderCalendarModal() {
       inlineStyle = 'background:#fef3c7;border:2px solid #f59e0b;';
       overlayLabel = '🏫 ' + schoolHol;
     }
+    // Incomplete-punch styling takes precedence on punched days (it's the actionable signal).
+    if (isIncomplete) {
+      inlineStyle = 'background:#fff7ed;border:2px solid #f97316;';
+    }
 
     html += '<div class="' + classes + '"' + (inlineStyle ? ' style="' + inlineStyle + '"' : '') + ' onclick="showDayDetail(\'' + dateStr + '\')">';
     html += '<div class="calendar-day-num">' + day + '</div>';
     if (hasPunches) {
-      html += '<div class="calendar-punch-count">' + inOutPunches.length + ' fichajes</div>';
+      html += '<div class="calendar-punch-count">' + (isIncomplete ? '⚠️ ' : '') + inOutPunches.length + ' fichajes</div>';
       html += '<div class="calendar-hours">' + hours.toFixed(1) + 'h</div>';
     } else if (overlayLabel) {
       html += '<div style="font-size:9px;font-weight:600;line-height:1.15;margin-top:2px;max-width:100%;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;word-break:break-word" title="' + overlayLabel + '">' + overlayLabel + '</div>';

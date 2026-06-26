@@ -1643,3 +1643,29 @@ UX request: time inputs should only allow quarter-hour selections (00/15/30/45),
 
 ### Files modified
 - `teacher.html`, `js/teacher.js`, `js/admin.js`, `index.html`, `admin.html`
+
+---
+
+## Session: June 26, 2026 (continued) — incomplete-punch indicator in admin calendar
+
+Extended the incomplete-punch flag to the admin per-employee calendar modal (📅 Calendario).
+
+### Change (`js/admin.js`, `renderCalendarModal`)
+- Per day cell, count IN vs OUT among that day's punches. A day is marked **incomplete** when
+  `#IN !== #OUT` AND it's a PAST day (`dateStr < today` — today excluded, same rationale as the
+  teacher view: an open mid-shift is legitimately unbalanced).
+- Visual: incomplete days get an orange border + light bg (`#fff7ed` / `#f97316`, takes
+  precedence over holiday/school styling since it's the actionable signal) and a "⚠️" prefix on
+  the "N fichajes" line. Added a matching legend entry ("⚠️ Fichaje incompleto").
+- Styling is inline (no admin.css change needed). Cell layout unchanged (still day-num +
+  fichajes + hours), so no overflow risk.
+
+### Verified
+- `node --check js/admin.js` clean. Detection mirrors the teacher-side SQL already validated
+  (BEATRIZ/LOURDES etc.); balanced multi-session days stay unmarked.
+
+### Cache-bust
+- 20260626b → 20260626c (index/teacher/admin .html APP_VERSION + styles.css / admin.css links).
+
+### Files modified
+- `js/admin.js`, `index.html`, `teacher.html`, `admin.html`
