@@ -4,6 +4,20 @@ const SUPABASE_ANON_KEY = 'sb_publishable_gfNxT6X2meKFQQhS1jHA3Q_BIcTTYJ5';
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Round a "HH:MM" time string to the nearest 15-minute step (00/15/30/45).
+// Native <input type="time"> only steps in 15-min increments via the spinner, but desktop
+// browsers still let you type/scroll any minute — so we snap the value to a quarter hour
+// on change and again before saving. Clamped to stay within the same day.
+function roundTimeToQuarter(timeStr) {
+  if (!timeStr || !/^\d{1,2}:\d{2}/.test(timeStr)) return timeStr;
+  var parts = timeStr.split(':');
+  var total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  var rounded = Math.round(total / 15) * 15;
+  if (rounded >= 24 * 60) rounded = 23 * 60 + 45;
+  if (rounded < 0) rounded = 0;
+  return String(Math.floor(rounded / 60)).padStart(2, '0') + ':' + String(rounded % 60).padStart(2, '0');
+}
+
 // App defaults (matching existing Code.js DEFAULTS)
 const DEFAULTS = {
   ANNUAL_DAYS: 31,

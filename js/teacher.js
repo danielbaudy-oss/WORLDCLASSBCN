@@ -244,7 +244,7 @@ async function submitPunch() {
   btn.disabled = true;
 
   const timeInput = document.getElementById('timeInput');
-  const timeStr = timeInput.value;
+  const timeStr = roundTimeToQuarter(timeInput.value);
 
   if (!timeStr || !/^\d{2}:\d{2}$/.test(timeStr)) {
     showToast('Formato de hora inválido', 'error');
@@ -322,7 +322,7 @@ function timeToMinutes(t) {
 
 async function savePunchEdit() {
   const id = document.getElementById('editPunchId').value;
-  const newTime = document.getElementById('editTimeInput').value;
+  const newTime = roundTimeToQuarter(document.getElementById('editTimeInput').value);
 
   if (!newTime || !/^\d{2}:\d{2}$/.test(newTime)) {
     showToast('Formato de hora inválido', 'error');
@@ -811,8 +811,8 @@ async function submitHolidayRequest() {
   if (type === 'MedAppt') {
     // Hour-based request
     var medDate = document.getElementById('medApptDate').value;
-    var startTime = document.getElementById('medApptStartTime').value;
-    var endTime = document.getElementById('medApptEndTime').value;
+    var startTime = roundTimeToQuarter(document.getElementById('medApptStartTime').value);
+    var endTime = roundTimeToQuarter(document.getElementById('medApptEndTime').value);
     if (!medDate) { showToast('Selecciona la fecha', 'error'); return; }
     if (!startTime || !endTime) { showToast('Selecciona el horario', 'error'); return; }
     var sh = startTime.split(':').map(Number);
