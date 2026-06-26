@@ -1286,7 +1286,9 @@ function updateMedApptHours() {
 function setCurrentTime() {
   const now = new Date();
   const h = String(now.getHours()).padStart(2, '0');
-  const m = String(now.getMinutes()).padStart(2, '0');
+  // Floor to the nearest 15-min step so the prefilled value matches the picker
+  // increments and never lands in the future on "today".
+  const m = String(Math.floor(now.getMinutes() / 15) * 15).padStart(2, '0');
   document.getElementById('timeInput').value = h + ':' + m;
 }
 

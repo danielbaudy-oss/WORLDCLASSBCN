@@ -1611,3 +1611,35 @@ Implemented the flagged "uneven number of punches" feature on the teacher "Mi Fi
 ### Reminder
 - Push via the Pi (GitHub blocked on this laptop). Frontend needs a hard refresh on prod unless
   the cache-bust bump propagates.
+
+---
+
+## Session: June 26, 2026 (continued) — 15-minute time steps on all time pickers
+
+UX request: time inputs should only allow quarter-hour selections (00/15/30/45), not every minute.
+
+### Change
+- Added `step="900"` (900s = 15 min) to every `type="time"` input in the active app:
+  - `teacher.html`: punch time (`#timeInput`), edit-punch (`#editTimeInput`), Visita Médica
+    Desde/Hasta (`#medApptStartTime` / `#medApptEndTime`).
+  - `js/admin.js` (per-employee calendar punch CRUD): add-punch (`#newPunchTime`) and inline
+    edit-punch (`#editPunchTime-<id>`).
+- Default prefilled "now" values floored to the nearest 15 min so they (a) match the picker
+  increments and (b) never round up into the future on today:
+  - `teacher.js setCurrentTime()` → `Math.floor(min/15)*15`.
+  - `admin.js showAddPunchForm()` `defaultTime` → same floor.
+- Native pickers (iOS/Android — the primary platform) now show only 00/15/30/45 on the minute
+  wheel. Existing historical punch values that aren't 15-aligned are still displayed as-is when
+  editing (not silently rewritten); the step only constrains new picker selections.
+
+### Notes / scope
+- Applied to medical-visit times too for consistency (defaults 09:00/10:00 already aligned).
+- No submit-time rounding added: the picker enforces increments on mobile and defaults are
+  floored; desktop free-typing is an edge case left to the existing duplicate/future checks.
+- `node --check` clean on teacher.js + admin.js.
+
+### Cache-bust
+- 20260626a → 20260626b (index/teacher/admin .html APP_VERSION + styles.css / admin.css links).
+
+### Files modified
+- `teacher.html`, `js/teacher.js`, `js/admin.js`, `index.html`, `admin.html`
