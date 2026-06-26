@@ -89,6 +89,7 @@ function generateDatesForRange(startDate: string, endDate: string, allowedDays: 
 const tools = [{ function_declarations: [
   { name: "get_holidays", description: "Consultar saldo de vacaciones y permisos.", parameters: { type: "object", properties: { user_id: { type: "string" } } } },
   { name: "get_work_hours", description: "Consultar horas trabajadas. Por defecto mes actual.", parameters: { type: "object", properties: { user_id: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" } } } },
+  { name: "get_schedule", description: "Consultar el HORARIO de clases (grupos), tutorías y privados de un profesor desde la hoja de la escuela. Por defecto el profe actual y el día de hoy. Úsalo para '¿qué clases tengo hoy?', 'mi horario', 'qué doy el martes', etc.", parameters: { type: "object", properties: { teacher: { type: "string", description: "Nombre del profe (solo admins pueden consultar a otros; los profes ven el suyo)" }, day: { type: "string", description: "Día de la semana: L, M, X, J, V, S o D. Por defecto hoy." }, all_week: { type: "boolean", description: "true para ver toda la semana en vez de un solo día" } } } },
   { name: "search_materials", description: "Buscar en la base de conocimiento de la escuela: procedimientos, normas, materiales, convenio, programas, evaluaciones y cualquier información sobre cómo funciona WorldClass BCN. USA ESTA HERRAMIENTA para CUALQUIER pregunta sobre procedimientos o 'cómo se hace X'.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "request_holiday", description: "Solicitar vacaciones o permiso. Tipos: Annual, Personal, School, Medical, MedAppt (horas), Permiso (Permiso Retribuido — REQUIERE permiso_motive a-j y hours), PermisoNoRet (Permiso No Retribuido — por días).", parameters: { type: "object", properties: { type: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, days: { type: "number" }, reason: { type: "string" }, hours: { type: "number", description: "Horas de ausencia para Permiso Retribuido (cuentan como trabajadas)" }, permiso_motive: { type: "string", description: "Motivo del Permiso Retribuido (Art. 28): una letra a-j" }, confirmed: { type: "boolean" } }, required: ["type"] } },
   { name: "add_punches", description: "Añadir fichajes. Para horario uniforme usa start_date+end_date+in_time+out_time+days_of_week. Para horario que VARÍA según el día de la semana usa start_date+end_date+schedule. El sistema excluye festivos y días ya fichados automáticamente. Siempre confirmed=false primero.", parameters: { type: "object", properties: { start_date: { type: "string", description: "Fecha inicio YYYY-MM-DD" }, end_date: { type: "string", description: "Fecha fin YYYY-MM-DD" }, in_time: { type: "string", description: "Hora entrada HH:MM (horario uniforme)" }, out_time: { type: "string", description: "Hora salida HH:MM (horario uniforme)" }, days_of_week: { type: "string", description: "Días a incluir: 'workdays' (lun-vie, por defecto), 'mon,tue,wed,thu,fri,sat,sun', o 'all'" }, schedule: { type: "string", description: "Horario semanal en JSON cuando las horas cambian según el día. Claves: mon,tue,wed,thu,fri,sat,sun; cada una con in y out (HH:MM). Ej: {mon:{in:'09:30',out:'14:30'},tue:{in:'17:00',out:'21:00'}}. Úsalo con start_date+end_date." }, punches: { type: "string", description: "JSON para días sueltos no consecutivos: [{date:'YYYY-MM-DD',in_time:'HH:MM',out_time:'HH:MM'}]" }, confirmed: { type: "boolean" } } } },
@@ -116,6 +117,34 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     for (const p of punches || []) { if (!byD[p.date]) byD[p.date] = []; byD[p.date].push(p); }
     for (const [, d] of Object.entries(byD) as any) { const ins = d.filter((x:any) => x.punch_type==="IN"); const outs = d.filter((x:any) => x.punch_type==="OUT"); for (let i=0;i<Math.min(ins.length,outs.length);i++) tot += (new Date(`2000-01-01T${outs[i].time}`).getTime()-new Date(`2000-01-01T${ins[i].time}`).getTime())/3600000; }
     return { periodo: `${s} a ${e}`, horas_totales: Math.round(tot*100)/100, dias_trabajados: Object.keys(byD).length };
+  }
+  if (name === "get_schedule") {
+    // Teachers see their own schedule; admins may pass a teacher name.
+    let teacherName = args.teacher;
+    if (ctx.role === "teacher" || !teacherName) teacherName = String(ctx.name || "").trim().split(/\s+/)[0];
+    if (!teacherName) return { error: "No pude identificar al profe." };
+    const spainNow = getSpainNow();
+    const dow = ["D", "L", "M", "X", "J", "V", "S"][spainNow.getDay()];
+    const day = String(args.day || dow).toUpperCase();
+    const allWeek = !!args.all_week;
+    const dayNames: any = { L: "lunes", M: "martes", X: "miércoles", J: "jueves", V: "viernes", S: "sábado", D: "domingo" };
+
+    const { data: classes } = await db.from("schedule_classes").select("teacher, level, module, time_start, time_end, room, location, days, student_count, status").ilike("teacher", teacherName);
+    const { data: tut } = await db.from("schedule_tutorias").select("teacher, location, day, time_slot").ilike("teacher", `%${teacherName}%`);
+    const { data: privs } = await db.from("schedule_privates").select("student_name, level, schedule_text, location, teacher, active").ilike("teacher", `%${teacherName}%`);
+
+    const clases = (classes || []).filter((c: any) => allWeek || (c.days && c.days.includes(day)))
+      .map((c: any) => ({ nivel: c.level, modulo: c.module, horario: `${(c.time_start || "").slice(0, 5)}-${(c.time_end || "").slice(0, 5)}`, sala: c.room, sede: c.location, dias: (c.days || []).join(""), alumnos: c.student_count, estado: c.status }))
+      .sort((a: any, b: any) => (a.horario || "").localeCompare(b.horario || ""));
+    const tutorias = (tut || []).filter((t: any) => allWeek || t.day === day)
+      .map((t: any) => ({ dia: t.day, hora: t.time_slot, sede: t.location }));
+    const privados = (privs || []).filter((p: any) => p.active)
+      .map((p: any) => ({ alumno: p.student_name, nivel: p.level, horario: p.schedule_text, sede: p.location }));
+
+    if (!clases.length && !tutorias.length && !privados.length) {
+      return { mensaje: `No encontré clases para ${teacherName}${allWeek ? "" : ` el ${dayNames[day] || day}`}. El horario se sincroniza desde la hoja de la escuela; si crees que falta algo, puede que aún no esté en el sistema.` };
+    }
+    return { profe: teacherName, dia: allWeek ? "toda la semana" : (dayNames[day] || day), clases, tutorias, privados, nota: "Horario de solo lectura, sincronizado desde la hoja de la escuela." };
   }
   if (name === "search_materials") {
     const r = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: `models/${EMBEDDING_MODEL}`, content: { parts: [{ text: args.query }] } }) });
@@ -439,6 +468,11 @@ FECHAS — REGLA CRÍTICA:
 - NUNCA uses un año anterior (${week.year - 1} o antes) salvo que el usuario lo diga EXPLÍCITAMENTE.
 - Ejemplo: hoy es ${week.today}. Si el usuario dice "fichar enero", usa start_date=${week.year}-01-01 y end_date=${week.year}-01-31.
 - Los fichajes solo se permiten hasta ${DEFAULT_MAX_PAST_DAYS} días atrás; un año equivocado dará "fuera de rango".
+
+Horario de clases (get_schedule):
+- Para preguntas sobre el HORARIO ("¿qué clases tengo hoy?", "mi horario", "qué doy el martes", "¿tengo tutorías?", "mis privados"), usa get_schedule. Por defecto el profe actual y HOY; pasa day (L/M/X/J/V/S/D) para otro día o all_week=true para la semana.
+- Devuelve clases de grupo, tutorías y privados. Es de SOLO LECTURA (se sincroniza desde la hoja de la escuela) — no se puede editar el horario desde aquí.
+- Los admins pueden consultar el horario de otro profe pasando teacher.
 
 Vacaciones y permisos (request_holiday):
 - CONFIRMACIÓN (MUY IMPORTANTE): en cuanto tengas los datos necesarios (tipo, fecha(s), horas o días, y el motivo si es Permiso), LLAMA a request_holiday con confirmed=false. NUNCA pidas la confirmación escribiéndola tú en el chat (nada de "¿confirmo...?" en texto): la propia herramienta devuelve el resumen y hace que aparezcan los botones Confirmar/Cancelar. Usa confirmed=true SOLO después de que el usuario pulse confirmar o diga que sí.
