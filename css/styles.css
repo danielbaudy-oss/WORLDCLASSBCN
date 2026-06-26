@@ -255,6 +255,10 @@ html { width: 100%; height: 100%; overflow: hidden; touch-action: manipulation; 
 .calendar-day.selected.has-punches { background: var(--primary); color: #fff; }
 .calendar-day.school-holiday { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; position: relative; }
 .calendar-day.school-holiday::after { content: '🏢'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.incomplete { background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%); color: #9a3412; border: 2px solid #f97316; }
+.calendar-day.incomplete::after { content: '⚠️'; position: absolute; bottom: 1px; right: 1px; font-size: 8px; }
+.calendar-day.selected.incomplete { background: var(--primary); color: #fff; }
+.calendar-day.selected.incomplete::after { display: none; }
 .calendar-day.selected.school-holiday { background: var(--primary); color: #fff; }
 .calendar-day.selected.school-holiday::after { display: none; }
 .calendar-day.holiday-annual { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 2px solid #3b82f6; }
@@ -277,6 +281,7 @@ html { width: 100%; height: 100%; overflow: hidden; touch-action: manipulation; 
 .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gray-500); }
 .legend-dot { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
 .legend-dot.punches { background: var(--accent); }
+.legend-dot.incomplete { background: linear-gradient(135deg, #fff7ed, #fed7aa); border: 1px solid #f97316; }
 .legend-dot.school-holiday { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #f59e0b; }
 
 /* Holiday type button description */

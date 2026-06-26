@@ -1565,3 +1565,49 @@ Feature request (teacher "Mi Fichaje" page = teacher.html / js/teacher.js):
 - Push via Pi (GitHub blocked on laptop). Deploys via Pi Supabase CLI.
 - Don't type the anon/JWT by hand (homoglyph corruption) — fetch via
   `~/bin/supabase projects api-keys -o json` on the Pi; delete /tmp key dumps after (service_role).
+
+---
+
+## Session: June 26, 2026 (continued) — incomplete-punch detection (teacher view)
+
+Implemented the flagged "uneven number of punches" feature on the teacher "Mi Fichaje" page.
+
+### What it does
+- Scans the current user's IN/OUT punches for the current year and flags any day where
+  `#IN !== #OUT` (a missing entrada/salida). PREP punches are ignored (query filters to IN/OUT).
+- **Today is excluded on purpose** (`.lt('date', today)`): a person clocked IN but not yet OUT
+  is legitimately incomplete mid-shift — flagging it would be a daily false alarm. A genuinely
+  forgotten punch from today surfaces the next day (still editable). Noted as a deliberate
+  deviation from the "up to today" wording in the original spec.
+
+### UI (`teacher.html` + `js/teacher.js`)
+- Amber banner near the top of the Fichaje tab (after the date card):
+  "⚠️ Tienes N día(s) con un fichaje incompleto". Tap to expand a list.
+- Each row shows the date + "X entradas · Y salidas" and a **Corregir ›** button that jumps to
+  that day (`goToIncompleteDay` → `switchTab('hours')` + `loadDay` + scroll to top).
+- **Freeze-aware**: frozen days (teacher, `date <= FreezeDate`) show a 🔒 instead of the
+  Corregir button (can't be edited by teachers). Admins/super_admins never frozen.
+- **Calendar marker**: incomplete days render with an orange `.incomplete` style + ⚠️ corner
+  glyph in the day-picker calendar; added a matching legend entry. (`css/styles.css`,
+  `renderCalendar` reads `window._incompleteDaysSet`.)
+- Pure frontend computation; no backend/schema change. Re-checked on init, on Atlas
+  `onAtlasDataChanged`, and after every punch submit/edit/delete.
+
+### Verified
+- Read-only SQL across all teachers confirmed the detection surfaces real data (e.g. BEATRIZ 3,
+  LOURDES 2, plus several with 1; the two "today" hits were open shifts → correctly excluded now).
+- `node --check js/teacher.js` clean.
+
+### Cache-bust
+- 20260625g → 20260626a (index/teacher/admin .html APP_VERSION + styles.css / admin.css links).
+
+### Files modified
+- `teacher.html` — incomplete banner + calendar legend entry; cache-bust
+- `js/teacher.js` — checkIncompletePunches / toggleIncompleteList / goToIncompleteDay; calendar
+  marker; wired into init/Atlas/punch-mutation paths
+- `css/styles.css` — `.calendar-day.incomplete` + `.legend-dot.incomplete`
+- `index.html`, `admin.html` — cache-bust 20260626a
+
+### Reminder
+- Push via the Pi (GitHub blocked on this laptop). Frontend needs a hard refresh on prod unless
+  the cache-bust bump propagates.

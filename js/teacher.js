@@ -29,6 +29,7 @@ async function initTeacher() {
   await loadDay(selectedDate);
   await loadProgress();
   await loadHolidaySummary();
+  await checkIncompletePunches();
 }
 
 // Refresh teacher views after Atlas (chat widget) changes punch/holiday data.
@@ -36,6 +37,7 @@ window.onAtlasDataChanged = function() {
   loadDay(selectedDate);
   loadProgress();
   loadHolidaySummary();
+  checkIncompletePunches();
 };
 
 // ========================================
@@ -309,6 +311,7 @@ async function submitPunch() {
 
   showToast(`Fichaje ${punchType === 'IN' ? 'Entrada' : 'Salida'} a las ${timeStr} ✓`);
   await loadDay(selectedDate);
+  await checkIncompletePunches();
   isPunching = false;
 }
 
@@ -340,6 +343,7 @@ async function savePunchEdit() {
   closeEditModal();
   showToast('Fichaje actualizado ✓');
   await loadDay(selectedDate);
+  await checkIncompletePunches();
 }
 
 async function deletePunch(id) {
@@ -361,6 +365,7 @@ async function deletePunch(id) {
   closeEditModal();
   showToast('Fichaje eliminado');
   await loadDay(selectedDate);
+  await checkIncompletePunches();
 }
 
 // ========================================
@@ -1286,6 +1291,110 @@ function setCurrentTime() {
 }
 
 // ========================================
+// INCOMPLETE PUNCH DETECTION
+// ========================================
+// Flags days (current year, up to today) where the number of IN punches
+// doesn't match the number of OUT punches — i.e. a missing entrada/salida.
+
+async function checkIncompletePunches() {
+  var bannerEl = document.getElementById('incompleteBanner');
+  if (!bannerEl || !currentProfile) return;
+
+  var year = new Date().getFullYear();
+  var yearStart = year + '-01-01';
+  var today = formatDate(new Date());
+
+  // Scan prior days of the current year only. Today is excluded on purpose: a person
+  // who has clocked IN but not yet OUT is legitimately "incomplete" mid-shift — flagging
+  // it would be a false alarm. A truly forgotten punch from today surfaces tomorrow.
+  var { data: punches, error } = await db
+    .from('time_punches')
+    .select('date, punch_type')
+    .eq('user_id', currentProfile.id)
+    .in('punch_type', ['IN', 'OUT'])
+    .gte('date', yearStart)
+    .lt('date', today);
+
+  if (error) {
+    console.error('Error checking incomplete punches:', error);
+    bannerEl.style.display = 'none';
+    return;
+  }
+
+  // Count IN vs OUT per date
+  var byDate = {};
+  (punches || []).forEach(function(p) {
+    if (!byDate[p.date]) byDate[p.date] = { in: 0, out: 0 };
+    if (p.punch_type === 'IN') byDate[p.date].in++;
+    else if (p.punch_type === 'OUT') byDate[p.date].out++;
+  });
+
+  // Flag days where #IN !== #OUT
+  var incompleteDays = Object.keys(byDate)
+    .filter(function(ds) { return byDate[ds].in !== byDate[ds].out; })
+    .sort();
+
+  // Expose for the calendar marker
+  window._incompleteDaysSet = new Set(incompleteDays);
+
+  if (!incompleteDays.length) {
+    bannerEl.style.display = 'none';
+    // Repaint calendar if open so any cleared markers disappear
+    if (document.getElementById('calendarOverlay').classList.contains('active')) renderCalendar();
+    return;
+  }
+
+  // Teachers can't edit frozen days; flag those as read-only in the list
+  var freezeDate = await getConfigValue('FreezeDate');
+  var isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
+
+  var n = incompleteDays.length;
+  document.getElementById('incompleteText').textContent =
+    'Tienes ' + n + ' día' + (n > 1 ? 's' : '') + ' con un fichaje incompleto';
+
+  var monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var listHtml = incompleteDays.map(function(ds) {
+    var d = new Date(ds + 'T12:00:00');
+    var label = d.getDate() + ' ' + monthNames[d.getMonth()] + ' ' + d.getFullYear();
+    var c = byDate[ds];
+    var detail = c.in + ' entrada' + (c.in !== 1 ? 's' : '') + ' · ' + c.out + ' salida' + (c.out !== 1 ? 's' : '');
+    var frozen = !isAdmin && freezeDate && ds <= freezeDate;
+    var rightHtml = frozen
+      ? '<span style="font-size:12px;color:#94a3b8" title="Día congelado, no editable">🔒</span>'
+      : '<button onclick="goToIncompleteDay(\'' + ds + '\')" style="padding:6px 14px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Corregir ›</button>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border-radius:8px;margin-bottom:6px;border:1px solid #fed7aa">' +
+        '<div>' +
+          '<div style="font-size:13px;color:#9a3412;font-weight:600">' + label + '</div>' +
+          '<div style="font-size:11px;color:#b45309;margin-top:1px">' + detail + '</div>' +
+        '</div>' +
+        rightHtml +
+      '</div>';
+  }).join('');
+
+  document.getElementById('incompleteList').innerHTML = listHtml;
+  bannerEl.style.display = 'block';
+
+  // Keep the calendar marker in sync if it's open
+  if (document.getElementById('calendarOverlay').classList.contains('active')) renderCalendar();
+}
+
+function toggleIncompleteList() {
+  var listEl = document.getElementById('incompleteList');
+  var chevron = document.getElementById('incompleteChevron');
+  if (!listEl) return;
+  var open = listEl.style.display === 'block';
+  listEl.style.display = open ? 'none' : 'block';
+  if (chevron) chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function goToIncompleteDay(ds) {
+  // Make sure we're on the Fichaje tab, then open that day
+  switchTab('hours');
+  loadDay(new Date(ds + 'T12:00:00'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ========================================
 // CALENDAR
 // ========================================
 
@@ -1411,6 +1520,7 @@ function renderCalendar() {
     var isSchoolHol = calendarSchoolHolidays[ds];
     var teacherHolType = calendarTeacherHolidays[ds];
     var hasP = calendarPunchedDays[ds] > 0;
+    var isIncomplete = window._incompleteDaysSet && window._incompleteDaysSet.has(ds);
 
     var cls = ['calendar-day'];
     if (ds === todayStr) cls.push('today');
@@ -1420,6 +1530,8 @@ function renderCalendar() {
     if (teacherHolType) {
       var holClass = teacherHolType === 'School' ? 'holiday-school-day' : 'holiday-' + teacherHolType.toLowerCase();
       cls.push(holClass);
+    } else if (isIncomplete) {
+      cls.push('incomplete');
     } else if (isSchoolHol && !hasP) {
       cls.push('school-holiday');
     } else if (hasP) {
