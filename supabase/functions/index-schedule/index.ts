@@ -332,7 +332,8 @@ Deno.serve(async (req: Request) => {
       const { data: existing } = await db.from(table).select("*");
       const oldByKey: Record<string, any> = {}; (existing || []).forEach((e: any) => { oldByKey[e.source_key] = e; });
       const newByKey: Record<string, any> = {}; rows.forEach(r => { newByKey[r.source_key] = r; });
-      const hash = (o: any) => fields.map(f => JSON.stringify(o[f] ?? null)).join("|");
+      const normV = (v: any) => (typeof v === "string" && /^\d{2}:\d{2}:\d{2}$/.test(v)) ? v.slice(0, 5) : v;
+      const hash = (o: any) => fields.map(f => JSON.stringify(normV(o[f] ?? null))).join("|");
       // Initial load (table was empty): don't flood schedule_changes with thousands of
       // "insert" rows — only record real day-to-day changes from the 2nd sync onward.
       const initialLoad = Object.keys(oldByKey).length === 0;
