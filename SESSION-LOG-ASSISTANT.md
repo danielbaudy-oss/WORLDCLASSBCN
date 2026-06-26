@@ -1435,3 +1435,47 @@ that were really the baja period. DB-only data change (no code/migration):
   BLOCKER (user): verify worldclass domain in Resend; rotate+add RESEND_API_KEY secret.
 - Pi cron: morning sync → digest (~07:00 Europe/Madrid) + hourly sync backstop.
 - Harden: move index-schedule `SYNC_TOKEN` placeholder to a Supabase secret before cron.
+
+---
+
+## Session: June 26, 2026 (continued) — daily-digest email LIVE (test mode)
+
+### Built + deployed `daily-digest` Edge Function (via CLI)
+Morning summary email for Rocío. Three sections:
+- ⚠️ **Coberturas a vigilar (próx. 14 días)** — the headline: teachers with an APPROVED
+  full-day absence (Annual/Personal/School/Medical/PermisoNoRet) who have group classes on
+  those weekdays. Matched by profile first-name → schedule_classes.teacher. (Subs not imported
+  yet, so it says "revisar cobertura" rather than confirmed-uncovered.)
+- 🔔 **Cambios (24h)** — from `schedule_changes`.
+- 📅 **Clases de hoy** — today's group classes.
+
+### Email sending — Resend, TEST MODE
+- `RESEND_API_KEY` set as a Supabase secret via the CLI (`supabase secrets set`). Used the key
+  Daniel shared — ⚠️ STILL TO ROTATE; works only in test mode anyway.
+- From `onboarding@resend.dev` → can only reach Daniel's own Resend address
+  (danielbaudy@googlemail.com) until `worldclassbcn.com` is verified.
+- worldclassbcn.com DNS is on **SiteGround** (ns1/ns2.siteground.net) — Daniel doesn't manage
+  it; needs whoever runs the site (Silvia) to add Resend's DKIM/SPF/MX records, OR verify a
+  personal domain Daniel controls. From/To are env-configurable (DIGEST_FROM/DIGEST_TO) so we
+  flip without code changes.
+
+### Test result ✅
+- Dry-run + real send both worked: 16 coverage gaps / 0 changes / 14 classes today.
+  email_id returned; delivered to Daniel's inbox.
+
+### Auth / cron
+- daily-digest auth: admin JWT OR body.token === DIGEST_TOKEN (placeholder "wcbcn_digest_8Qm2"
+  — move to secret before cron, same as index-schedule's SYNC_TOKEN).
+
+### Deploy workflow note (works great now)
+- All deploys via Pi CLI: `cd ~/WORLDCLASSBCN && SUPABASE_ACCESS_TOKEN=… ~/bin/supabase functions deploy <name> --project-ref ruytavhodexoxkejrgyb --no-verify-jwt`.
+- To call token-gated functions for testing, fetch the anon key on the Pi via
+  `~/bin/supabase projects api-keys -o json` (avoids transcription) — never type the JWT by hand
+  (homoglyph corruption happened). Delete any /tmp key dumps after (they contain service_role).
+
+### NEXT
+- Pi cron: morning `index-schedule` sync → `daily-digest` (~07:00 Europe/Madrid) + hourly sync.
+- Verify a domain in Resend (SiteGround records or a personal domain) → flip DIGEST_FROM/TO to
+  send from atlas@… to Rocío. Rotate RESEND_API_KEY.
+- Move SYNC_TOKEN + DIGEST_TOKEN to Supabase secrets before wiring cron.
+- Add trials to the digest (needs Pruebas date parsing); nickname alias map for get_schedule.
