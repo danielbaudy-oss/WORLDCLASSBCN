@@ -1767,3 +1767,39 @@ limited to 00/15/30/45 — so the UI literally offers only four options.
 ### Files modified
 - `supabase/functions/class-helper/index.ts` (live==repo, v51)
 - `js/supabase-config.js`, `js/teacher.js`, `teacher.html`, `index.html`, `admin.html`
+
+---
+
+## Session: June 26, 2026 (continued) — ROLLBACK: quarter-hour setup removed, back to natural times
+
+User decision: the quarter-hour (15-min) restriction is gone. The dropdown UI was disliked and
+felt counterintuitive. Punch times are back to NATURAL native time inputs (any minute). Rationale
+from the user: the manager can round hours at year-end if needed, so per-punch rounding isn't worth
+the UX cost.
+
+### Frontend — reverted to native `<input type="time">` (any minute, no snap, no dropdown)
+- `js/supabase-config.js`: removed the `TimePicker` component AND the `roundTimeToQuarter` helper
+  entirely.
+- `teacher.html`: `#timeInput` and `#editTimeInput` back to native time inputs (no hidden input,
+  no step, no onchange snap).
+- `js/teacher.js`: `setCurrentTime` sets the real current HH:MM (no floor); `openEditPunch` sets
+  the value directly; `submitPunch`/`savePunchEdit` read `.value` directly (no rounding).
+- `js/admin.js`: add-punch (`#newPunchTime`) and inline edit-punch (`#editPunchTime-<id>`) back to
+  native inputs; `defaultTime` uses real minutes; `saveNewPunch`/`saveEditPunch` read `.value`.
+- Visita Médica was already native — unchanged.
+- Grep clean: no `TimePicker` / `roundTimeToQuarter` references remain. node --check clean on all 3.
+
+### Atlas (class-helper) — quarter rule removed (NEEDS REDEPLOY)
+- `supabase/functions/class-helper/index.ts`: removed the `roundToQuarter` helper, the
+  `punchList.map(... roundToQuarter ...)` snapping line, and the "PASOS DE 15 MIN" prompt rule.
+  Atlas now stores whatever exact times are given (still validates HH:MM, out>in, no future).
+- ⚠️ DEPLOY PENDING: the live function is still v51 (with rounding). Needs a redeploy from the Pi:
+  `cd ~/WORLDCLASSBCN && SUPABASE_ACCESS_TOKEN=<token> ~/bin/supabase functions deploy class-helper --project-ref ruytavhodexoxkejrgyb --no-verify-jwt`
+  (Pi has no stored token; pasted manually each time.)
+
+### Cache-bust
+- 20260626f → 20260626g (index/teacher/admin .html APP_VERSION + styles.css / admin.css links).
+
+### Files modified
+- `js/supabase-config.js`, `js/teacher.js`, `js/admin.js`, `teacher.html`, `index.html`,
+  `admin.html`, `supabase/functions/class-helper/index.ts`

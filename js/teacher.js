@@ -244,7 +244,7 @@ async function submitPunch() {
   btn.disabled = true;
 
   const timeInput = document.getElementById('timeInput');
-  const timeStr = roundTimeToQuarter(timeInput.value);
+  const timeStr = timeInput.value;
 
   if (!timeStr || !/^\d{2}:\d{2}$/.test(timeStr)) {
     showToast('Formato de hora inválido', 'error');
@@ -322,7 +322,7 @@ function timeToMinutes(t) {
 
 async function savePunchEdit() {
   const id = document.getElementById('editPunchId').value;
-  const newTime = roundTimeToQuarter(document.getElementById('editTimeInput').value);
+  const newTime = document.getElementById('editTimeInput').value;
 
   if (!newTime || !/^\d{2}:\d{2}$/.test(newTime)) {
     showToast('Formato de hora inválido', 'error');
@@ -1111,8 +1111,7 @@ function nextDay() {
 
 function openEditPunch(id, time, notes) {
   document.getElementById('editPunchId').value = id;
-  TimePicker.mount('editTimeInput', { size: 'lg' });
-  TimePicker.set('editTimeInput', time);
+  document.getElementById('editTimeInput').value = time;
   document.getElementById('editOverlay').classList.add('active');
 }
 
@@ -1287,13 +1286,8 @@ function updateMedApptHours() {
 function setCurrentTime() {
   const now = new Date();
   const h = String(now.getHours()).padStart(2, '0');
-  // Floor to the nearest 15-min step so the prefilled value matches the picker
-  // increments and never lands in the future on "today".
-  const m = String(Math.floor(now.getMinutes() / 15) * 15).padStart(2, '0');
-  if (!document.getElementById('timeInput_qp')) {
-    TimePicker.mount('timeInput', { size: 'lg' });
-  }
-  TimePicker.set('timeInput', h + ':' + m);
+  const m = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('timeInput').value = h + ':' + m;
 }
 
 // ========================================

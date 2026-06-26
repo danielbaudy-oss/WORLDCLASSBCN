@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" href="e.png">
   <link rel="manifest" href="manifest.json">
   <title>WorldClass BCN - Fichaje</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260626f">
+  <link rel="stylesheet" href="css/styles.css?v=20260626g">
 </head>
 <body class="teacher-body">
   <div class="container">
@@ -108,7 +108,7 @@
         <div class="section-title">Fichar</div>
         <div class="time-input-wrapper">
           <div class="time-label">Hora</div>
-          <input type="hidden" id="timeInput">
+          <input type="time" class="time-input" id="timeInput" aria-label="Hora del fichaje">
         </div>
         <button class="punch-btn in" id="punchBtn" onclick="submitPunch()">
           Fichar Entrada
@@ -305,7 +305,7 @@
         <button class="modal-close" onclick="closeEditModal()">✕</button>
       </div>
       <input type="hidden" id="editPunchId">
-      <input type="hidden" id="editTimeInput">
+      <input type="time" class="edit-time-input" id="editTimeInput" aria-label="Nueva hora">
       <div class="edit-actions">
         <button class="edit-btn cancel" onclick="closeEditModal()">Cancelar</button>
         <button class="edit-btn save" onclick="savePunchEdit()">Guardar</button>
@@ -318,7 +318,7 @@
     // Cache-busting: live timestamp on localhost; fixed release version in production.
     // BUMP APP_VERSION on every release so browsers fetch fresh CSS/JS (also update the
     // ?v= on the stylesheet <link> in <head>). Keep these in sync.
-    var APP_VERSION = '20260626f';
+    var APP_VERSION = '20260626g';
     var V = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? '?v=' + Date.now() : '?v=' + APP_VERSION;
     document.write('<script src="js/supabase-config.js'+V+'"><\/script><script src="js/auth.js'+V+'"><\/script><script src="js/teacher.js'+V+'"><\/script><script src="js/chat-widget.js'+V+'"><\/script>');
   </script>
