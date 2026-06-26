@@ -1803,3 +1803,12 @@ the UX cost.
 ### Files modified
 - `js/supabase-config.js`, `js/teacher.js`, `js/admin.js`, `teacher.html`, `index.html`,
   `admin.html`, `supabase/functions/class-helper/index.ts`
+
+### Atlas redeploy DONE — v52 (rollback live)
+- Deployed `class-helper` via the Supabase MCP `deploy_edge_function` tool (Pi has no stored
+  token; MCP is authenticated through the assistant connection). Build OK, status ACTIVE,
+  verify_jwt=false. Version 44→52 (build bumps).
+- Live == repo: no `roundToQuarter`, no snapping, no "PASOS DE 15 MIN" prompt rule. Atlas now
+  stores exact times (still validates HH:MM, out>in, no future, 180-day window).
+- Deploy mechanism note for future: MCP deploy works without the Pi token. Provide the full
+  index.ts content + verify_jwt:false. A failed build safely leaves the prior version live.
