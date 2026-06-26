@@ -1515,3 +1515,53 @@ Morning summary email for Rocío. Three sections:
 - Pi cron (morning sync → digest ~07:00 Madrid + hourly sync); move SYNC_TOKEN/DIGEST_TOKEN to
   secrets; Resend domain verify + key rotation (to email Rocío from atlas@worldclassbcn.com);
   optional: resolve "semana X" sub dates + wire subs into the coverage-gap.
+
+---
+
+## SESSION WRAP — June 26, 2026 (state + next-session plan)
+
+### ⭐ NEXT SESSION — START HERE: flag days with an odd/uneven number of punches
+Feature request (teacher "Mi Fichaje" page = teacher.html / js/teacher.js):
+- **Goal:** detect days where a punch is missing and make it obvious + one-tap fixable.
+- **Detection:** per day, count IN vs OUT punches (exclude PREP). Flag a day when
+  `#IN !== #OUT` (an unpaired punch) — that's the precise signal; an odd total is the simpler
+  proxy. Use IN≠OUT. Scan the current user's punches (current year up to today; ignore future).
+- **UI (best-effort, clean):**
+  - A small warning card/banner near the top of the Mi Fichaje view: e.g.
+    "⚠️ Tienes N día(s) con un fichaje incompleto" (amber, dismissible-but-persistent).
+  - List the affected dates; each is a **link/button that jumps to that day** to fix it
+    (reuse the existing day-detail / calendar navigation in teacher.js — find the function that
+    opens a day, e.g. selectDay/loadDayData, and navigate the calendar to that date + open it).
+  - Possibly also mark those days in the calendar view with a warning dot/colour.
+- **Notes:** only the user's OWN days; respect the freeze window (frozen days can't be edited by
+  teachers — still show them but indicate read-only, or skip frozen). Keep it lightweight; this
+  is purely a frontend computation over already-loaded punches (no new backend needed).
+- Remember: cache-bust bump + push via Pi after frontend changes.
+
+### Where things stand (end of June 26)
+**Schedule feature (built today):**
+- `index-schedule` importer: reads Salas Raval/Glories (group classes), Pruebas (trials, with
+  parsed trial_date), Priv (privates), tutorías, Sustis (substitutions, best-effort). Tables:
+  schedule_classes(71) / schedule_trials(2793) / schedule_privates(33) / schedule_tutorias(19)
+  / schedule_substitutions(8) + schedule_sync + schedule_changes. modifiedTime change-guard,
+  diff→changes (HH:MM:SS-normalized hash), populated from ATLAS copy.
+- Atlas `get_schedule` tool live (class-helper v50): "¿qué clases tengo hoy?" → targeted SQL,
+  accent/nickname matching.
+- `daily-digest` (Resend, TEST mode → danielbaudy@googlemail.com): coverage gaps (Rocío, 14
+  days) + changes (24h) + today's classes + trials (7 days). Sends OK.
+- Supabase CLI on the Pi = deploy mechanism (`~/bin/supabase functions deploy <fn> --project-ref ruytavhodexoxkejrgyb --no-verify-jwt`). Token stored on Pi.
+
+**Pending (deferred):**
+1. Pi cron: morning `index-schedule` sync → `daily-digest` (~07:00 Europe/Madrid) + hourly sync.
+2. Move `SYNC_TOKEN` (index-schedule) + `DIGEST_TOKEN` (daily-digest) placeholders → Supabase secrets.
+3. Resend: verify worldclassbcn.com (SiteGround DNS — Daniel doesn't manage it; needs Silvia) OR
+   a personal domain; then flip DIGEST_FROM/DIGEST_TO to email Rocío. ROTATE the Resend key.
+4. Coverage-gap: resolve "semana X" sub dates and cross-reference subs so gaps show "cubierto/
+   sin cubrir" instead of just "revisar".
+5. Switch index-schedule to the PRODUCTION sheet id once shared (currently ATLAS copy).
+6. peek-schedule function still exists as a 410 stub (harmless; delete from dashboard if wanted).
+
+### Reminders
+- Push via Pi (GitHub blocked on laptop). Deploys via Pi Supabase CLI.
+- Don't type the anon/JWT by hand (homoglyph corruption) — fetch via
+  `~/bin/supabase projects api-keys -o json` on the Pi; delete /tmp key dumps after (service_role).
