@@ -1394,3 +1394,44 @@ that were really the baja period. DB-only data change (no code/migration):
 ### Edge function inventory note
 - New: `index-schedule` (v1). `peek-schedule` exists but is neutralized (410) — safe to leave or
   delete via dashboard (no MCP delete tool).
+
+---
+
+## Session: June 26, 2026 — get_schedule live + Supabase CLI on the Pi
+
+### 🚀 Supabase CLI installed on the Pi (deploy mechanism fixed!)
+- Pi is aarch64; installed CLI v2.108.0 to `~/bin/supabase` (downloaded
+  `supabase_linux_arm64.tar.gz` from the GitHub latest release — Pi can reach github.com).
+- Auth via `SUPABASE_ACCESS_TOKEN` (sbp_… personal token, created on phone since GitHub login
+  is blocked on the work PC; stored on the Pi only). `supabase login --token` also run.
+- **Functions now deploy straight from the repo on the Pi:**
+  `cd ~/WORLDCLASSBCN && SUPABASE_ACCESS_TOKEN=… ~/bin/supabase functions deploy <name> --project-ref ruytavhodexoxkejrgyb --no-verify-jwt`
+  No Docker needed (API bundler; the "Docker not running" warning is harmless). No more
+  error-prone inline-paste deploys, and live == repo (no drift).
+- NOTE: token is account-wide (Management API) — rotate when convenient; revoking it won't
+  affect the user's other project's separate token.
+
+### Atlas get_schedule tool (class-helper v48, deployed via CLI)
+- New `get_schedule` tool + handler + prompt section. Teachers get their own schedule (admins
+  can pass a teacher). Returns group classes (filtered to today's weekday by default; day= or
+  all_week=true), tutorías, and active privates — small targeted SQL, ~tiny tokens.
+- Confirmed data path: SARA on Friday → her 2 real classes. ✓
+
+### Schedule data populated + parser tightened
+- First real `index-schedule` run populated the tables; cleared first-load change noise.
+- Parser tightened (require a real level + strip stray quotes from teacher) to drop non-class
+  cells (A0, 6.7, CONV, 53027770m, ALGUIEN, quoted names). Redeployed via CLI + re-synced:
+  classes 87 → **71** clean rows. Teacher list now all real names. Cleared the change log again
+  (that run's diffs were polluted by the parser change).
+- Live counts: 71 classes / 2793 trials / 33 privates / 19 tutorías.
+
+### Known refinement (later)
+- Sheet uses some nicknames (CLAU vs CLAUDIA, NICO vs Nicolás, BEA vs Beatriz). Profile first
+  names may differ → get_schedule matches most teachers but a few nicknamed ones may miss.
+  Add a teacher-alias map when polishing.
+
+### NEXT (unchanged + ready)
+- Digest email (Resend) — admin overview to Rocío + coverage-gap alert (Rocío, 2 weeks ahead).
+  BLOCKER (user): verify worldclass domain in Resend; rotate+add RESEND_API_KEY secret.
+- Pi cron: morning sync → digest (~07:00 Europe/Madrid) + hourly sync backstop.
+- Harden: move index-schedule `SYNC_TOKEN` placeholder to a Supabase secret before cron.
