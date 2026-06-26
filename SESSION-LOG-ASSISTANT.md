@@ -1833,3 +1833,30 @@ count, never the per-day entrada/salida. So Atlas literally couldn't see the tim
 
 ### Files
 - `supabase/functions/class-helper/index.ts`
+
+---
+
+## Session: June 26, 2026 (continued) — Atlas confirm buttons for punches (v54)
+
+Symptom: "punch my june like the first week" → Atlas asked "¿quieres que fiche?" then "¿lo
+confirmo?" in PLAIN TEXT (twice), user typed "sí" both times, and the ✓ Confirmar / ✗ Cancelar
+buttons never appeared. (The 11 punches DID get created once the user typed sí.)
+
+### Cause
+Buttons render only when the Edge Function returns `needs_confirmation:true`, which only happens
+when add_punches is actually CALLED with confirmed=false (the tool returns the preview). Atlas
+free-texted the confirmation instead of calling the tool, so the flag was never set. The
+request_holiday section had a strong "never ask in text, call with confirmed=false" rule; the
+add_punches (Fichajes) section did NOT.
+
+### Fix (class-helper v54, deployed via MCP)
+- Added the same CONFIRMACIÓN rule to the Fichajes prompt section: as soon as Atlas has the
+  schedule + range it must CALL add_punches with confirmed=false (the tool's preview is what
+  shows the buttons); NEVER ask "¿quieres que fiche?/¿confirmo?" in text. If it needs to read
+  the schedule first (get_work_hours), do it and then call add_punches confirmed=false in the
+  SAME turn — don't stop to ask in text. confirmed=true only after the user clicks Confirmar.
+- v53→v54, ACTIVE, build OK, verify_jwt=false. live==repo. (Frontend already shows buttons on
+  the structured needs_confirmation flag — no frontend change needed.)
+
+### Files
+- `supabase/functions/class-helper/index.ts`
