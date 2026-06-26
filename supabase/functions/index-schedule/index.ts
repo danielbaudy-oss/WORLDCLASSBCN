@@ -85,7 +85,7 @@ function parseCell(raw: string): any | null {
   for (const [e, s] of Object.entries(STATUS)) if (l1.includes(e)) st.push(s);
   o.status = st.includes("blocked") ? "blocked" : st.includes("warning") ? "warning" : st.includes("starting") ? "starting" : "active";
   const toks = l1.replace(/[^\x00-\x7F]/g, " ").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-  if (toks.length) o.teacher = toks[0];
+  if (toks.length) o.teacher = toks[0].replace(/^["'.,]+|["'.,]+$/g, "");
   const rest = toks.slice(1).join(" ");
   if (/\bROT\b/i.test(rest)) o.rotation = true;
   const lvl = rest.match(/([A-C][0-2](?:\.\d)?)(?:\s*\/\s*(M\d+))?/i);
@@ -140,7 +140,7 @@ function parseSalasGrid(values: any[][], location: string, skipRows: number[]): 
       const room = colRoom[c];
       if (!room) continue;
       const p = parseCell(row[c]);
-      if (!p || !p.teacher) continue;
+      if (!p || !p.teacher || !p.level) continue;
       const source_key = `${location}|${room}|${p.teacher}|${p.level}|${p.module}|${p.time_start}`;
       if (seen.has(source_key)) continue;
       seen.add(source_key);
@@ -273,10 +273,13 @@ Deno.serve(async (req: Request) => {
       const oldByKey: Record<string, any> = {}; (existing || []).forEach((e: any) => { oldByKey[e.source_key] = e; });
       const newByKey: Record<string, any> = {}; rows.forEach(r => { newByKey[r.source_key] = r; });
       const hash = (o: any) => fields.map(f => JSON.stringify(o[f] ?? null)).join("|");
+      // Initial load (table was empty): don't flood schedule_changes with thousands of
+      // "insert" rows — only record real day-to-day changes from the 2nd sync onward.
+      const initialLoad = Object.keys(oldByKey).length === 0;
       let ins = 0, upd = 0, rem = 0;
       const changes: any[] = [];
       for (const k of Object.keys(newByKey)) {
-        if (!oldByKey[k]) { ins++; changes.push({ sync_id: syncId, entity, source_key: k, change_type: "insert" }); }
+        if (!oldByKey[k]) { ins++; if (!initialLoad) changes.push({ sync_id: syncId, entity, source_key: k, change_type: "insert" }); }
         else if (hash(newByKey[k]) !== hash(oldByKey[k])) { upd++; changes.push({ sync_id: syncId, entity, source_key: k, change_type: "update" }); }
       }
       for (const k of Object.keys(oldByKey)) if (!newByKey[k]) { rem++; changes.push({ sync_id: syncId, entity, source_key: k, change_type: "remove" }); }

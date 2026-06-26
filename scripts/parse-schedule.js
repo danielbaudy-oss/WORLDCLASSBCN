@@ -87,7 +87,7 @@ function parseCell(raw) {
   // strip emojis (anything outside basic latin/level chars) from line 1
   const l1 = line1.replace(/[^\x00-\x7F]/g, ' ').replace(/\s+/g, ' ').trim();
   const tokens = l1.split(' ').filter(Boolean);
-  if (tokens.length) out.teacher = tokens[0];
+  if (tokens.length) out.teacher = tokens[0].replace(/^["'.,]+|["'.,]+$/g, '');
   const rest1 = tokens.slice(1).join(' ');
   if (/\bROT\b/i.test(rest1)) out.rotation = true;
   const lvl = rest1.match(/([A-C][0-2](?:\.\d)?)(?:\s*\/\s*(M\d+))?/i);
@@ -155,7 +155,7 @@ function parseSalasGrid(values, location) {
     for (let c = 2; c < row.length; c++) {
       if (!rooms[c]) continue;
       const parsed = parseCell(row[c]);
-      if (!parsed || !parsed.teacher) continue;
+      if (!parsed || !parsed.teacher || !parsed.level) continue;
       // de-dupe: the same class cell can repeat down a merged block
       const key = `${parsed.teacher}|${parsed.level}|${parsed.module}|${rooms[c]}|${parsed.time_start}`;
       if (seen.has(key)) continue;
