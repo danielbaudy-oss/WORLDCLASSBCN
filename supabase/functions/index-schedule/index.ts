@@ -163,6 +163,60 @@ function headerIndex(headerRow: any[], wanted: Record<string, string>): Record<s
   return idx;
 }
 
+// Parse a Pruebas "Day" label like "lun, sept 1" -> YYYY-MM-DD (school-year aware).
+const MONTHS: Record<string, number> = { ene: 1, enero: 1, feb: 2, febrero: 2, mar: 3, marzo: 3, abr: 4, abril: 4, may: 5, mayo: 5, jun: 6, junio: 6, jul: 7, julio: 7, ago: 8, agosto: 8, sep: 9, sept: 9, septiembre: 9, oct: 10, octubre: 10, nov: 11, noviembre: 11, dic: 12, diciembre: 12 };
+function parseTrialDate(label: string, now: Date): string | null {
+  const t = norm(label);
+  if (!t) return null;
+  const mMonth = t.match(/\b(ene|enero|feb|febrero|mar|marzo|abr|abril|may|mayo|jun|junio|jul|julio|ago|agosto|sept|sep|septiembre|oct|octubre|nov|noviembre|dic|diciembre)\b/);
+  const mDay = t.match(/\b(\d{1,2})\b/);
+  if (!mMonth || !mDay) return null;
+  const month = MONTHS[mMonth[1]]; const day = parseInt(mDay[1], 10);
+  if (!month || day < 1 || day > 31) return null;
+  // School year starts in September. months 9-12 -> startYear, 1-8 -> startYear+1.
+  const startYear = (now.getMonth() + 1) >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+  const year = month >= 9 ? startYear : startYear + 1;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+// Parse the Sustis grid (room x time, like Salas) and extract substitution annotations
+// written inline as parentheticals e.g. "SERGIO B1.1 (JOAN semana 1.12)". Best-effort.
+function parseSustisGrid(values: any[][], skipRows: number[]): { subs: any[]; warnings: string[] } {
+  const warnings: string[] = []; const subs: any[] = [];
+  if (!values.length) return { subs, warnings };
+  const roomRow = values[0] || [];
+  const timeCol = detectTimeCol(values);
+  const colRoom: Record<number, string> = {}; let last = "";
+  for (let c = timeCol + 1; c < roomRow.length; c++) {
+    const n = clean(roomRow[c]);
+    if (n) { last = n; colRoom[c] = n; } else if (last) colRoom[c] = last;
+  }
+  const skip = new Set(skipRows); const seen = new Set<string>();
+  for (let r = 1; r < values.length; r++) {
+    if (skip.has(r)) continue;
+    const row = values[r] || [];
+    for (let c = timeCol + 1; c < row.length; c++) {
+      const room = colRoom[c]; if (!room) continue;
+      const raw = clean(row[c]); if (!raw) continue;
+      const parens = Array.from(raw.matchAll(/\(([^)]+)\)/g)).map((m: any) => m[1].trim());
+      if (!parens.length) continue;
+      const p = parseCell(raw);
+      if (!p || !p.teacher) continue;
+      const location = /^mon/i.test(room) ? "Monumental" : "Raval";
+      for (const pr of parens) {
+        if (!/[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(pr)) continue; // skip numeric-only parens like "(20, 21 y 22)"
+        const wk = pr.match(/semana.*/i);
+        const sub = pr.replace(/semana.*/i, "").replace(/[,]+$/, "").trim();
+        if (!sub && !wk) continue;
+        const source_key = `${room}|${p.teacher}|${p.level}|${p.time_start}|${sub}`;
+        if (seen.has(source_key)) continue; seen.add(source_key);
+        subs.push({ source_key, original_teacher: p.teacher, substitute: sub || null, week_note: wk ? wk[0] : null, level: p.level, module: p.module, time_start: p.time_start, time_end: p.time_end, room, location, raw });
+      }
+    }
+  }
+  return { subs, warnings };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey" } });
   const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -193,9 +247,10 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const RANGES = { raval: "Salas Raval", glories: "Salas Glories", trials: "Pruebas", privates: "Priv", tutorias: "tutorías!A1:F40" };
+    const RANGES = { raval: "Salas Raval", glories: "Salas Glories", trials: "Pruebas", privates: "Priv", tutorias: "tutorías!A1:F40", sustis: "Sustis!A1:W60" };
     const data = await batchGet(token, sheetId, Object.values(RANGES));
     const warnings: string[] = [];
+    const now = new Date();
 
     // --- group classes ---
     const ravalG = parseSalasGrid(data[RANGES.raval] || [], "Raval", [1]);
@@ -214,7 +269,7 @@ Deno.serve(async (req: Request) => {
         const g = (f: string) => idx[f] >= 0 ? clean(row[idx[f]]) : "";
         const student = g("student_name"), teacher = g("teacher"), period = g("period_label");
         if (!student && !teacher) continue;
-        trials.push({ source_key: `${period}|${teacher}|${student}|${r}`, period_label: period, teacher, level: g("level"), new_or_old: g("new_or_old"), hours: g("hours"), class_time: g("class_time"), location: g("location"), student_name: student, status: g("status"), email: g("email"), signed_up_by: g("signed_up_by"), attended: g("attended"), signed_up: g("signed_up"), comments: g("comments") });
+        trials.push({ source_key: `${period}|${teacher}|${student}|${r}`, period_label: period, trial_date: parseTrialDate(period, now), teacher, level: g("level"), new_or_old: g("new_or_old"), hours: g("hours"), class_time: g("class_time"), location: g("location"), student_name: student, status: g("status"), email: g("email"), signed_up_by: g("signed_up_by"), attended: g("attended"), signed_up: g("signed_up"), comments: g("comments") });
       }
     }
 
@@ -257,10 +312,15 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const parsed = { classes: classes.length, trials: trials.length, privates: privates.length, tutorias: tutorias.length };
+    // --- substitutions (Sustis) ---
+    const sustisG = parseSustisGrid(data[RANGES.sustis] || [], [1, 2]);
+    const substitutions = sustisG.subs;
+    warnings.push(...sustisG.warnings);
+
+    const parsed = { classes: classes.length, trials: trials.length, privates: privates.length, tutorias: tutorias.length, substitutions: substitutions.length };
 
     if (dryRun) {
-      return new Response(JSON.stringify({ dry_run: true, modifiedTime, parsed, warnings, samples: { classes: classes.slice(0, 4), trials: trials.slice(0, 3), privates: privates.slice(0, 3), tutorias: tutorias.slice(0, 4) } }, null, 2), { headers: cors });
+      return new Response(JSON.stringify({ dry_run: true, modifiedTime, parsed, warnings, samples: { classes: classes.slice(0, 4), trials: trials.slice(0, 3), privates: privates.slice(0, 3), tutorias: tutorias.slice(0, 4), substitutions: substitutions.slice(0, 6) } }, null, 2), { headers: cors });
     }
 
     // --- write path: diff + upsert + change log + sync log ---
@@ -298,6 +358,7 @@ Deno.serve(async (req: Request) => {
     await syncEntity("schedule_trials", "trials", trials, ["period_label", "teacher", "level", "hours", "class_time", "location", "student_name", "status", "attended", "signed_up", "comments"]);
     await syncEntity("schedule_privates", "privates", privates, ["active", "student_name", "level", "availability", "schedule_text", "location", "teacher", "comments"]);
     await syncEntity("schedule_tutorias", "tutorias", tutorias, ["teacher", "location", "day", "time_slot"]);
+    await syncEntity("schedule_substitutions", "substitutions", substitutions, ["original_teacher", "substitute", "week_note", "level", "module", "time_start", "time_end", "room", "location", "raw"]);
 
     await db.from("schedule_sync").update({ finished_at: new Date().toISOString(), stats, warnings, ok: true }).eq("id", syncId);
     return new Response(JSON.stringify({ ok: true, modifiedTime, parsed, stats, warnings }), { headers: cors });

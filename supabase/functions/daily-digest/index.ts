@@ -55,14 +55,17 @@ Deno.serve(async (req: Request) => {
     const today = ymd(now);
     const horizon = new Date(now); horizon.setDate(now.getDate() + COVERAGE_DAYS);
     const horizonStr = ymd(horizon);
+    const next7 = new Date(now); next7.setDate(now.getDate() + 7);
+    const next7Str = ymd(next7);
     const todayLetter = DOW[now.getDay()];
 
     // --- load data ---
-    const [{ data: classes }, { data: holsRaw }, { data: profiles }, { data: changes }] = await Promise.all([
+    const [{ data: classes }, { data: holsRaw }, { data: profiles }, { data: changes }, { data: trialsRows }] = await Promise.all([
       db.from("schedule_classes").select("teacher, level, module, time_start, time_end, room, location, days, student_count"),
       db.from("holiday_requests").select("user_id, type, start_date, end_date").eq("status", "Approved").in("type", FULL_DAY_TYPES).lte("start_date", horizonStr).gte("end_date", today),
       db.from("profiles").select("id, name"),
       db.from("schedule_changes").select("entity, source_key, change_type, detected_at").gte("detected_at", new Date(now.getTime() - 24 * 3600 * 1000).toISOString()).order("detected_at", { ascending: false }),
+      db.from("schedule_trials").select("trial_date, class_time, teacher, level, location, student_name, status").gte("trial_date", today).lte("trial_date", next7Str).order("trial_date").order("class_time"),
     ]);
 
     const profName: Record<string, string> = {};
@@ -146,10 +149,23 @@ Deno.serve(async (req: Request) => {
       html += `</table>`;
     }
 
-    html += `<p style="color:#94a3b8;font-size:11px;margin-top:24px;border-top:1px solid #e2e8f0;padding-top:8px">Generado automáticamente desde la hoja de horarios (solo lectura). Las pruebas (trials) se añadirán al resumen más adelante.</p></div>`;
+    // trials (next 7 days)
+    html += `<h3 style="color:#7c3aed;border-bottom:2px solid #ddd6fe;padding-bottom:4px;margin-top:24px">🎓 Pruebas (próximos 7 días)</h3>`;
+    if (!trialsRows || !trialsRows.length) {
+      html += `<p style="color:#64748b">No hay pruebas programadas.</p>`;
+    } else {
+      html += `<table style="border-collapse:collapse;width:100%;font-size:13px"><tr style="background:#ede9fe;text-align:left"><th style="padding:6px;border:1px solid #ddd6fe">Fecha</th><th style="padding:6px;border:1px solid #ddd6fe">Hora</th><th style="padding:6px;border:1px solid #ddd6fe">Estudiante</th><th style="padding:6px;border:1px solid #ddd6fe">Profe</th><th style="padding:6px;border:1px solid #ddd6fe">Nivel · Sede</th></tr>`;
+      for (const t of trialsRows) {
+        const d = t.trial_date ? new Date(t.trial_date + "T12:00:00").toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }) : "";
+        html += `<tr><td style="padding:6px;border:1px solid #ede9fe">${esc(d)}</td><td style="padding:6px;border:1px solid #ede9fe">${esc(t.class_time || "")}</td><td style="padding:6px;border:1px solid #ede9fe">${esc(t.student_name || "")}</td><td style="padding:6px;border:1px solid #ede9fe">${esc(t.teacher || "")}</td><td style="padding:6px;border:1px solid #ede9fe">${esc(t.level || "")} · ${esc(t.location || "")}</td></tr>`;
+      }
+      html += `</table>`;
+    }
+
+    html += `<p style="color:#94a3b8;font-size:11px;margin-top:24px;border-top:1px solid #e2e8f0;padding-top:8px">Generado automáticamente desde la hoja de horarios (solo lectura).</p></div>`;
 
     const subject = `📋 Resumen WorldClass — ${now.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${gaps.length ? ` · ⚠️ ${gaps.length} cobertura(s)` : ""}`;
-    const summary = { gaps: gaps.length, changes: (changes || []).length, today_classes: todays.length };
+    const summary = { gaps: gaps.length, changes: (changes || []).length, today_classes: todays.length, trials: (trialsRows || []).length };
 
     if (body.dry_run) {
       return new Response(JSON.stringify({ dry_run: true, summary, subject, html }, null, 2), { headers: cors });

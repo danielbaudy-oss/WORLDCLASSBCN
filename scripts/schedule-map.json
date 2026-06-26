@@ -105,11 +105,13 @@
     },
 
     "substitutions": {
-      "enabled": false,
+      "enabled": true,
       "layout": "room_time_grid_with_inline_subs",
       "target": "substitutions",
       "tab": "Sustis",
-      "note": "v2 (LLM-assisted): parallel room×time grid; subs written inside class cells as '(SUB) semana X.Y'. Includes Monumental rooms MON.1-6 (split l/x · m/j). Row with 'Antiguo' + credentials must be skipped."
+      "range": "Sustis!A1:W60",
+      "skip_rows": [1, 2],
+      "note": "Parallel room×time grid; subs written inside class cells as parentheticals e.g. 'SERGIO B1.1 (JOAN semana 1.12)'. Best-effort regex extraction: original_teacher from the base cell, substitute = words before 'semana', week_note = the 'semana ...' text. Rooms MON.1-6 = Monumental (split l/x · m/j); skip the 'Antiguo'+credentials row. Date resolution of 'semana X' is NOT done (stored as raw note)."
     }
   },
 

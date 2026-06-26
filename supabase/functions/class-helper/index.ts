@@ -129,9 +129,20 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     const allWeek = !!args.all_week;
     const dayNames: any = { L: "lunes", M: "martes", X: "miércoles", J: "jueves", V: "viernes", S: "sábado", D: "domingo" };
 
-    const { data: classes } = await db.from("schedule_classes").select("teacher, level, module, time_start, time_end, room, location, days, student_count, status").ilike("teacher", teacherName);
-    const { data: tut } = await db.from("schedule_tutorias").select("teacher, location, day, time_slot").ilike("teacher", `%${teacherName}%`);
-    const { data: privs } = await db.from("schedule_privates").select("student_name, level, schedule_text, location, teacher, active").ilike("teacher", `%${teacherName}%`);
+    // Accent-insensitive + nickname matching between profile names and sheet teacher names.
+    const tnorm = (s: any) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    const ALIASES: Record<string, string[]> = { BEATRIZ: ["BEA"], CLAUDIA: ["CLAU"], NICOLAS: ["NICO"], VERONICA: ["VERO"], FRANCISCO: ["PACO"] };
+    const baseKey = tnorm(teacherName);
+    const cand = new Set([baseKey, ...(ALIASES[baseKey] || [])]);
+    const matchT = (t: any) => cand.has(tnorm(t));
+    const [clsRes, tutRes, privRes] = await Promise.all([
+      db.from("schedule_classes").select("teacher, level, module, time_start, time_end, room, location, days, student_count, status"),
+      db.from("schedule_tutorias").select("teacher, location, day, time_slot"),
+      db.from("schedule_privates").select("student_name, level, schedule_text, location, teacher, active"),
+    ]);
+    const classes = (clsRes.data || []).filter((c: any) => matchT(c.teacher));
+    const tut = (tutRes.data || []).filter((t: any) => matchT(t.teacher));
+    const privs = (privRes.data || []).filter((p: any) => matchT(p.teacher));
 
     const clases = (classes || []).filter((c: any) => allWeek || (c.days && c.days.includes(day)))
       .map((c: any) => ({ nivel: c.level, modulo: c.module, horario: `${(c.time_start || "").slice(0, 5)}-${(c.time_end || "").slice(0, 5)}`, sala: c.room, sede: c.location, dias: (c.days || []).join(""), alumnos: c.student_count, estado: c.status }))
