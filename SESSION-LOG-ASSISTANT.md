@@ -1479,3 +1479,39 @@ Morning summary email for Rocío. Three sections:
   send from atlas@… to Rocío. Rotate RESEND_API_KEY.
 - Move SYNC_TOKEN + DIGEST_TOKEN to Supabase secrets before wiring cron.
 - Add trials to the digest (needs Pruebas date parsing); nickname alias map for get_schedule.
+
+---
+
+## Session: June 26, 2026 (continued) — trials in digest + nickname matching + Sustis import
+
+### 1. Trials added to the digest (with date parsing)
+- Migration `schedule_trials_date_and_substitutions`: added `schedule_trials.trial_date`.
+- `index-schedule` parses the Pruebas "Day" free-text ("lun, sept 1") → date via `parseTrialDate`
+  (Spanish month map + school-year inference: months 9-12 → start year, 1-8 → +1). 2790/2793 parsed.
+- `daily-digest` now has a 🎓 **Pruebas (próximos 7 días)** section (fecha/hora/estudiante/profe/
+  nivel/sede). Today=3, next 7 days=34.
+
+### 2. get_schedule nickname + accent matching (class-helper)
+- Replaced exact `ilike` with load-all + JS match: accent-insensitive (`ANDRÉS`→`ANDRES`,
+  `RAÚL`→`RAUL`, `VERÓNICA`→`VERONICA`) + alias map (`BEATRIZ`→`BEA`, `CLAUDIA`→`CLAU`, …).
+
+### 3. Sustis imported → schedule_substitutions (best-effort)
+- New `schedule_substitutions` table. `index-schedule` parses the Sustis room×time grid and
+  extracts inline sub annotations `(SUB semana X)`: original_teacher, substitute, week_note,
+  class context. 8 subs parsed; the clean ones are good (e.g. SERGIO→JOAN semana 1.12,
+  SERGIO→MAR Y KATHIA semana 9 y 15, JOAN→BEA, SARA→Vero). A couple have messy
+  original_teacher (no-space cells like "B1.1Laia(...)") — acceptable for v1; table is
+  informational, not yet wired into coverage-gap. `schedule-map.json` substitutions → enabled.
+
+### 🐛 Fixed: spurious "70 classes updated" every sync
+- DB returns `time` as HH:MM:SS but the parser emits HH:MM → the diff hash flagged all classes
+  as changed every run (would flood the change feed). Fixed: `index-schedule` diff hash now
+  normalizes HH:MM:SS → HH:MM. A clean re-sync now reports all-zero changes. Cleared the noise.
+
+### Deploys (all via Pi CLI now)
+- index-schedule, class-helper (v50), daily-digest redeployed from repo. Digest re-sent OK.
+
+### Still pending
+- Pi cron (morning sync → digest ~07:00 Madrid + hourly sync); move SYNC_TOKEN/DIGEST_TOKEN to
+  secrets; Resend domain verify + key rotation (to email Rocío from atlas@worldclassbcn.com);
+  optional: resolve "semana X" sub dates + wire subs into the coverage-gap.
