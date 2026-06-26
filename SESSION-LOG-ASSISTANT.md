@@ -1669,3 +1669,36 @@ Extended the incomplete-punch flag to the admin per-employee calendar modal (�
 
 ### Files modified
 - `js/admin.js`, `index.html`, `teacher.html`, `admin.html`
+
+---
+
+## Session: June 26, 2026 (continued) — enforce 15-min times on desktop (snap-to-quarter)
+
+Follow-up: `step="900"` alone doesn't restrict desktop browsers — they still let you type/scroll
+any minute (the attribute only changes the spinner increment + validity). So odd minutes were
+still selectable on desktop.
+
+### Fix — snap to nearest quarter hour
+- New shared helper `roundTimeToQuarter(timeStr)` in `js/supabase-config.js` (loaded by both
+  teacher + admin): rounds "HH:MM" to nearest 00/15/30/45, clamped within the day.
+- Wired `onchange="this.value=roundTimeToQuarter(this.value)"` on every time input so the field
+  visibly corrects itself as soon as the user leaves it:
+  - teacher.html: `#timeInput`, `#editTimeInput`, `#medApptStartTime`, `#medApptEndTime`
+    (medAppt keeps its `updateMedApptHours()` call after the snap).
+  - admin.js dynamic inputs: `#newPunchTime`, `#editPunchTime-<id>`.
+- Belt-and-suspenders: also round in every save path so only quarter values can ever be stored —
+  teacher `submitPunch`, `savePunchEdit`, MedAppt branch of `submitHolidayRequest`; admin
+  `saveNewPunch`, `saveEditPunch`.
+- Mobile native pickers already showed only quarter increments (step=900); this makes desktop
+  behave the same regardless of typing/scrolling.
+
+### Notes
+- Existing historical punches with odd minutes are still shown as-is when editing; they only
+  snap if the admin actually changes the field (or on save). Not silently mass-rewritten.
+- `node --check` clean on supabase-config.js, teacher.js, admin.js.
+
+### Cache-bust
+- 20260626c → 20260626d (index/teacher/admin .html APP_VERSION + styles.css / admin.css links).
+
+### Files modified
+- `js/supabase-config.js`, `js/teacher.js`, `js/admin.js`, `teacher.html`, `index.html`, `admin.html`
