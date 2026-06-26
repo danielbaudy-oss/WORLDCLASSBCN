@@ -1812,3 +1812,24 @@ the UX cost.
   stores exact times (still validates HH:MM, out>in, no future, 180-day window).
 - Deploy mechanism note for future: MCP deploy works without the Pi token. Provide the full
   index.ts content + verify_jwt:false. A failed build safely leaves the prior version live.
+
+---
+
+## Session: June 26, 2026 (continued) — Atlas can now READ existing punch times (v53)
+
+Problem: user asked Atlas "ficha junio igual que la primera semana / igual que el 2 de junio" and
+Atlas kept asking for the hours — because `get_work_hours` only returned the TOTAL hours + day
+count, never the per-day entrada/salida. So Atlas literally couldn't see the times to replicate.
+
+### Fix (class-helper v53, deployed via MCP)
+- `get_work_hours` now returns a `detalle` array: `[{ fecha, sesiones:[{entrada,salida}], horas }]`
+  (sorted by date, sessions sorted by time, pairs IN→OUT). Total + day count unchanged.
+- Tool description updated to advertise the per-day detail.
+- Prompt (Fichajes): added a "FICHAR IGUAL QUE..." rule — for "same as [day/week]" requests,
+  Atlas must FIRST call get_work_hours to read the real schedule, deduce in/out (use punches or
+  schedule for multi-session days), then add_punches the requested range. Already-punched days
+  skip themselves, so it can pass the whole month. NEVER ask the user for hours it can read.
+- Deployed via MCP deploy_edge_function (verify_jwt=false). v52→v53, ACTIVE, build OK. live==repo.
+
+### Files
+- `supabase/functions/class-helper/index.ts`

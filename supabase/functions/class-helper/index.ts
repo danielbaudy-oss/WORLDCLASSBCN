@@ -88,7 +88,7 @@ function generateDatesForRange(startDate: string, endDate: string, allowedDays: 
 
 const tools = [{ function_declarations: [
   { name: "get_holidays", description: "Consultar saldo de vacaciones y permisos.", parameters: { type: "object", properties: { user_id: { type: "string" } } } },
-  { name: "get_work_hours", description: "Consultar horas trabajadas. Por defecto mes actual.", parameters: { type: "object", properties: { user_id: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" } } } },
+  { name: "get_work_hours", description: "Consultar horas trabajadas. Por defecto mes actual. Devuelve el total Y el detalle por día con las horas de entrada/salida (sesiones), para poder replicar un horario existente.", parameters: { type: "object", properties: { user_id: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" } } } },
   { name: "get_schedule", description: "Consultar el HORARIO de clases (grupos), tutorías y privados de un profesor desde la hoja de la escuela. Por defecto el profe actual y el día de hoy. Úsalo para '¿qué clases tengo hoy?', 'mi horario', 'qué doy el martes', etc.", parameters: { type: "object", properties: { teacher: { type: "string", description: "Nombre del profe (solo admins pueden consultar a otros; los profes ven el suyo)" }, day: { type: "string", description: "Día de la semana: L, M, X, J, V, S o D. Por defecto hoy." }, all_week: { type: "boolean", description: "true para ver toda la semana en vez de un solo día" } } } },
   { name: "search_materials", description: "Buscar en la base de conocimiento de la escuela: procedimientos, normas, materiales, convenio, programas, evaluaciones y cualquier información sobre cómo funciona WorldClass BCN. USA ESTA HERRAMIENTA para CUALQUIER pregunta sobre procedimientos o 'cómo se hace X'.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "request_holiday", description: "Solicitar vacaciones o permiso. Tipos: Annual, Personal, School, Medical, MedAppt (horas), Permiso (Permiso Retribuido — REQUIERE permiso_motive a-j y hours), PermisoNoRet (Permiso No Retribuido — por días).", parameters: { type: "object", properties: { type: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, days: { type: "number" }, reason: { type: "string" }, hours: { type: "number", description: "Horas de ausencia para Permiso Retribuido (cuentan como trabajadas)" }, permiso_motive: { type: "string", description: "Motivo del Permiso Retribuido (Art. 28): una letra a-j" }, confirmed: { type: "boolean" } }, required: ["type"] } },
@@ -113,10 +113,24 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     const s = args.start_date || `${spainNow.getFullYear()}-${String(spainNow.getMonth()+1).padStart(2,"0")}-01`;
     const e = args.end_date || `${spainNow.getFullYear()}-${String(spainNow.getMonth()+1).padStart(2,"0")}-${String(spainNow.getDate()).padStart(2,"0")}`;
     const { data: punches } = await db.from("time_punches").select("date, time, punch_type").eq("user_id", uid).gte("date", s).lte("date", e).order("date").order("time");
-    let tot = 0; const byD: any = {};
+    const byD: any = {};
     for (const p of punches || []) { if (!byD[p.date]) byD[p.date] = []; byD[p.date].push(p); }
-    for (const [, d] of Object.entries(byD) as any) { const ins = d.filter((x:any) => x.punch_type==="IN"); const outs = d.filter((x:any) => x.punch_type==="OUT"); for (let i=0;i<Math.min(ins.length,outs.length);i++) tot += (new Date(`2000-01-01T${outs[i].time}`).getTime()-new Date(`2000-01-01T${ins[i].time}`).getTime())/3600000; }
-    return { periodo: `${s} a ${e}`, horas_totales: Math.round(tot*100)/100, dias_trabajados: Object.keys(byD).length };
+    let tot = 0;
+    const detalle: any[] = [];
+    for (const date of Object.keys(byD).sort()) {
+      const d = byD[date].slice().sort((a:any,b:any) => a.time.localeCompare(b.time));
+      const ins = d.filter((x:any) => x.punch_type==="IN");
+      const outs = d.filter((x:any) => x.punch_type==="OUT");
+      const sesiones: any[] = []; let dayH = 0;
+      for (let i=0;i<Math.min(ins.length,outs.length);i++) {
+        const entrada = ins[i].time.slice(0,5); const salida = outs[i].time.slice(0,5);
+        sesiones.push({ entrada, salida });
+        dayH += (new Date(`2000-01-01T${outs[i].time}`).getTime()-new Date(`2000-01-01T${ins[i].time}`).getTime())/3600000;
+      }
+      tot += dayH;
+      detalle.push({ fecha: date, sesiones, horas: Math.round(dayH*100)/100 });
+    }
+    return { periodo: `${s} a ${e}`, horas_totales: Math.round(tot*100)/100, dias_trabajados: Object.keys(byD).length, detalle };
   }
   if (name === "get_schedule") {
     // Teachers see their own schedule; admins may pass a teacher name.
@@ -505,6 +519,7 @@ Fichajes (add_punches):
 - Los fichajes de días pasados están permitidos (hasta 180 días atrás). NO hay restricción por fecha de alta: un profe nuevo puede fichar fechas anteriores a su registro (p.ej. desde el inicio de su contrato), siempre dentro de los 180 días.
 - El sistema AUTOMÁTICAMENTE excluye: festivos de la escuela, días de vacaciones aprobadas del usuario, y días ya fichados. No se sobrescriben fichajes existentes. NO necesitas calcular tú los días.
 - Para días SUELTOS no consecutivos: usa punches con JSON válido [{date,in_time,out_time}].
+- "FICHAR IGUAL QUE..." (ej. "ficha junio igual que la primera semana", "lo mismo que el 2 de junio"): PRIMERO llama a get_work_hours sobre ese día o esa semana para LEER el detalle (cada día trae sus sesiones entrada/salida). Deduce el horario real (in_time/out_time, y si hay varias sesiones usa el parámetro punches o schedule) y luego ficha el rango pedido con add_punches. Los días ya fichados se saltan solos, así que puedes pasar todo el mes. NUNCA pidas al usuario las horas si puedes leerlas con get_work_hours.
 - SIEMPRE confirmed=false primero, y confirmed=true SOLO cuando el usuario confirme.
 - ANTES de fichar un rango largo (más de una semana), PREGUNTA UNA VEZ: ¿Todos los días laborables o solo ciertos días (ej. lun/mié/vie)? Si el usuario ya respondió o dijo "todos"/"laborables", NO vuelvas a preguntar: llama directamente a add_punches.
 - "esta semana" = ${week.thisMonday} a ${week.thisFriday}
