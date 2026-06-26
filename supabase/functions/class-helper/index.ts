@@ -63,8 +63,7 @@ function isPunchActionIntent(message: string): boolean {
   const m = (message || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   // Procedural / how-to questions are NOT actions - let them go to search_materials.
   if (/\b(como|que es|para que|puedo|se puede|cual|cuand|cuant)\b/.test(m)) return false;
-  return /\bficha(r|me|s)?\b/.test(m)               // ficha / fichar / fichame / fichas
-      || /\bfichaj/.test(m)                          // fichaje(s)
+  return /\bfich[aeo]/.test(m)                       // ficha/fichar/fichame/fiche/fiches/ficho/fichaje/fichado
       || /registra.*(hora|jornada)/.test(m)          // "registra mis horas"
       || /anad(e|ir|ime).*(fichaj|hora)/.test(m)     // "anade un fichaje"
       || /pon(er|me|)?\s+(mis\s+)?(hora|fichaj)/.test(m); // "ponme las horas"
@@ -109,6 +108,7 @@ const tools = [{ function_declarations: [
   { name: "search_materials", description: "Buscar en la base de conocimiento de la escuela: procedimientos, normas, materiales, convenio, programas, evaluaciones y cualquier información sobre cómo funciona WorldClass BCN. USA ESTA HERRAMIENTA para CUALQUIER pregunta sobre procedimientos o 'cómo se hace X'.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "request_holiday", description: "Solicitar vacaciones o permiso. Tipos: Annual, Personal, School, Medical, MedAppt (horas), Permiso (Permiso Retribuido — REQUIERE permiso_motive a-j y hours), PermisoNoRet (Permiso No Retribuido — por días).", parameters: { type: "object", properties: { type: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, days: { type: "number" }, reason: { type: "string" }, hours: { type: "number", description: "Horas de ausencia para Permiso Retribuido (cuentan como trabajadas)" }, permiso_motive: { type: "string", description: "Motivo del Permiso Retribuido (Art. 28): una letra a-j" }, confirmed: { type: "boolean" } }, required: ["type"] } },
   { name: "add_punches", description: "Añadir fichajes. Para horario uniforme usa start_date+end_date+in_time+out_time+days_of_week. Para horario que VARÍA según el día de la semana usa start_date+end_date+schedule. El sistema excluye festivos y días ya fichados automáticamente. Siempre confirmed=false primero.", parameters: { type: "object", properties: { start_date: { type: "string", description: "Fecha inicio YYYY-MM-DD" }, end_date: { type: "string", description: "Fecha fin YYYY-MM-DD" }, in_time: { type: "string", description: "Hora entrada HH:MM (horario uniforme)" }, out_time: { type: "string", description: "Hora salida HH:MM (horario uniforme)" }, days_of_week: { type: "string", description: "Días a incluir: 'workdays' (lun-vie, por defecto), 'mon,tue,wed,thu,fri,sat,sun', o 'all'" }, schedule: { type: "string", description: "Horario semanal en JSON cuando las horas cambian según el día. Claves: mon,tue,wed,thu,fri,sat,sun; cada una con in y out (HH:MM). Ej: {mon:{in:'09:30',out:'14:30'},tue:{in:'17:00',out:'21:00'}}. Úsalo con start_date+end_date." }, punches: { type: "string", description: "JSON para días sueltos no consecutivos: [{date:'YYYY-MM-DD',in_time:'HH:MM',out_time:'HH:MM'}]" }, confirmed: { type: "boolean" } } } },
+  { name: "add_punch", description: "Añadir UN SOLO fichaje (una entrada O una salida) en un día. Úsalo cuando el usuario quiere registrar una sola marca: 'fíchame la salida ahora', 'ficha mi entrada de hoy', o cuando ya fichó la entrada manualmente y solo falta la salida. NO uses esto para rangos (para eso es add_punches). El tipo se detecta solo (si el día tiene un número par de marcas → Entrada; impar → Salida) salvo que se indique. Siempre confirmed=false primero.", parameters: { type: "object", properties: { date: { type: "string", description: "YYYY-MM-DD, por defecto hoy" }, time: { type: "string", description: "HH:MM, por defecto la hora actual" }, type: { type: "string", description: "IN, OUT o auto (por defecto auto)" }, confirmed: { type: "boolean" } } } },
 ]}];
 
 async function executeTool(name: string, args: any, ctx: any, db: any) {
@@ -144,7 +144,11 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
         dayH += (new Date(`2000-01-01T${outs[i].time}`).getTime()-new Date(`2000-01-01T${ins[i].time}`).getTime())/3600000;
       }
       tot += dayH;
-      detalle.push({ fecha: date, sesiones, horas: Math.round(dayH*100)/100 });
+      const obj: any = { fecha: date, sesiones, horas: Math.round(dayH*100)/100 };
+      // Surface unpaired entradas (clocked IN, no OUT yet) so an open shift isn't read as "0h".
+      const abiertas = ins.slice(Math.min(ins.length, outs.length)).map((x:any) => x.time.slice(0,5));
+      if (abiertas.length) obj.entrada_sin_salida = abiertas;
+      detalle.push(obj);
     }
     return { periodo: `${s} a ${e}`, horas_totales: Math.round(tot*100)/100, dias_trabajados: Object.keys(byD).length, detalle };
   }
@@ -397,6 +401,38 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     }
     return { mensaje: `✅ ${ins} día(s) fichado(s).` };
   }
+  if (name === "add_punch") {
+    // Single punch: one IN or OUT on one day (mirrors the app's punch button).
+    const spainNow = getSpainNow();
+    const today = `${spainNow.getFullYear()}-${String(spainNow.getMonth()+1).padStart(2,'0')}-${String(spainNow.getDate()).padStart(2,'0')}`;
+    const currentTime = `${String(spainNow.getHours()).padStart(2,"0")}:${String(spainNow.getMinutes()).padStart(2,"0")}`;
+    const date = args.date || today;
+    const time = args.time || currentTime;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Fecha inválida (usa YYYY-MM-DD)." };
+    if (!/^\d{2}:\d{2}$/.test(time)) return { error: "Hora inválida (usa HH:MM)." };
+    const { data: configRows } = await db.from("app_config").select("key, value").in("key", ["FreezeDate", "MaxPastDays"]);
+    const cfg: any = {}; for (const r of configRows || []) cfg[r.key] = r.value;
+    const freezeDate = cfg.FreezeDate || null;
+    const maxPastDays = parseInt(cfg.MaxPastDays || String(DEFAULT_MAX_PAST_DAYS));
+    if (date > today) return { error: `${date}: no se puede fichar en el futuro.` };
+    if (freezeDate && date <= freezeDate) return { error: `${date}: día congelado, no se puede editar.` };
+    const diff = Math.floor((new Date(today).getTime() - new Date(date).getTime()) / 86400000);
+    if (diff > maxPastDays) return { error: `${date}: fuera de rango (más de ${maxPastDays} días atrás).` };
+    if (date === today && time > currentTime) return { error: `La hora ${time} es futura (ahora son las ${currentTime}).` };
+    // Existing IN/OUT punches that day → auto-detect type (even count = Entrada, odd = Salida).
+    const { data: existing } = await db.from("time_punches").select("punch_type, time").eq("user_id", ctx.userId).eq("date", date).in("punch_type", ["IN", "OUT"]).order("time");
+    const dayPunches = existing || [];
+    if (dayPunches.some((p: any) => p.time.slice(0,5) === time)) return { error: `Ya tienes un fichaje a las ${time} el ${date}.` };
+    let type = (args.type || "auto").toString().toUpperCase();
+    if (type !== "IN" && type !== "OUT") type = (dayPunches.length % 2 === 0) ? "IN" : "OUT";
+    const tipoLabel = type === "IN" ? "Entrada" : "Salida";
+    if (!args.confirmed) {
+      return { status: "needs_confirmation", resumen: { fecha: date, hora: time, tipo: tipoLabel }, mensaje: "Confirma para fichar." };
+    }
+    const { error } = await db.from("time_punches").insert({ user_id: ctx.userId, date, time: time + ":00", punch_type: type, notes: "Via Atlas" });
+    if (error) return { error: error.message };
+    return { mensaje: `✅ ${tipoLabel} fichada el ${date} a las ${time}.` };
+  }
   return { error: "Desconocido" };
 }
 
@@ -535,6 +571,7 @@ Fichajes (add_punches):
 - Los fichajes de días pasados están permitidos (hasta 180 días atrás). NO hay restricción por fecha de alta: un profe nuevo puede fichar fechas anteriores a su registro (p.ej. desde el inicio de su contrato), siempre dentro de los 180 días.
 - El sistema AUTOMÁTICAMENTE excluye: festivos de la escuela, días de vacaciones aprobadas del usuario, y días ya fichados. No se sobrescriben fichajes existentes. NO necesitas calcular tú los días.
 - Para días SUELTOS no consecutivos: usa punches con JSON válido [{date,in_time,out_time}].
+- UN SOLO FICHAJE (add_punch): cuando el usuario quiere registrar UNA marca individual — "fíchame la salida ahora", "ficha mi entrada de hoy", o "ya fiché la entrada, ponme la salida" — usa add_punch (NO add_punches). Por defecto fecha=hoy y hora=ahora. El tipo (Entrada/Salida) se detecta solo según las marcas del día; no pidas el tipo salvo duda. add_punch SÍ puede añadir a un día que ya tiene marcas (p.ej. añadir la salida cuando ya hay una entrada). Si get_work_hours muestra "entrada_sin_salida", ese día tiene una entrada abierta sin salida: ofrece fichar la salida con add_punch.
 - "FICHAR IGUAL QUE..." (ej. "ficha junio igual que la primera semana", "lo mismo que el 2 de junio"): PRIMERO llama a get_work_hours sobre ese día o esa semana para LEER el detalle (cada día trae sus sesiones entrada/salida). Deduce el horario real (in_time/out_time, y si hay varias sesiones usa el parámetro punches o schedule) y luego ficha el rango pedido con add_punches. Los días ya fichados se saltan solos, así que puedes pasar todo el mes. NUNCA pidas al usuario las horas si puedes leerlas con get_work_hours.
 - SIEMPRE confirmed=false primero, y confirmed=true SOLO cuando el usuario confirme.
 - CONFIRMACIÓN (MUY IMPORTANTE): en cuanto tengas el horario y el rango, LLAMA a add_punches con confirmed=false. NUNCA preguntes "¿quieres que fiche?" / "¿confirmo?" / "¿lo confirmo?" escribiéndolo en el chat: la propia herramienta devuelve el resumen y hace aparecer los botones Confirmar/Cancelar. Si necesitas leer el horario primero (get_work_hours), hazlo y A CONTINUACIÓN llama a add_punches con confirmed=false en el mismo turno — no pares a preguntar en texto. Usa confirmed=true SOLO después de que el usuario pulse Confirmar o diga que sí.
@@ -549,7 +586,7 @@ Fichajes (add_punches):
     // Punch SOP: while a punch action is in progress, FORCE tool-calling (mode=ANY) so Atlas
     // must call get_work_hours/add_punches instead of free-texting a confirmation. We drop back
     // to AUTO once add_punches has run (so the model can write the summary next to the buttons).
-    const PUNCH_TOOL_CFG = { function_calling_config: { mode: "ANY", allowed_function_names: ["get_work_hours", "add_punches"] } };
+    const PUNCH_TOOL_CFG = { function_calling_config: { mode: "ANY", allowed_function_names: ["get_work_hours", "add_punches", "add_punch"] } };
     const AUTO_TOOL_CFG = { function_calling_config: { mode: "AUTO" } };
     let forcePunch = isPunchActionIntent(message);
     let res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents, tools, tool_config: forcePunch ? PUNCH_TOOL_CFG : AUTO_TOOL_CFG }) });
@@ -562,7 +599,7 @@ Fichajes (add_punches):
     let data = await res.json();
     let needsConfirmation = false;
     let dataChanged = false;
-    const writeTools = new Set(["add_punches", "request_holiday"]);
+    const writeTools = new Set(["add_punches", "request_holiday", "add_punch"]);
     for (let i = 0; i < 6; i++) {
       const fc = data.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall);
       if (!fc) break;
@@ -573,9 +610,9 @@ Fichajes (add_punches):
       if (writeTools.has(fc.functionCall.name) && result?.mensaje && !result?.error && result?.status !== "needs_confirmation") {
         dataChanged = true;
       }
-      // Once add_punches has produced any result (preview/exec/error), stop forcing tools so the
+      // Once a punch tool has produced any result (preview/exec/error), stop forcing tools so the
       // model can write the natural-language summary that accompanies the confirm buttons.
-      if (fc.functionCall.name === "add_punches") forcePunch = false;
+      if (fc.functionCall.name === "add_punches" || fc.functionCall.name === "add_punch") forcePunch = false;
       if (fc.functionCall.name === "search_materials" && result.resultados) {
         sourcesUsed = result.resultados.map((r: any) => r.nombre).filter(Boolean);
       }

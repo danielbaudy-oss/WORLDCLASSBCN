@@ -1887,3 +1887,29 @@ LLM to choose to call the tool. Implemented option #1 (intent-gated forced tool-
 
 ### Files
 - `supabase/functions/class-helper/index.ts`, `PUNCH-SOP.md`
+
+---
+
+## Session: June 26, 2026 (continued) — single-punch capability (v56)
+
+Real gap found via a frustrating convo: a teacher who clocked IN manually at 11:15 asked Atlas to
+"ficha ahora la salida" and Atlas couldn't — `add_punches` only creates IN+OUT PAIRS, so it kept
+asking for the entrada, and its "day already punched → skip" guard blocked the day. get_work_hours
+also read the open IN as "0h / no sessions".
+
+### Fix (class-helper v56, deployed via MCP)
+- New tool **`add_punch`** (singular): adds ONE punch (IN or OUT) on one day, mirroring the app's
+  punch button. Type auto-detected (even # of marks that day → Entrada, odd → Salida) unless given.
+  Goes through the needs_confirmation preview + buttons. Validates HH:MM, future, freeze, 180-day
+  window, and rejects a duplicate at the same time. Deliberately does NOT use the bulk "already
+  punched → skip" guard, so it CAN add the missing salida to a day that already has an entrada.
+- `get_work_hours` now reports `entrada_sin_salida` for unpaired entradas, so an open shift shows
+  "entrada 11:15, sin salida" instead of "0h / no sessions". Prompt tells Atlas to offer add_punch
+  for those.
+- Punch SOP wiring extended: add_punch added to PUNCH_TOOL_CFG allowed list, writeTools, and the
+  forcePunch flip. Intent gate broadened (`/\bfich[aeo]/`) to catch more conjugations.
+- Prompt: documented add_punch (single mark, "fíchame la salida ahora", auto-detect type).
+- v55→v56, ACTIVE, build OK, verify_jwt=false. live==repo.
+
+### Files
+- `supabase/functions/class-helper/index.ts`
