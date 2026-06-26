@@ -1543,7 +1543,7 @@ function showAddPunchForm(dateStr) {
   var defaultTime = String(now.getHours()).padStart(2, '0') + ':' + String(Math.floor(now.getMinutes() / 15) * 15).padStart(2, '0');
 
   container.innerHTML = '<div style="background:var(--gray-50);padding:15px;border-radius:10px;margin-bottom:15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-    '<input type="time" id="newPunchTime" value="' + defaultTime + '" step="900" onchange="this.value=roundTimeToQuarter(this.value)" class="form-input" style="width:auto">' +
+    '<input type="hidden" id="newPunchTime" value="' + defaultTime + '">' +
     '<select id="newPunchType" class="form-select" style="width:auto">' +
       '<option value="auto">Automático</option>' +
       '<option value="IN">ENTRADA</option>' +
@@ -1552,6 +1552,7 @@ function showAddPunchForm(dateStr) {
     '<button class="action-btn primary" onclick="saveNewPunch(\'' + dateStr + '\')" style="padding:8px 16px;font-size:13px">💾 Guardar</button>' +
     '<button class="cancel-btn" onclick="document.getElementById(\'addPunchFormContainer\').innerHTML=\'\'" style="padding:8px 16px;font-size:13px">Cancelar</button>' +
   '</div>';
+  TimePicker.mount('newPunchTime', { size: 'sm' });
 }
 
 async function saveNewPunch(dateStr) {
@@ -1590,10 +1591,11 @@ function showEditPunchForm(punchId, currentTime, dateStr) {
   var el = document.getElementById('punch-' + punchId);
   if (!el) return;
   el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;width:100%">' +
-    '<input type="time" id="editPunchTime-' + punchId + '" value="' + currentTime + '" step="900" onchange="this.value=roundTimeToQuarter(this.value)" class="form-input" style="width:auto">' +
+    '<input type="hidden" id="editPunchTime-' + punchId + '" value="' + currentTime + '">' +
     '<button class="action-btn primary" onclick="saveEditPunch(\'' + punchId + '\',\'' + dateStr + '\')" style="padding:6px 12px;font-size:12px">💾</button>' +
     '<button class="cancel-btn" onclick="showDayDetail(\'' + dateStr + '\')" style="padding:6px 12px;font-size:12px">✕</button>' +
   '</div>';
+  TimePicker.mount('editPunchTime-' + punchId, { size: 'sm' });
 }
 
 async function saveEditPunch(punchId, dateStr) {

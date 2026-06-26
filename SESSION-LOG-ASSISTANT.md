@@ -1702,3 +1702,41 @@ still selectable on desktop.
 
 ### Files modified
 - `js/supabase-config.js`, `js/teacher.js`, `js/admin.js`, `teacher.html`, `index.html`, `admin.html`
+
+---
+
+## Session: June 26, 2026 (continued) — punch time = hour + quarter dropdowns (true 4-option UI)
+
+`step="900"` doesn't restrict desktop (still type/scroll any minute). Replaced the native
+`<input type="time">` for PUNCHES ONLY with a custom hour + minute dropdown where minutes are
+limited to 00/15/30/45 — so the UI literally offers only four options.
+
+### Component (`js/supabase-config.js`)
+- `TimePicker.mount(id, {size:'lg'|'sm', onChange})`: builds an hour `<select>` (00–23) + minute
+  `<select>` (00/15/30/45) into the wrapper holding a hidden `<input id=id>`; the hidden input
+  keeps carrying "HH:MM" so all existing save logic (`getElementById(id).value`) is unchanged.
+- `TimePicker.set(id, 'HH:MM')`: sets value + refreshes dropdowns (rounds to nearest quarter).
+- Inline-styled (no CSS-file dependency) so it looks the same on teacher + admin pages.
+
+### Applied to (punches only)
+- teacher main punch `#timeInput` (lg) — mounted/refreshed in `setCurrentTime()`.
+- teacher edit-punch `#editTimeInput` (lg) — mounted in `openEditPunch()`.
+- admin add-punch `#newPunchTime` (sm) — mounted after `showAddPunchForm` injects.
+- admin edit-punch `#editPunchTime-<id>` (sm) — mounted after `showEditPunchForm` injects.
+- Save paths still call `roundTimeToQuarter` (now a no-op for picker values; harmless guard).
+
+### Explicitly NOT changed (per request)
+- **Visita Médica (MedAppt) Desde/Hasta**: reverted to plain native `<input type="time">` with
+  NO snapping and NO step — any minute allowed (appointment times need full precision). Removed
+  the earlier step=900 + onchange-round and the submit-time rounding for those two fields.
+
+### Note
+- Editing a punch with an odd historical time (e.g. 18:51) shows the nearest quarter in the
+  dropdown; it only persists if the user actually saves. Inherent to a quarter-only UI.
+- `node --check` clean on supabase-config.js, teacher.js, admin.js.
+
+### Cache-bust
+- 20260626d → 20260626e (index/teacher/admin .html APP_VERSION + styles.css / admin.css links).
+
+### Files modified
+- `js/supabase-config.js`, `js/teacher.js`, `js/admin.js`, `teacher.html`, `index.html`, `admin.html`

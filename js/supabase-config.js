@@ -18,6 +18,74 @@ function roundTimeToQuarter(timeStr) {
   return String(Math.floor(rounded / 60)).padStart(2, '0') + ':' + String(rounded % 60).padStart(2, '0');
 }
 
+// Quarter-hour time picker: an hour dropdown + a minute dropdown limited to 00/15/30/45.
+// Replaces native <input type="time"> (which on desktop still lets you pick any minute).
+// A hidden <input> with the SAME id keeps carrying "HH:MM", so all existing save logic that
+// reads `getElementById(id).value` works unchanged.
+var TimePicker = {
+  _wrapStyle: 'display:flex;align-items:center;justify-content:center;gap:8px;',
+  _selStyle: function(size) {
+    var base = 'text-align:center;text-align-last:center;font-weight:700;color:var(--primary);' +
+      'border:2px solid var(--gray-200);border-radius:12px;-webkit-appearance:none;appearance:none;cursor:pointer;';
+    return size === 'sm'
+      ? base + 'font-size:16px;padding:8px 6px;background:#fff;'
+      : base + 'font-size:30px;padding:12px 8px;background:var(--gray-50);';
+  },
+  // Build the picker into the wrapper holding hidden input `id`. opts: { size:'lg'|'sm', onChange }
+  mount: function(id, opts) {
+    opts = opts || {};
+    var hidden = document.getElementById(id);
+    if (!hidden) return;
+    var old = document.getElementById(id + '_qp');
+    if (old) old.remove();
+    var cur = roundTimeToQuarter(hidden.value || '00:00');
+    var ch = parseInt(cur.split(':')[0], 10) || 0;
+    var cm = parseInt(cur.split(':')[1], 10) || 0;
+    var size = opts.size === 'sm' ? 'sm' : 'lg';
+    var hOpts = '';
+    for (var h = 0; h <= 23; h++) {
+      var hh = String(h).padStart(2, '0');
+      hOpts += '<option value="' + hh + '"' + (h === ch ? ' selected' : '') + '>' + hh + '</option>';
+    }
+    var mOpts = '';
+    [0, 15, 30, 45].forEach(function(m) {
+      var mm = String(m).padStart(2, '0');
+      mOpts += '<option value="' + mm + '"' + (m === cm ? ' selected' : '') + '>' + mm + '</option>';
+    });
+    var sep = size === 'sm' ? 'font-size:16px' : 'font-size:28px';
+    var wrap = document.createElement('div');
+    wrap.id = id + '_qp';
+    wrap.setAttribute('style', this._wrapStyle);
+    wrap.innerHTML =
+      '<select class="qp-h" aria-label="Hora" style="' + this._selStyle(size) + '">' + hOpts + '</select>' +
+      '<span style="' + sep + ';font-weight:700;color:var(--primary)">:</span>' +
+      '<select class="qp-m" aria-label="Minutos" style="' + this._selStyle(size) + '">' + mOpts + '</select>';
+    hidden.parentNode.insertBefore(wrap, hidden.nextSibling);
+    var hSel = wrap.querySelector('.qp-h');
+    var mSel = wrap.querySelector('.qp-m');
+    function sync() {
+      hidden.value = hSel.value + ':' + mSel.value;
+      if (typeof opts.onChange === 'function') opts.onChange();
+    }
+    hSel.addEventListener('change', sync);
+    mSel.addEventListener('change', sync);
+    sync();
+  },
+  // Set the value programmatically and refresh the dropdowns.
+  set: function(id, timeStr) {
+    var hidden = document.getElementById(id);
+    var wrap = document.getElementById(id + '_qp');
+    var t = roundTimeToQuarter(timeStr || '00:00');
+    if (hidden) hidden.value = t;
+    if (wrap) {
+      var hSel = wrap.querySelector('.qp-h');
+      var mSel = wrap.querySelector('.qp-m');
+      if (hSel) hSel.value = t.split(':')[0];
+      if (mSel) mSel.value = t.split(':')[1];
+    }
+  }
+};
+
 // App defaults (matching existing Code.js DEFAULTS)
 const DEFAULTS = {
   ANNUAL_DAYS: 31,

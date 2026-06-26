@@ -811,8 +811,8 @@ async function submitHolidayRequest() {
   if (type === 'MedAppt') {
     // Hour-based request
     var medDate = document.getElementById('medApptDate').value;
-    var startTime = roundTimeToQuarter(document.getElementById('medApptStartTime').value);
-    var endTime = roundTimeToQuarter(document.getElementById('medApptEndTime').value);
+    var startTime = document.getElementById('medApptStartTime').value;
+    var endTime = document.getElementById('medApptEndTime').value;
     if (!medDate) { showToast('Selecciona la fecha', 'error'); return; }
     if (!startTime || !endTime) { showToast('Selecciona el horario', 'error'); return; }
     var sh = startTime.split(':').map(Number);
@@ -1111,7 +1111,8 @@ function nextDay() {
 
 function openEditPunch(id, time, notes) {
   document.getElementById('editPunchId').value = id;
-  document.getElementById('editTimeInput').value = time;
+  TimePicker.mount('editTimeInput', { size: 'lg' });
+  TimePicker.set('editTimeInput', time);
   document.getElementById('editOverlay').classList.add('active');
 }
 
@@ -1289,7 +1290,10 @@ function setCurrentTime() {
   // Floor to the nearest 15-min step so the prefilled value matches the picker
   // increments and never lands in the future on "today".
   const m = String(Math.floor(now.getMinutes() / 15) * 15).padStart(2, '0');
-  document.getElementById('timeInput').value = h + ':' + m;
+  if (!document.getElementById('timeInput_qp')) {
+    TimePicker.mount('timeInput', { size: 'lg' });
+  }
+  TimePicker.set('timeInput', h + ':' + m);
 }
 
 // ========================================
