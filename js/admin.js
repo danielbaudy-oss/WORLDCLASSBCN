@@ -1354,7 +1354,7 @@ async function renderCalendarModal() {
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#dbeafe;border:1px solid #3b82f6;border-radius:3px"></span>Vacaciones</span>' +
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#ede9fe;border:1px solid #8b5cf6;border-radius:3px"></span>D.R. Empleado</span>' +
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fce7f3;border:1px solid #ec4899;border-radius:3px"></span>D.R. Empresa</span>' +
-      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px"></span>Médico</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px"></span>Baja</span>' +
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#ccfbf1;border:1px solid #14b8a6;border-radius:3px"></span>Permiso</span>' +
       '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fff7ed;border:1px solid #f97316;border-radius:3px"></span>⚠️ Fichaje incompleto</span>' +
     '</div>' +
@@ -1378,7 +1378,7 @@ async function renderCalendarModal() {
     Annual:   { bg: '#dbeafe', border: '#3b82f6', emoji: '🏖️', label: 'Vacaciones' },
     Personal: { bg: '#ede9fe', border: '#8b5cf6', emoji: '👤', label: 'D.R. Empleado' },
     School:   { bg: '#fce7f3', border: '#ec4899', emoji: '🏢', label: 'D.R. Empresa' },
-    Medical:  { bg: '#fee2e2', border: '#ef4444', emoji: '🏥', label: 'Médico' },
+    Medical:  { bg: '#fee2e2', border: '#ef4444', emoji: '🏥', label: 'Baja' },
     MedAppt:  { bg: '#fee2e2', border: '#ef4444', emoji: '⚕️', label: 'Visita Méd.' },
     Permiso:  { bg: '#ccfbf1', border: '#14b8a6', emoji: '📋', label: 'P. Retribuido' },
     PermisoNoRet: { bg: '#f3f4f6', border: '#6b7280', emoji: '🚫', label: 'P. No Retrib.' }
@@ -3331,7 +3331,7 @@ async function exportCSV() {
     '<th class="header-holidays">Vac.</th><th class="header-holidays">Vac.Tot</th>' +
     '<th class="header-holidays">D.R.Emp</th><th class="header-holidays">D.R.Emp Tot</th>' +
     '<th class="header-holidays">D.R.Empr</th><th class="header-holidays">D.R.Empr Tot</th>' +
-    '<th class="header-holidays">Médico</th><th class="header-holidays">Vis.Méd</th><th class="header-holidays">Permiso</th>' +
+    '<th class="header-holidays">Baja</th><th class="header-holidays">Vis.Méd</th><th class="header-holidays">Permiso</th>' +
     '</tr>';
 
   var totals = { period: 0, total: 0, paid: 0, medical: 0 };

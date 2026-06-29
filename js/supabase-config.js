@@ -30,7 +30,7 @@ const HOLIDAY_TYPES = {
   Annual: { name: 'Vacaciones', shortName: 'Vacaciones', emoji: '🏖️', color: 'annual', hasLimit: true },
   Personal: { name: 'Descanso Retribuido Empleado', shortName: 'D.R. Empleado', emoji: '👤', color: 'personal', hasLimit: true },
   School: { name: 'Descanso Retribuido Empresa', shortName: 'D.R. Empresa', emoji: '🏢', color: 'school', hasLimit: true },
-  Medical: { name: 'Baja Médica', shortName: 'Médico', emoji: '🏥', color: 'medical', hasLimit: false },
+  Medical: { name: 'Baja Médica', shortName: 'Baja', emoji: '🏥', color: 'medical', hasLimit: false },
   MedAppt: { name: 'Visita Médica', shortName: 'Visita Méd.', emoji: '⚕️', color: 'medappt', hasLimit: true, isHoursBased: true },
   // Permiso Retribuido (Convenio Art. 28): paid leave — counts as WORKED time. Entered by HOURS
   // (like Visita Médica): a full day off still only needs the hours marked, since schedules vary.

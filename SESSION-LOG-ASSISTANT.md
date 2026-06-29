@@ -1958,3 +1958,19 @@ a CALL but not confirmed=false. So the buttons were still at the model's mercy.
 
 ### Files
 - `supabase/functions/class-helper/index.ts`
+
+---
+
+## Session: June 26, 2026 (continued) — rename "Médico" label to "Baja"
+
+User: Lourdes's sick-leave days showed as "Médico"; should read "Baja". Pure display rename of the
+`Medical` type's short label (full name stays "Baja Médica"). Changed everywhere in the active app:
+- `js/supabase-config.js` HOLIDAY_TYPES.Medical.shortName 'Médico' → 'Baja' (drives teacher
+  requests list + anywhere using shortName).
+- `js/admin.js`: per-employee calendar holidayColors label + calendar legend + XLS export header.
+- `teacher.html` calendar legend; `admin.html` request-type dropdown, table header, legend.
+- "Visita Méd." (MedAppt) untouched. No DB/type changes — type stays `Medical`.
+- Cache-bust 20260626g → 20260626h. node --check clean.
+
+### Files
+- `js/supabase-config.js`, `js/admin.js`, `teacher.html`, `admin.html`, `index.html`
