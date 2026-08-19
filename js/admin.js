@@ -579,9 +579,11 @@ async function loadStatsGrid(teacherData, adminData) {
     var today = formatDate(new Date());
 
     if (!cachedPunches) {
-      var pRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
-        .in('punch_type', ['IN', 'OUT'])
-        .gte('date', yearStart).lte('date', today).limit(10000);
+      var pRes = await fetchAllRows(function() {
+        return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
+          .in('punch_type', ['IN', 'OUT'])
+          .gte('date', yearStart).lte('date', today);
+      });
       cachedPunches = pRes.data || [];
     }
 
@@ -789,8 +791,10 @@ async function loadTeachersTable() {
     var cutoffDate = periodRange.end < today ? periodRange.end : today;
 
     // Load all punches for the year (IN/OUT + PREP)
-    var pRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
-      .gte('date', yearStart).lte('date', today).limit(10000);
+    var pRes = await fetchAllRows(function() {
+      return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
+        .gte('date', yearStart).lte('date', today);
+    });
     var allPunches = pRes.data || [];
     cachedPunches = allPunches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
 
@@ -1039,9 +1043,11 @@ async function loadAdminWorkersTable() {
 
     // Load punches
     if (!cachedPunches) {
-      var pRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
-        .in('punch_type', ['IN', 'OUT'])
-        .gte('date', yearStart).lte('date', today).limit(10000);
+      var pRes = await fetchAllRows(function() {
+        return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
+          .in('punch_type', ['IN', 'OUT'])
+          .gte('date', yearStart).lte('date', today);
+      });
       cachedPunches = pRes.data || [];
     }
 
@@ -3292,8 +3298,10 @@ async function exportCSV() {
   var monthRange = getMonthRange();
   var periodLabel = monthNames[monthRange.month] + ' ' + monthRange.year;
 
-  var allPunchRes = await db.from('time_punches').select('user_id, date, time, punch_type, notes')
-    .gte('date', yearStart).lte('date', cutoffDate).limit(10000);
+  var allPunchRes = await fetchAllRows(function() {
+    return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
+      .gte('date', yearStart).lte('date', cutoffDate);
+  });
   var allPunches = allPunchRes.data || [];
   var allHolidayRes = await db.from('holiday_requests').select('*');
   var allHolidays = allHolidayRes.data || [];
@@ -3474,9 +3482,13 @@ async function exportAuditReport() {
   try {
     var pR, aR, proR;
     var results = await Promise.all([
-      db.from('time_punches').select('*, profiles!time_punches_user_id_fkey(name, email)')
-        .order('date', { ascending: false }).order('time', { ascending: false }),
-      db.from('audit_log').select('*').order('changed_at', { ascending: false }),
+      fetchAllRows(function() {
+        return db.from('time_punches').select('*, profiles!time_punches_user_id_fkey(name, email)')
+          .order('date', { ascending: false }).order('time', { ascending: false });
+      }),
+      fetchAllRows(function() {
+        return db.from('audit_log').select('*').order('changed_at', { ascending: false });
+      }),
       db.from('profiles').select('id, name, email')
     ]);
     pR = results[0]; aR = results[1]; proR = results[2];

@@ -56,3 +56,21 @@ const PERMISO_MOTIVES = [
   { code: 'i', label: 'Exámenes prenatales / preparación al parto / adopción', dayLimit: null, note: 'tiempo indispensable' },
   { code: 'j', label: 'Imposibilidad de acceder al centro (catástrofe/meteo)', dayLimit: 4, note: 'hasta 4 días' }
 ];
+
+// Fetch ALL rows for a query, paging past PostgREST's server row cap (max 1000/request).
+// The app crossed 10,000 yearly punches in Aug 2026, so single-shot .limit(10000) queries
+// started silently dropping rows (e.g. Joan's late-July punches missing from monthly view).
+// buildQuery: function returning a FRESH Supabase query each call (no .range/.limit on it).
+// A stable .order() (e.g. .order('id')) is appended automatically for consistent paging.
+async function fetchAllRows(buildQuery, pageSize) {
+  pageSize = pageSize || 1000;
+  var all = [];
+  for (var from = 0; ; from += pageSize) {
+    var res = await buildQuery().order('id', { ascending: true }).range(from, from + pageSize - 1);
+    if (res.error) return { data: all, error: res.error };
+    var rows = res.data || [];
+    all = all.concat(rows);
+    if (rows.length < pageSize) break;
+  }
+  return { data: all, error: null };
+}
