@@ -138,7 +138,7 @@ async function loadPunches(dateStr, isFrozen) {
 
   currentPunches = punches || [];
   renderPunches(currentPunches, isFrozen);
-  updatePunchButton(currentPunches);
+  updatePunchButton(currentPunches, isFrozen);
   updateDayHours(currentPunches);
 }
 
@@ -202,13 +202,28 @@ function renderPunches(punches, isFrozen) {
   }).join('');
 }
 
-function updatePunchButton(punches) {
+function updatePunchButton(punches, isFrozen) {
   const btn = document.getElementById('punchBtn');
+  if (isFrozen) {
+    btn.className = 'punch-btn';
+    btn.textContent = '🔒 Día congelado';
+    btn.disabled = true;
+    isPunching = false;
+    return;
+  }
   const isIn = punches.length % 2 === 0;
   btn.className = 'punch-btn ' + (isIn ? 'in' : 'out');
   btn.textContent = 'Fichar ' + (isIn ? 'Entrada' : 'Salida');
   btn.disabled = false;
   isPunching = false;
+}
+
+// True when dateStr falls in the frozen window for the current (non-admin) user.
+async function isDayFrozen(dateStr) {
+  const isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
+  if (isAdmin) return false;
+  const freezeDate = await getConfigValue('FreezeDate');
+  return !!(freezeDate && dateStr <= freezeDate);
 }
 
 function updateDayHours(punches) {
@@ -253,6 +268,14 @@ async function submitPunch() {
   }
 
   const dateStr = formatDate(selectedDate);
+
+  // Frozen days cannot be punched (also enforced by a DB trigger)
+  if (await isDayFrozen(dateStr)) {
+    showToast('Día congelado: no se puede fichar', 'error');
+    isPunching = false; btn.disabled = false;
+    return;
+  }
+
   const punchType = currentPunches.length % 2 === 0 ? 'IN' : 'OUT';
 
   // Check for duplicate time (within 2 minutes)
@@ -329,6 +352,13 @@ async function savePunchEdit() {
     return;
   }
 
+  // Frozen days cannot be edited (also enforced by a DB trigger)
+  if (await isDayFrozen(formatDate(selectedDate))) {
+    showToast('Día congelado: no se puede editar', 'error');
+    closeEditModal();
+    return;
+  }
+
   const { error } = await db
     .from('time_punches')
     .update({ time: newTime + ':00', edited_at: new Date().toISOString() })
@@ -352,6 +382,13 @@ async function deletePunch(id) {
   if (!reason) {
     showToast('El motivo es obligatorio', 'error');
     if (reasonEl) reasonEl.focus();
+    return;
+  }
+
+  // Frozen days cannot be deleted (also enforced by a DB trigger)
+  if (await isDayFrozen(formatDate(selectedDate))) {
+    showToast('Día congelado: no se puede eliminar', 'error');
+    closeEditModal();
     return;
   }
 
