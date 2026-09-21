@@ -2630,3 +2630,45 @@ Deploy verified: md5 of all 6 changed files identical on toyboy and locally, wor
 8 `HoursPct` references (4 modals × 2 fields), `20260921i` on both the CSS `<link>` and
 `APP_VERSION` in all three HTML files. `node --check` clean on admin.js, teacher.js,
 supabase-config.js.
+
+### Finding: Silvia uses the shared `contact@worldclassbcn.com` login — audit trail names "Milena"
+(investigation only, no changes made — Daniel: "its ok for now, they are both the bosses")
+
+Rocío reported Silvia can see the admin panel, but there is **no account for Silvia anywhere**.
+Checked `auth.users`, `auth.identities` and `auth.sessions` in full (not filtered by name): all 31
+accounts map 1:1 to a profile with the same email, and neither `silviakulikowska@gmail.com` nor
+`info@worldclassbcn.com` appears in any of them. Signing in always creates an `auth.users` row, so
+this is conclusive.
+
+Daniel confirmed she signs in as **contact@worldclassbcn.com** = the **`Milena`** profile
+(f8846e68, allowlisted `admin`). Corroborating evidence: that account has 0 punches and only 2 audit
+edits ever (1–7 Aug), yet had a live session today from 188.84.78.87 — the same office IP as Rocío's
+session. Three older stale sessions from two other IPs were never cleaned up.
+
+Consequences, accepted for now:
+- Every write Silvia makes is attributed to **"Milena"** in `audit_log`. Not separable — one
+  credential, two people.
+- Her own hours are never recorded. Both her profiles (`Silvi` d5e996b6 silviakulikowska@gmail.com,
+  and `Silvia` 3473266e info@worldclassbcn.com) have 0 punches and 0 holiday requests since the
+  9 Apr bulk import. Neither is a failed signup; they're duplicates of one person who never logged in.
+- Access can't be revoked independently of Milena's.
+
+**Correction to an earlier note in this log:** I had warned that Silvia's allowlist entry would be
+orphaned when her profile linked to an auth account. Wrong — `admin_authorizations_profile_id_fkey`
+is `ON UPDATE CASCADE`, so when `link_profile_by_email()` rewrites `profiles.id` the allowlist row
+follows automatically. The info@ path would have worked fine.
+
+**Audit coverage audited while in here** (for the record, nothing changed):
+- Trigger `audit_trigger_fn` on `time_punches`, `holiday_requests`, `paid_hours`, `app_config`
+  (INSERT+UPDATE+DELETE, tgtype 29) and `profiles` (**UPDATE only**, tgtype 17). Full old/new row
+  JSON + timestamp + actor name. 46,332 rows.
+- Gap 1: `audit_log` stores only the actor's profile *name* — no auth UID, no IP, no user agent. Not
+  joinable to a profile after a rename.
+- Gap 2: `profiles` INSERT and DELETE are unaudited, so `saveNewTeacher`, `saveNewAdmin` and
+  `delete_pending_profile()` leave no trace. Deactivation IS caught (status UPDATE).
+- Gap 3: one unattributed `time_punches` DELETE on 2026-08-27 20:27 (null actor = service-key write,
+  probably an import script). The other 10 null-actor rows are tonight's migrations.
+
+Offered and declined for now: add `changed_by_uid uuid` to `audit_log`; extend the profiles trigger to
+INSERT/DELETE; rename the `Milena` profile to "Oficina (contact@)" so the log stops naming a specific
+person for shared-account activity. Pick these up if the punch data ever goes to a real audit.
