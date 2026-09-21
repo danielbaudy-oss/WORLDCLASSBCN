@@ -1,13 +1,14 @@
 # Session Log: Class Helper Assistant Build
 
-> ⚠️ **PUSH ONLY THROUGH THE RASPBERRY PI.**
-> This laptop has NO access to GitHub (github.com is blocked at the network level).
-> `git push` from this machine ALWAYS fails. Every commit/push must go via the Pi:
-> 1. `scp "<file>" baudy@baudypi.local:~/WORLDCLASSBCN/<file>` (one per changed file)
-> 2. `ssh baudy@baudypi.local "cd ~/WORLDCLASSBCN && git add -A && git commit -m '...' && git push origin main 2>&1"`
-> Note: this laptop's local git is far behind `origin` (all real pushes happen from the Pi),
+> ⚠️ **PUSH ONLY THROUGH THE "toyboy" SERVER** (as of Jul 2026 — replaced the Raspberry Pi).
+> This laptop has NO access to GitHub (github.com is blocked on this machine only).
+> `git push` from this machine ALWAYS fails. Every commit/push must go via toyboy:
+> 1. `scp "<file>" baudy@192.168.1.181:~/WORLDCLASSBCN/<file>` (one per changed file)
+> 2. `ssh baudy@192.168.1.181 "cd ~/WORLDCLASSBCN && git add -A && git commit -m '...' && git push origin main 2>&1"`
+> Note: this laptop's local git is far behind `origin` (all real pushes happen from toyboy),
 > so `git log`/`git status` here do NOT reflect what's actually on GitHub.
-> Full details in `.kiro/steering/pi-relay.md` and `PI-INTERACTION-GUIDE.md`.
+> Full details in `.kiro/steering/pi-relay.md` and `TOYBOY-MIGRATION.md`.
+> (The old Raspberry Pi `baudy@baudypi.local` is being retired — do not use it.)
 
 ## Date: May 28, 2026
 
@@ -1974,3 +1975,658 @@ User: Lourdes's sick-leave days showed as "Médico"; should read "Baja". Pure di
 
 ### Files
 - `js/supabase-config.js`, `js/admin.js`, `teacher.html`, `admin.html`, `index.html`
+
+
+---
+
+## Session: July 2, 2026 — Migrated off the Raspberry Pi onto "toyboy" (ThinkCentre)
+
+Full writeup in **`TOYBOY-MIGRATION.md`**. Summary below.
+
+### Goal
+Move everything off the Raspberry Pi (`baudy@baudypi.local`, aarch64) onto a Lenovo
+ThinkCentre **`toyboy`** (`192.168.1.181`, Ubuntu 26.04 amd64) and retire the Pi.
+
+### Key finding
+GitHub is blocked **only on the work laptop**, not the network — toyboy reaches
+`github.com` directly (verified HTTP 200 + SSH auth). So **toyboy is now the git
+relay itself**; the Pi is no longer needed for pushes.
+
+### Done this session (on toyboy)
+- Recreated the **`baudy`** user (uid 1001, `/home/baudy`, no sudo) so all hardcoded
+  paths / systemd units / crontab / venv shebangs work unchanged. `daniel` = admin.
+- Passwordless SSH: laptop→toyboy (daniel + baudy) and Pi→toyboy (for the transfer).
+- Toolchain matched to the Pi: **node 20.20.2** (NodeSource), npm 10.8.2,
+  poppler-utils (`pdftotext`), build-essential, python3-venv/pip, **Google Chrome
+  stable** (`/usr/bin/google-chrome-stable`, for `puppeteer-core`).
+- Transferred all 5 `/home/baudy` projects + loose files via direct `rsync` over LAN
+  (excluded `node_modules`/`venv`/caches — rebuilt on target).
+- **GitHub SSH key** (`~/.ssh/id_ed25519`) copied → `git push` auth works from toyboy.
+- Rebuilds: `npm install` (pi-scraper, WORLDCLASSBCN, proxy); set
+  `CHROME_PATH=/usr/bin/google-chrome-stable` in pi-scraper/.env; **supabase CLI
+  amd64 v2.108.0** → `~/bin/supabase`; **lead-scraper venv rebuilt on Python 3.12
+  via `uv`** (pinned pandas/lxml lack 3.13/3.14 wheels), `playwright install chromium`
+  + launch verified.
+- Updated **`.kiro/steering/pi-relay.md`** to relay through toyboy; verified
+  `git push --dry-run` on toyboy → "Everything up-to-date".
+
+### WORLDCLASSBCN-specific notes
+- Repo lives at `/home/baudy/WORLDCLASSBCN` on toyboy, remote unchanged
+  (`git@github.com:danielbaudy-oss/WORLDCLASSBCN.git`).
+- `package-lock.json` shows modified on toyboy (npm reresolved on amd64/npm10) —
+  uncommitted, harmless.
+- ⚠️ **`SUPABASE_ACCESS_TOKEN` (`sbp_…`)** was never stored on disk (Pi passed it
+  inline); must be supplied on toyboy to run edge-function deploys.
+
+### Still pending (see TOYBOY-MIGRATION.md → TODO)
+- **Scraper workspace** (owns pi-scraper/lead-scraper/proxy/casahunt): install the two
+  systemd services (`dropping-proxy`, `lead-scraper`) + the 11-job crontab, and run a
+  real scraper job to verify. Migrate the **gitlab-runner** (token in
+  `/etc/gitlab-runner/config.toml`).
+- Supply `SUPABASE_ACCESS_TOKEN`; test a supabase deploy from toyboy.
+- Give toyboy a static IP / DHCP reservation (or install avahi for `toyboy.local`).
+- Cutover: disable Pi cron + services, then power the Pi off.
+
+---
+
+## Session: July 7, 2026 — New laptop setup + Supabase MCP power installed
+
+### New Laptop Setup
+- Generated SSH key (`~/.ssh/id_ed25519`, fingerprint `baudy-laptop`)
+- Set up passwordless SSH to toyboy (`192.168.1.181`) for both `daniel` and `baudy` users
+- Stored Supabase access token (`sbp_...`) on toyboy at `~/.supabase_token`
+- Stored service_role key on toyboy at `~/.supabase_token_service_role`
+- npm dependencies confirmed up-to-date (30 packages)
+- Node.js at `C:\Program Files\nodejs` (not on system PATH in some shell contexts)
+
+### Supabase MCP Power — Installed Globally (bypasses GitHub block)
+- **Problem**: The official Supabase power install button failed because it pulls from GitHub
+  (blocked on this work laptop). The Supabase account is GitHub-only OAuth, so the remote MCP
+  server (`mcp.supabase.com`) couldn't authenticate either.
+- **Solution**: Created a custom local power at `C:\Users\baudy\power-supabase\` with:
+  - `POWER.md` (frontmatter + docs)
+  - `mcp.json` — uses the LOCAL npx MCP server (`@supabase/mcp-server-supabase@latest`) with
+    the personal access token directly. No OAuth, no GitHub needed.
+- Installed via Kiro Powers panel → "Add power from Local Path" → `C:\Users\baudy\power-supabase`
+- Workspace config at `.kiro/settings/mcp.json` also updated to use the same npx+token approach.
+- **Result**: Full Supabase MCP tools available (execute_sql, list_tables, apply_migration,
+  deploy_edge_function, etc.) from ANY workspace on this laptop. Verified: can query all 17
+  tables directly.
+
+### MCP Config (for reference)
+```json
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "C:\\Program Files\\nodejs\\npx.cmd",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "sbp_..."],
+      "env": {"PATH": "C:\\Program Files\\nodejs"},
+      "disabled": false
+    }
+  }
+}
+```
+- Token: personal access token (starts with `sbp_09ee...`), created from phone via Supabase
+  dashboard. Works without GitHub.
+- The power lives at user level (`C:\Users\baudy\power-supabase\`) so it's available globally.
+
+### SSH to Toyboy (still works, still needed for deploys + git push to GitHub)
+- `ssh daniel@192.168.1.181` — admin user, passwordless
+- `ssh baudy@192.168.1.181` — app user, passwordless, has the repo + supabase CLI
+- Deploys: `ssh baudy@192.168.1.181 "cd ~/WORLDCLASSBCN && SUPABASE_ACCESS_TOKEN=$(cat ~/.supabase_token) ~/bin/supabase functions deploy <fn> --project-ref ruytavhodexoxkejrgyb --no-verify-jwt"`
+- Git push (GitHub): `ssh baudy@192.168.1.181 "cd ~/WORLDCLASSBCN && git add -A && git commit -m '...' && git push origin main"`
+
+### Network Access Notes (this work laptop)
+- **GitHub** (`github.com`): BLOCKED — all git push/pull must go via toyboy
+- **GitLab** (`gitlab.com`): NOT BLOCKED — can access directly from this laptop
+- **Supabase** (`supabase.co`, `mcp.supabase.com`): NOT BLOCKED
+- **npm registry**: NOT BLOCKED (npx works directly)
+
+### User-Level Steering File Created
+- `C:\Users\baudy\.kiro\steering\supabase-access.md` — documents the toyboy SSH + REST API
+  fallback approach (for cases where the MCP server isn't available).
+
+### Database State (July 7, 2026)
+- 36 profiles, 8,920 punches, 143 holiday requests, 13 school holidays, 43,069 audit log entries
+- 1,659 material embeddings (RAG corpus), 65 chat logs, 71 schedule classes
+- All tables have RLS enabled
+
+
+---
+
+## Session: August 19, 2026 — 🐛 10,000-punch row-cap bug (Joan's July hours)
+
+### Symptom
+Joan's July showed **103.8h** (incl. 47.8h baja) in the monthly view — but her real July is
+**133.8h**: 86h worked + 47.8h baja. Her Jul 27–31 punches (5 days × 6h = 30h, after her
+Jul 15–24 "Cirugía" baja) were missing from the calc, TODAY, with July being a past month.
+
+### Verified breakdown (correct math, wrong data window)
+- Baja credit: Jul 15–24 = 8 working days × (1230 expected ÷ 206 working days = 5.97h/day) = **47.8h** ✓
+- Worked Jul 1–14: 56h (Jul 1 = 8h double shift; 8 more days × 6h) ✓
+- Missing: Jul 27–31 punches (verified real in DB, created live on those days)
+- 56 + 47.8 = 103.8 (displayed) vs 86 + 47.8 = 133.8 (correct)
+
+### Root cause: the app crossed 10,000 yearly punches in mid-August 2026
+- admin.js loaded year punches with `.limit(10000)` (4 sites). Jan 1 → Aug 19 IN/OUT count
+  hit **10,043** — the first 10,000 rows (unordered!) are returned, the rest silently dropped.
+  Joan's late-July rows were among the dropped 43. Gets worse daily; hits random users.
+- Worse: `exportAuditReport()` had NO limit → capped at PostgREST's default **1000** rows
+  (10,628 punches / 43,069 audit rows truncated — the audit XLS export was very incomplete).
+
+### Fix (frontend, deployed pending)
+- New `fetchAllRows(buildQuery)` helper in `js/supabase-config.js`: pages through results in
+  1000-row batches via `.range()`, appends `.order('id')` for stable pagination, loops until
+  a short page. Returns `{data, error}` like a normal query.
+- Replaced all 4 `.limit(10000)` punch loads in admin.js (stats grid, teacher table w/ PREP,
+  admin table, XLS export) + both unbounded audit-export queries with `fetchAllRows`.
+- `select()` now includes `id` (needed for the stable order).
+- teacher.js year-long queries left as-is: a single teacher tops out at ~600 rows/year,
+  safely under the 1000 cap.
+- node --check clean (admin.js, supabase-config.js). Cache-bust 20260626h → **20260819a**.
+
+### ✅ DEPLOYED (commit cc9c629)
+- Pushed via toyboy: js/supabase-config.js, js/admin.js, index.html, teacher.html, admin.html.
+- ⚠️ **TOYBOY IP CHANGED: 192.168.1.181 → 192.168.1.128** (DHCP, no static reservation yet).
+  If unreachable again, check `arp -a` for new devices or set a DHCP reservation in the router
+  (long-standing TODO from TOYBOY-MIGRATION.md). Update .kiro/steering/pi-relay.md accordingly.
+
+### Other fixes this session
+- **Raúl's "missing" August holiday**: record f89624eb had year 2025 (Aug 3–23, 2025) — a
+  wrong-year import. Updated to 2026-08-03 → 2026-08-23. Verified no other pre-2026 rows in
+  holiday_requests / time_punches / school_holidays.
+- **MCP token expired** (created Jul 7 w/ 7-day expiry): replaced with new token in all 3
+  configs (user-level ~/.kiro/settings/mcp.json — which ALSO had a stale untokened supabase
+  entry that shadowed the workspace one — workspace .kiro/settings/mcp.json, and
+  C:\Users\baudy\power-supabase\mcp.json). Prefer non-expiring tokens for this.
+
+### ⚠️ NOTE FOR ASSISTANT — DATE AWARENESS
+The IDE-provided "current date" context can be stale (long-running sessions). ALWAYS verify
+today's real date (e.g. `Get-Date` in terminal or SQL `CURRENT_DATE`) before date-based
+analysis. This session: context said July 7; the real date was August 19.
+
+### Supabase projects note
+- The second Supabase project (kxbmlsbxnzvgzucxleoy) was renamed MIKAN → **DROPPING** and is
+  the backend for the dropping project (GitLab: gitlab.com/baudy-group/dropping — reachable
+  from this laptop; repo currently 403 without auth). Local restore folder created at
+  C:\Users\baudy\Documents\Extensions\dropping (empty — git not installed on laptop yet;
+  git-scm.com + winget downloads blocked because they redirect to github.com. Get git via
+  toyboy or another mirror when needed.)
+
+---
+
+## Session: August 19, 2026 (continued) — 🔒 Freeze was cosmetic; now enforced (DB + frontend)
+
+### Report (from Rocío)
+Frozen days could still be edited. Confirmed: FreezeDate was set (2026-08-16) and the banner/🔒
+rendered, but the freeze had NO teeth:
+1. The main "Fichar" button stayed ACTIVE on frozen days (`updatePunchButton` unconditionally
+   re-enabled it) and `submitPunch` never checked the freeze → teachers could add punches to
+   frozen days.
+2. `savePunchEdit` / `deletePunch` had no freeze checks either (buttons hidden, functions open).
+3. ZERO server-side enforcement — RLS lets users write own punches unconditionally, so any
+   client could modify frozen days. The freeze has been cosmetic since launch.
+
+### Fix layer 1 — DB trigger (migration 20260819120000_enforce_punch_freeze, applied + tracked)
+- `enforce_punch_freeze()` BEFORE INSERT/UPDATE/DELETE trigger on time_punches:
+  - auth.uid() IS NULL (service role: imports, Atlas Edge Fn) → bypass (Atlas enforces freeze itself)
+  - Active admin/super_admin → bypass (by design)
+  - Otherwise: block if the punch date (NEW and/or OLD) <= FreezeDate. UPDATE checks BOTH dates
+    (can't move a punch into or out of the frozen window). Error message in Spanish.
+- Covers the delete RPC too (`delete_punch_with_reason` is SECURITY DEFINER but auth.uid() still
+  returns the caller → blocked for teachers on frozen dates).
+- Tested in-DB with simulated JWT claims (all 4 pass, no test rows leaked):
+  teacher insert frozen ✗ blocked / teacher insert unfrozen ✓ / teacher delete frozen ✗ blocked /
+  admin insert frozen ✓ allowed.
+
+### Fix layer 2 — frontend (js/teacher.js)
+- `updatePunchButton(punches, isFrozen)`: button disabled + "🔒 Día congelado" label on frozen days.
+- New `isDayFrozen(dateStr)` helper; re-checked inside `submitPunch`, `savePunchEdit`,
+  `deletePunch` (defense in depth; friendly toast instead of raw DB error).
+
+### Deploy
+- Commit 2d5e075 pushed via toyboy (192.168.1.128). Cache-bust 20260819a → 20260819b.
+- PREP inserts on frozen weeks are now blocked by the trigger as well (same date rule) — raw DB
+  error surfaces if a teacher tries; acceptable, freeze dates are set to period boundaries.
+
+### Atlas freeze/identity audit (same session) — no changes needed
+Pulled the LIVE class-helper (v58) via MCP and verified:
+- Freeze enforced in both punch tools: add_punches rejects dates <= FreezeDate ("Congelada"),
+  add_punch errors "día congelado". Applies to ALL Atlas users incl. admins (stricter than the
+  app, intentionally conservative). Note: Atlas uses the service role, so the new DB trigger
+  deliberately bypasses it (auth.uid() IS NULL) — Atlas's own checks are the enforcement there,
+  and they're present in the live code.
+- Identity: ctx.userId comes from the VERIFIED session JWT (auth.getUser()), and every write
+  (add_punch/add_punches/request_holiday) hardcodes user_id: ctx.userId — writes always target
+  the person talking; no parameter can redirect them. Teachers' reads are locked to self;
+  admins can read others (read-only).
+- Live v58 == repo copy (no drift).
+
+---
+
+## Session: September 21, 2026 — Maja admin account "needs activation" fix
+
+### Symptom
+Rocío added Maja as an admin, but on first Google login Maja got "cuenta creada, necesita
+activación por un administrador".
+
+### Root cause: email typo in the pre-created profile
+- Rocío's profile: `maja.przada.wordlclassbcn@gmail.com` (**wordl** — typo), admin/Active.
+- Maja's real Google email: `maja.przada.worldclassbcn@gmail.com` (**world**).
+- No email match on login → `handle_new_user` trigger created a SECOND profile
+  (teacher/Pending) → the activation message.
+
+### Fix (DB only)
+- Promoted the real, auth-linked profile (f877ea55…) to role=admin, status=Active.
+- Deleted the empty typo profile (0ad2f1a1…, zero punches/holidays/paid_hours).
+- Verified: one Maja profile, admin/Active, auth_linked=1. She needs to log out/in once.
+
+### Lesson
+Pre-created accounts match on EXACT email. A typo silently lands the person in the
+teacher/Pending auto-signup path. First thing to check when "needs activation" appears for
+someone who was already added: `SELECT email, role, status FROM profiles WHERE name ILIKE '%name%'`.
+
+### Follow-up: pending signups now visible in the admin panel (commit 1cc63a5)
+Previously every admin-panel query filtered status='Active' → Pending auto-signups were
+INVISIBLE to Rocío (which is why Maja's case was a mystery). Built:
+- **Amber card at the top of the Personal section** ("⏳ Cuentas pendientes de activación"),
+  shown only when Pending profiles exist. Lists name, email, creation date.
+- **Typo detection**: Levenshtein distance (≤3) between the pending email and every other
+  profile's email → shows "⚠️ Muy parecido a X — ¿error tipográfico?" hint.
+- **One-click actions**: "🔀 Fusionar" (calls new `merge_pending_profile` RPC: copies role +
+  hour settings from the typo'd duplicate onto the real auth-linked profile, activates it,
+  deletes the empty duplicate — guarded: admin-only, dup must be unlinked + zero records) or
+  plain "✓ Activar como Profe / Admin".
+- Migration `20260921100000_merge_pending_profile` applied + tracked. Cache-bust 20260819b →
+  20260921a. node --check clean. Pushed via toyboy (192.168.1.128).
+
+---
+
+## Session: September 21, 2026 (continued) — Admin access allowlist + hidden hours adjustment + dismissible pending cards
+
+### 1. 🔐 Admin panel restricted to Rocío, Silvia, Milena (commit 3615c86)
+**Problem:** `profiles.role` was doing two jobs at once — employment category (hour rules,
+ADMIN_DEFAULTS, grouping) AND security privilege. So all 7 administrative workers
+(Jurgen, Kamila, Maja, Martyna, Mile, Silvi, + the 3 real managers) had full admin-panel access
+and broad RLS access. Demoting them to `teacher` was NOT an option: it would corrupt their
+1530h hour calculations and prep-time rules.
+
+**Solution — separate the two concepts:**
+- New locked table `admin_authorizations(profile_id, access_level)`, RLS on with a
+  `USING (false)` policy → no client can read/write it; only SECURITY DEFINER helpers see it.
+  Seeded by verified auth UUID: Rocío=super_admin, Silvia (info@)=admin, Milena (contact@)=admin.
+- `is_admin()` / `is_super_admin()` rewritten to check that table + Active status (was
+  `role IN ('admin','super_admin')`). Every policy already calling them became correct for free.
+- Replaced the 6 policies that embedded `profiles.role` directly: app_config, chat_logs,
+  holiday_requests, material_embeddings, paid_hours, time_punches. ⚠️ Two of these
+  (material_embeddings, chat_logs) previously didn't even check Active status — that's why the
+  super-admin-only Atlas nav was cosmetic: any admin could query chat_logs directly.
+- `enforce_punch_freeze()`, `merge_pending_profile()`, `delete_pending_profile()` now use
+  `is_admin()` instead of inline role checks.
+- New `get_admin_access_level()` RPC = the server-derived capability the frontend reads.
+- Frontend: `requireAdminAccess()` in auth.js (redirects to teacher.html, not index.html);
+  `hasAdminPanelAccess()` / `hasSuperAdminAccess()` replace every privilege-bearing role check in
+  index.html routing, teacher.js (admin button, freeze bypass ×3, punch edit/delete), and
+  admin.js (page gate, freeze/Atlas nav, super-admin punch CRUD).
+- Employment-role uses left INTACT on purpose: ADMIN_DEFAULTS selection, teacher/admin table
+  split, badges, prep-time gating, audit export.
+- **Atlas (class-helper v59)**: `ctx.adminAccess` (from admin_authorizations) now gates
+  cross-user reads in get_holidays/get_work_hours/get_schedule — was `ctx.role === "teacher"`,
+  which let all 7 admins read anyone's data. Writes were already locked to ctx.userId.
+
+**Verified by simulating each account's JWT:** Rocío→super_admin, Silvia/Milena→admin,
+Jurgen/Kamila/Maja/Test→no access (is_admin=false). RLS spot-check: Maja sees 1 profile (her own)
+and 0 other users' punches; Rocío sees all 11,836 punches.
+
+### 2. 🐛 SECURITY FIX found along the way: link_profile_by_email was spoofable
+The SECURITY DEFINER fallback linker took an email argument and never checked it against the
+caller's JWT — any authenticated user could call `link_profile_by_email('info@worldclassbcn.com')`
+and claim Silvia's privileged profile. Now derives+compares the verified email from `auth.users`
+and only claims profiles with no existing auth identity. Verified: spoof attempt as Jurgen →
+"Email does not match authenticated account". (Pre-existing hole since April, unrelated to today.)
+
+### 3. Rocío: shown 1500h, computed as 1400h
+New `profiles.hours_adjustment numeric DEFAULT 0`. `effectiveExpectedHours(profile, fallback)`
+in supabase-config.js returns nominal + adjustment and feeds every progress/medical/period calc
+(stats grid, teacher table, admin table, teacher.js, XLS export). The NOMINAL value still renders
+in the "Esperado/Año" columns, the edit modals, and teacher.js "Xh / Yh". Rocío = -100 → effective
+1400. Everyone else 0 (no behavior change). Rationale: her 8:30–16:00 schedule (7h net after the
+30-min unpaid break) × ~206 available working days = ~1442h ceiling, so the convenio-derived
+1500 (1300 docent + 200 categoria funcional, Art. 18) was mathematically unreachable.
+
+### 4. Pending-account cards: dismiss + delete
+- Per-row ✕ = hide (localStorage per browser, no DB change) + "Ocultar todo ✕" on the card.
+- A small note shows "N cuentas pendientes ocultas · Mostrar" to bring them back.
+- 🗑 "Eliminar cuenta" → `delete_pending_profile` RPC (admin-only, Pending-only, refuses if the
+  profile has any punches/holidays/paid_hours).
+- ⚠️ **Edge case caught during review**: deleting only the profile row left the Supabase Auth
+  identity orphaned → on next Google login `handle_new_user` would NOT fire (auth user already
+  exists) and the person would be stuck with no profile at all. The RPC now deletes the
+  `auth.users` row too (migration 20260921121000).
+
+### 5. Hardening: chat views
+`chat_statistics` / `chat_top_questions` were SECURITY DEFINER views (bypassed caller RLS) →
+set `security_invoker = true`. Security advisor ERROR count went 2 → 0.
+
+### Migrations (applied + tracked)
+| Migration | Change |
+|-----------|--------|
+| 20260921110000_hours_adjustment_and_delete_pending | profiles.hours_adjustment + delete_pending_profile |
+| 20260921120000_separate_admin_authorization | admin_authorizations table, is_admin/is_super_admin rewrite, 6 policies, freeze trigger, pending RPCs, hardened linker |
+| 20260921121000_delete_pending_auth_identity | also delete the orphaned auth.users row |
+| 20260921122000_secure_chat_views_and_admin_auth_table | security_invoker views + explicit deny policy |
+
+### Deploy
+- Commit **3615c86** pushed via toyboy. Atlas **v59** ACTIVE (live == repo). Cache-bust
+  20260921b → **20260921c**. node --check clean on auth/admin/teacher/supabase-config.
+- Deploy gotchas hit: (a) `$(cat ...)` inside a double-quoted PowerShell ssh string is expanded
+  LOCALLY — use single quotes; (b) piping a token via PowerShell adds CRLF, breaking
+  `supabase login` ("Invalid access token format") — write with `printf '%s'`;
+  (c) commit messages with `()` break through the ssh/PowerShell quoting layers.
+
+### ⚠️ Follow-ups
+- **User-level MCP config (`~/.kiro/settings/mcp.json`) now contains the placeholder
+  `PASTE_YOUR_EXISTING_SUPABASE_TOKEN_HERE`** instead of a real token, so the Supabase power
+  works in THIS workspace only (the workspace config has the real one). Paste a valid `sbp_`
+  token there to restore it globally.
+- Advisor WARNs left as-is (pre-existing): 7 functions with mutable search_path, `vector`
+  extension in public, SECURITY DEFINER functions callable by authenticated (they all
+  authorize internally), leaked-password protection off.
+- `switch_dev_role` can still change `profiles.role` for the test account, but that no longer
+  grants privilege (authorization lives in admin_authorizations) — the dev switcher can no
+  longer be used to reach the admin panel. Consider dropping it in production anyway.
+- To grant/revoke admin access in future: insert/delete a row in `admin_authorizations`. There
+  is deliberately no UI for it.
+
+### Follow-up: Test Account added to the allowlist (commit d2ea11a)
+🧪 Test Account (danielbaudy@googlemail.com, a050a494…) added as **super_admin** in
+`admin_authorizations` — it's Daniel's dev account and needed panel access back. Verified:
+get_admin_access_level()='super_admin', is_admin/is_super_admin true. Tracked migration
+20260921120000 updated so a fresh `db reset` seeds all four.
+
+Current allowlist: Rocío + Test Account = super_admin; Silvia + Milena = admin.
+
+⚠️ **Dev role switcher interaction:** `switch_dev_role` still flips `profiles.role`, but
+authorization now lives in `admin_authorizations` — so switching the test account to 'teacher' no
+longer removes admin access. The switcher can still be used to verify hour-rule/prep-time
+behavior (those correctly follow `role`), but NOT to preview the restricted teacher experience.
+To test that, temporarily remove the row:
+  `DELETE FROM admin_authorizations WHERE profile_id='a050a494-a18d-4161-a1ec-c0ebe0aeadcb';`
+and re-insert with access_level='super_admin' afterwards. (Deliberately did NOT let
+switch_dev_role write to the authorization table — that would reopen a privilege-escalation path
+into the very table that now guards everything.)
+
+### 🐛 PERF REGRESSION from the authorization split — fixed (commit 51eeea3)
+**Symptom:** admin view got much slower right after the Sep 21 authorization split.
+
+**Cause 1 (mine, the multiplier): RLS function calls evaluated PER ROW.**
+The split replaced inline `EXISTS (SELECT 1 FROM profiles WHERE role IN (...))` policy predicates
+with `is_admin()`. The planner could collapse the old subquery into a one-time filter, but a
+STABLE SECURITY DEFINER *function call* stays in the per-row filter. Because the policies are
+`user_id = auth.uid() OR is_admin()`, and an admin reads everyone's rows, the first branch fails
+on nearly every row → `is_admin()` ran ~11.8k times per query, each doing a join.
+EXPLAIN proof: `Filter: (... OR is_admin())`, 34.0 ms / 4004 buffers for 1000 rows.
+**Fix:** wrap in scalar subqueries — `USING ((SELECT is_admin()))` — which makes them InitPlans
+evaluated once (`loops=1`). Same for `auth.uid()` (also fixes the pre-existing linter warning).
+**Result: 34.0 ms → 5.1 ms per page, buffers 4004 → 1190.** The `auth_rls_initplan` advisor
+warning went from 10 findings to 0.
+Also dropped 2 strictly-redundant policies ("Super admins can insert/delete all punches" —
+`is_admin()` is already true for super_admins) to cut per-query policy evaluation. UPDATE stays
+super-admin-only (intentional, matches the UI).
+
+**Cause 2 (pre-existing, since the Aug 19 pagination fix): 3× duplicate full punch loads.**
+`loadData()` runs loadStatsGrid + loadTeachersTable + loadAdminWorkersTable in `Promise.all`.
+All three started their own paginated punch fetch because each saw `cachedPunches === null` at
+the same instant (loadTeachersTable didn't even check the cache — it always reloaded). At ~12
+pages each that's **~36 HTTP round trips** instead of 12 — the dominant cost given ~150 ms
+latency to eu-west-1.
+**Fix:** new `getYearPunches(yearStart, today)` in admin.js memoises the in-flight promise, so
+concurrent callers share ONE paginated load. Returns all punch types (PREP included, needed by
+the teacher table) and keeps `cachedPunches` as the IN/OUT subset for existing callers. A null
+`cachedPunches` still forces a reload, so all 10 existing `cachedPunches = null` invalidation
+sites keep working untouched.
+
+**Verified after the policy rewrite (~30 policies recreated) — authorization unchanged:**
+Rocío 35 profiles / 11,836 punches / 216 holidays / 40 paid / 46,327 audit;
+Maja (admin worker, no panel) 1 profile / 2 own punches / 0 holidays / 0 paid / 0 audit;
+Joan (teacher) 1 profile / 362 own punches / **0** other-user punches. School holidays readable
+by all (13) as intended.
+
+Migration `20260921130000_rls_initplan_perf_wrap_auth_calls` applied + tracked.
+Cache-bust 20260921c → **20260921d**. node --check clean.
+
+**Lesson for future RLS work:** always wrap `auth.*()` and SECURITY DEFINER helper calls in
+`(SELECT ...)` inside policies. Without it they're per-row; with it they're once-per-query.
+
+### 📌 DEFERRED (user decision, Sep 21): server-side hours aggregation
+Admin load is "reasonably fast" after the two fixes above, so the deeper optimisation is
+postponed — Daniel will implement it later. For whoever picks it up:
+
+**What:** a Postgres function (e.g. `get_employee_hours_summary(p_year int, p_period_start date,
+p_period_end date, p_cutoff date)`) that returns ONE small row per employee — worked hours,
+period hours, medical/medAppt/permiso credit, paid deduction, prep total, expected-to-date,
+progress % — instead of shipping every raw punch to the browser.
+
+**Why:** the admin panel currently downloads all ~11.8k (and growing) punches for the year and
+aggregates in JavaScript, paginated 1000 at a time (~12 round trips, resets each January but
+grows all year). An RPC makes it 1 request with a flat response, so load time stops scaling with
+data volume.
+
+**Where the logic lives today** (must be ported 1:1 or results will drift — there are FIVE calc
+sites that already agree with each other):
+- `js/admin.js` loadStatsGrid (~line 584+), teacher table (~939+), admin-workers table (~1186+),
+  XLS export (~3427+); `js/teacher.js` loadProgress (~1034+).
+- Key rules to preserve: `effectiveExpectedHours()` = expected_yearly_hours + hours_adjustment
+  (Rocío shows 1500 / computes 1400); hoursPerWorkingDay = effective ÷ totalWorkingDays;
+  medical credit = working days in range × hoursPerWorkingDay; MedAppt + Permiso store HOURS in
+  the `days` column; allocatedDays = max(0, annual-3) + personal + school; cutoff = today for the
+  current period, period end for past periods; green ≥98 %, amber ≥80 %.
+- Must run as SECURITY DEFINER with `(SELECT is_admin())`-style gating, or as SECURITY INVOKER so
+  RLS naturally restricts it — and remember the per-row-vs-InitPlan lesson above.
+
+**Suggested order:** build the RPC alongside the existing JS, compare outputs for every employee
+until identical, then switch the frontend over and delete the raw-punch loads.
+
+### Refinement: 1500 drives everything except the % denominator (commit 14fe962)
+Earlier today `hours_adjustment` shifted the target used by ALL calculations (Rocío computed
+entirely at 1400). Requested change: compute expected hours at the nominal **1500**, but measure
+the progress **percentage** against **1400**.
+
+Renamed `effectiveExpectedHours()` → **`progressTargetHours()`** to reflect its now-narrow role,
+and split every calc site into two values:
+- `expectedYearly` = NOMINAL (1500) → drives `hoursPerWorkingDay` (so baja/medical credit is
+  valued at the real rate) and the displayed "Xh esp" / "Xh esperadas".
+- `progressTarget` = nominal + hours_adjustment (1400) → used ONLY as the percentage denominator
+  (`progressDenom`), annual and weekly.
+
+Weekly view needed the same split: `weekExpected` (displayed) stays at the nominal rate, while
+`weekDenom` uses `progressTarget / totalWorkingDays`.
+
+Updated all 5 calc sites: admin.js stats grid, teacher table, admin-workers table, XLS export;
+teacher.js loadProgress. Grep-verified zero remaining `effectiveExpectedHours` references.
+For everyone else `hours_adjustment = 0`, so nominal == progressTarget → no behavior change.
+
+**Verified against live data (Sep 21):** 206 total working days, 158 passed (ratio 0.767),
+1111.6h credited. Rate at 1500 = 7.282 h/day. Displayed expected-to-date = **1150h** (1500-based),
+percentage denominator = 1074h (1400-based) → **103.5 %** (green). Had the % used 1500 it would
+read 96.6 % (amber) — which is exactly the difference this change is for.
+Note Rocío has no Medical records, so the rate change doesn't alter her credited hours; it would
+matter for anyone with a baja.
+
+Cache-bust 20260921d → **20260921e**. node --check clean on all three files.
+
+### 🐛 Mid-year joiners measured against the whole year — fixed (commit bddaa3e)
+**Symptom:** ALEXANDRA DINU (first punch 2026-09-14, 6 days worked, 22h) was expected to have
+done **908h** by Sep 21 → ~2 %, permanently red. Same for Maja (created Sep 21 → 869h expected).
+The progress calc counted all 179 working days elapsed since Jan 1, regardless of employment.
+
+**Was `expected_yearly_hours` a full-year or a remaining-period figure?** Resolved from the data:
+Alexandra's 1045 over her 68 remaining working days would be 15.4 h/day (impossible); as a
+full-year rate prorated to her window it's ~5.1 h/day (full-timers are 5.97). So it's a full-year
+figure and the TARGET must prorate too — not just the ratio.
+
+**Fix:** new nullable `profiles.contract_start` (NULL = employed since Jan 1 → behaviour
+unchanged for the other 32 people). When set, `getTeacherProgress(..., contractStart)`:
+- excludes working days before contract_start from both the total and passed counts;
+- computes `windowFraction` = window working days ÷ full-year working days;
+- prorates the holiday allocation by that fraction (Conveni Art. 23, "en proporció al temps
+  treballat"), so a Sept joiner isn't charged a full 35-day allocation against ~68 days;
+- ignores any holiday dates before contract_start.
+Callers then scale BOTH `expectedYearly` and `progressTarget` by `progress.windowFraction`.
+Applied at all 4 admin call sites (stats grid, teacher table, admin-workers table, XLS export)
+and mirrored in teacher.js loadProgress (which computes its working days inline).
+Display: for mid-year staff the "Esperado/Año" cell shows the prorated figure with a `*` and a
+tooltip ("1045h/año · alta el 2026-09-14 (prorrateado)"); teacher.js shows prorated too, so the
+"Xh / Yh" line reconciles with the bar.
+
+**Verified (Sep 21), new vs old:**
+| | contract_start | configured | window | target | h/day | exp-to-date | worked | % |
+|---|---|---|---|---|---|---|---|---|
+| JOAN (control) | NULL | 1230 | 1.0000 | 1230 | 5.97 | 901.6 | 922.8 | 102.3 |
+| ALEXANDRA | 2026-09-14 | 1045 | 0.2822 | 295 | 5.07 | 30.4 | 22.0 | **72.3** (was ~2) |
+| Maja | 2026-09-21 | 1000 | 0.2614 | 261 | 4.85 | 4.9 | 4.5 | **92.7** |
+Joan unchanged → confirms zero impact on full-year staff. Alexandra's 72 % is a genuine
+behind-pace signal (3.7 h/day actual vs 5.07 required), not a calc artefact.
+
+Backfilled contract_start for the two known joiners from first-punch/creation evidence.
+⚠️ **Process note:** set `contract_start` when adding anyone who joins mid-year, otherwise they'll
+be measured from January. There's no UI field for it yet — set it in SQL, or add it to the
+add/edit teacher modals when convenient.
+Cache-bust 20260921e → **20260921f**. node --check clean.
+
+(Problem 2 from the same review — 4 zero-data admin profiles and the likely Silvi/Silvia +
+Mile/Milena duplicates — deliberately NOT fixed: they're the school owners, not pressured to
+punch. Still worth noting the Silvia allowlist risk recorded above.)
+
+### Contract period is now editable in the UI + added contract_end (commit eb7de80)
+Follow-up to the proration fix: the dates were SQL-only, now they're in the modals, and
+`contract_end` was added so leavers work symmetrically.
+
+**New column** `profiles.contract_end date` (NULL = through Dec 31) + CHECK constraint
+`contract_end >= contract_start` (verified: an inverted range is rejected by the DB, and the
+frontend also blocks it with a toast before saving).
+
+**Calc:** `getTeacherProgress(..., contractStart, contractEnd)` now excludes working days OUTSIDE
+`[start, end]` from both the total and passed counts via a single `outside(d)` predicate, prorates
+the allocation by the resulting `windowFraction`, and ignores holidays outside the window.
+Mirrored in teacher.js loadProgress. All 4 admin call sites pass both dates.
+
+**UI — "📅 Periodo de Contrato (opcional)"** section with two `<input type="date">` added to:
+- ⚙️ Configuración de Profesor (`editContractStart` / `editContractEnd`)
+- ⚙️ Configuración de Admin (`editAdminContractStart` / `editAdminContractEnd`)
+- ➕ Añadir Profesor (`addTeacherContractStart` / `addTeacherContractEnd`)
+- ➕ Añadir Admin (`addAdminContractStart` / `addAdminContractEnd`)
+Hint text: empty = full year; if filled, hours and leave days prorate. Saves `null` when blank,
+so clearing a date restores full-year behaviour.
+
+**Verified:** leaver scenario (Joan hypothetically ending 2026-06-30, rolled back) → window
+fraction 0.5021, target 1230 → 618h, and **h/day stays 5.97** — only the total shrinks, the daily
+rate is unchanged, which is the key correctness check. Existing data untouched: only Alexandra
+(2026-09-14) and Maja (2026-09-21) have dates set, both with contract_end NULL.
+
+Note: as with full-year staff, the model assumes the (prorated) holiday allocation is actually
+taken inside the window — a leaver who never books their prorated days will read >100 %, same
+pre-existing assumption that makes ratio hit exactly 1.0 at year end for everyone else.
+
+Cache-bust 20260921f → **20260921g**. node --check clean on admin.js + teacher.js.
+
+### Rocío's percentage target 1400 → 1450
+`hours_adjustment` −100 → **−50**, so the progress % is measured against **1450** while everything
+else (displayed figure, per-day rate, expected-to-date) stays at the nominal 1500. Data-only
+change — no code touched, nothing to redeploy for the app itself.
+
+Effect today: credited 1111.6h, shown expected-to-date 1150h (unchanged, 1500-based),
+percentage **103.5 % → 100.0 %** (still green, threshold is ≥98 %).
+
+Tracked migration 20260921110000 updated to seed −50 so a fresh `db reset` reproduces this.
+
+### UX: "Esperado/Año" shows the annual figure again, with the prorated period as a sub-line
+(commit f7ca718)
+Maja's row read **"261h*"** under a column headed *Esperado/Año* — confusing, because her contract
+figure is 1000h/year; 261h is what that amounts to from her 21 Sep start.
+
+Fix: the column shows the CONTRACT's annual hours again (1000h), and partial-year staff get a small
+grey sub-line explaining what it works out to. New `contractPeriodNote(start, end, prorated)`
+helper renders:
+- start only → `→ 261h · desde 21 sep`
+- end only → `→ 618h · hasta 30 jun`
+- both → `→ 900h · 1 mar – 30 nov`
+- neither → nothing at all (full-year staff unchanged)
+Tooltip: "Contrato parcial: las horas anuales se prorratean al periodo trabajado".
+
+So Maja now reads: **1000h** / *→ 261h · desde 21 sep*, and the bar's 93 % + "5h esp" make sense
+against the 261h target. Applied to the teacher table and the admin-workers table; the XLS export's
+"Esperado" column also reverted to the nominal annual figure (the % column already reflects reality).
+Verified all four note variants render correctly; full-year rows emit no sub-line.
+
+NOT changed: teacher.js still shows the prorated target in its own "Xh / Yh" line (for Maja
+"4.5h / 261h"), since on her own page 261h IS her goal and it pairs with her bar. Left alone to
+avoid crowding the mobile layout — revisit if it confuses anyone.
+
+Cache-bust 20260921g → **20260921h**. node --check clean.
+
+### Leave days + prep time prorated by contract period; linked "% de jornada" field
+(commit 7c83a6c, migration 20260921160000, cache-bust 20260921h → **20260921i**)
+
+Two requests, one change set, both in the ⚙️ Configuración modals.
+
+**1. 🏖️ Asignación de Permisos and Tiempo de Preparación now prorate to the contract period.**
+Changing *Alta* or *Baja* refills Vacaciones / D.R. Empleado / D.R. Empresa / Visita Médica /
+Permiso No Retribuido / Horas No Lectivas to the share of the year actually worked. Values stay
+fully editable afterwards; days are rounded to whole days, prep to 0.1h. An amber hint under the
+dates reads *"Permisos prorrateados al X% del año laborable. Puedes ajustarlos a mano."*
+
+Two deliberate design points:
+- Proration always computes from the role DEFAULTS × windowFraction, never from the field's
+  current value, so editing the dates twice can't compound the discount.
+- Leave **days** scale only with the period worked (Conveni Art. 23 "en proporció al temps
+  treballat") — a part-timer still gets the full 31 days for a full year. Prep is measured in
+  **hours**, so it scales with the jornada percentage too: `70h × jornada% × windowFraction`.
+  That's why Alexandra's 59.5h (= 70h × 85%) becomes 16.8h, not 20h.
+
+**2. New "% de jornada completa" field beside Horas Anuales Esperadas.** Two-way linked: typing
+hours updates the percentage, typing a percentage updates the hours. 100% = 1230h for teachers
+(convenio lectiu docent), 1530h for admins (personal d'administració). Shown as a hint under the
+field. Nothing else in the calculation changed — the hours field is still the single source of truth
+that gets saved.
+
+All four modals wired: edit teacher, edit admin, add teacher, add admin. The add modals have no
+Visita Médica / Permiso No Retribuido inputs, and admin modals have no prep field; the shared
+`CONTRACT_FIELDS` map marks those `null` and the helpers skip them. New helpers in admin.js:
+`CONTRACT_FIELDS`, `contractWindowFraction()`, `prorateAllocationFields()`, `syncHoursFromPct()`,
+`syncPctFromHours()`.
+
+**Required data backfill (migration 20260921160000).** `getTeacherProgress()` used to multiply
+`allocatedDays` by `windowFraction` implicitly. That is now gone from both admin.js and teacher.js,
+because the stored leave days ARE the real entitlement once the modal prorates them — doing it in
+both places would double-discount. So the three existing partial-contract profiles had to be
+backfilled, otherwise their FULL-year allocation would be subtracted from a partial-year working-day
+count (Alexandra would have dropped from 58 to 20 working days). Old values are in the audit log via
+the `audit_profiles` trigger.
+
+| | window | was (annual/pers/school/med/unpaid/prep) | now |
+|---|---|---|---|
+| ALEXANDRA DINU (teacher, desde 14 sep) | 68/241 = 28.2% | 31/3/4/20/10/59.5 | 9/1/1/6/3/16.8 |
+| Maja Prząda (admin, desde 1 sep) | 76/241 = 31.5% | 31/3/4/20/10 | 10/1/1/6/3 |
+| SILVIA (teacher, hasta 30 jun) | 121/241 = 50.2% | 31/3/4/20/10/70 | 16/2/2/10/5/35.1 |
+
+Maja's `contract_start` is **1 Sep**, not 21 Sep as an earlier note said — her window is 76 days
+(31.5%), target 315h, 4.71 h/day.
+
+Verified after the backfill: Joan unchanged as the control (241 working days, 206 after allocation,
+1230h, 5.97 h/day, 955.3h expected-to-date). Alexandra 60 working days, 295h target, 4.91 h/day
+(was 5.07 under implicit proration — the ~3% drift comes from the fixed `−3` offset in
+`allocatedDays = max(0, annual−3) + personal + school` not scaling proportionally; harmless).
+Maja 67 days, 315h, 4.71 h/day.
+
+**Pre-existing quirk surfaced, not fixed:** SILVIA's window is fully in the past, so her
+`passedWorkingDays` (121 − 12 holidays actually booked = 109) exceeds `totalWorkingDays`
+(121 − 17 allocated = 104), giving a ratio of 1.048 and an expected-to-date of 647h against a 618h
+window target. Same assumption that makes every full-year employee hit exactly 1.0 on 31 December
+only if they book all their leave. Present before this change too (17.6 prorated days gave the same
+result). Left alone — flag if anyone queries a leaver reading >100%.
+
+Deploy verified: md5 of all 6 changed files identical on toyboy and locally, working tree clean,
+8 `HoursPct` references (4 modals × 2 fields), `20260921i` on both the CSS `<link>` and
+`APP_VERSION` in all three HTML files. `node --check` clean on admin.js, teacher.js,
+supabase-config.js.
