@@ -1040,8 +1040,26 @@ async function loadProgress() {
   var schoolDays = currentProfile.school_days || DEFAULTS.SCHOOL_DAYS;
   var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
 
+  // Mid-year contract: exclude working days before the start date, and prorate the yearly
+  // target + holiday allocation to the employment window (mirrors admin getTeacherProgress).
+  var contractStart = currentProfile.contract_start || null;
+  var windowFraction = 1;
+  if (contractStart) {
+    var beforeAll = 0, beforePassed = 0;
+    allWD.forEach(function(d) { if (d < contractStart) beforeAll++; });
+    passedWD.forEach(function(d) { if (d < contractStart) beforePassed++; });
+    var fullAllCount = allCount;
+    allCount = Math.max(0, allCount - beforeAll);
+    passedCount = Math.max(0, passedCount - beforePassed);
+    windowFraction = fullAllCount > 0 ? allCount / fullAllCount : 1;
+    allocatedDays = allocatedDays * windowFraction;
+    expectedYearly = expectedYearly * windowFraction;
+    progressTarget = progressTarget * windowFraction;
+  }
+
   var holidaysTakenOnPassed = 0;
   teacherHolidayDates.forEach(function(ds) {
+    if (contractStart && ds < contractStart) return;
     if (allWD.has(ds) && passedWD.has(ds)) holidaysTakenOnPassed++;
   });
 
@@ -1094,7 +1112,7 @@ async function loadProgress() {
   progressBar.className = 'progress-bar ' + status;
   progressPercent.textContent = roundedPercent + '%';
   progressPercent.className = 'progress-percent ' + status;
-  progressHours.textContent = adjustedTotal.toFixed(1) + 'h / ' + nominalYearly + 'h';
+  progressHours.textContent = adjustedTotal.toFixed(1) + 'h / ' + Math.round(expectedYearly) + 'h';
   if (progressExpected) progressExpected.textContent = Math.round(expectedToDate) + 'h esperadas';
   } catch (err) {
     console.error('Error loading progress:', err);

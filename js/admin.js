@@ -505,13 +505,36 @@ function precomputeWorkingDaysForYear(schoolHolidayDates, asOfDate) {
 }
 
 // Calculate a specific teacher's working day progress
-// Matches Code.js getTeacherWorkingDayProgress() exactly
-function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays) {
+// Matches Code.js getTeacherWorkingDayProgress(), plus mid-year contract support.
+//
+// contractStart ('YYYY-MM-DD' or null): when set, the person wasn't employed for the whole year,
+// so working days BEFORE that date are excluded from both the total and the passed counts.
+// `windowFraction` is that window's share of the full year — callers must multiply the yearly
+// hour target by it, otherwise a full-year target would be demanded over a partial year.
+// The holiday allocation is prorated by the same fraction (Conveni Art. 23, "en proporció al
+// temps treballat"). contractStart = null reproduces the previous behaviour exactly.
+function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, contractStart) {
   allocatedDays = allocatedDays || 0;
+  var cs = contractStart || null;
+
+  var allCount = precomputed.allCount;
+  var passedCount = precomputed.passedCount;
+  var windowFraction = 1;
+  if (cs) {
+    var beforeAll = 0, beforePassed = 0;
+    precomputed.allWorkingDays.forEach(function(d) { if (d < cs) beforeAll++; });
+    precomputed.passedWorkingDays.forEach(function(d) { if (d < cs) beforePassed++; });
+    allCount = Math.max(0, allCount - beforeAll);
+    passedCount = Math.max(0, passedCount - beforePassed);
+    windowFraction = precomputed.allCount > 0 ? allCount / precomputed.allCount : 1;
+    allocatedDays = allocatedDays * windowFraction;
+  }
+
   var holidaysTakenOnWorkingDays = 0;
   var holidaysTakenOnPassedDays = 0;
   if (teacherHolidayDates && teacherHolidayDates.size > 0) {
     teacherHolidayDates.forEach(function(dateStr) {
+      if (cs && dateStr < cs) return; // not employed yet — ignore
       if (precomputed.allWorkingDays.has(dateStr)) {
         holidaysTakenOnWorkingDays++;
         if (precomputed.passedWorkingDays.has(dateStr)) {
@@ -520,13 +543,14 @@ function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays) {
       }
     });
   }
-  var totalWorkingDays = precomputed.allCount - allocatedDays;
-  var passedWorkingDays = precomputed.passedCount - holidaysTakenOnPassedDays;
+  var totalWorkingDays = allCount - allocatedDays;
+  var passedWorkingDays = passedCount - holidaysTakenOnPassedDays;
   totalWorkingDays = Math.max(0, totalWorkingDays);
   passedWorkingDays = Math.max(0, passedWorkingDays);
   return {
     totalWorkingDays: totalWorkingDays,
     passedWorkingDays: passedWorkingDays,
+    windowFraction: windowFraction,
     progressRatio: totalWorkingDays > 0 ? passedWorkingDays / totalWorkingDays : 0
   };
 }
@@ -627,7 +651,10 @@ async function loadStatsGrid(teacherData, adminData) {
       // Build teacher holiday dates (approved, non-Medical)
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, profile.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, profile.contract_start);
+      // Mid-year joiner: scale the yearly targets down to their employment window
+      expectedYearly = expectedYearly * progress.windowFraction;
+      progressTarget = progressTarget * progress.windowFraction;
 
       // Medical hours for period
       var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
@@ -992,7 +1019,10 @@ async function loadTeachersTable() {
       // Build teacher holiday dates (approved, non-Medical)
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, t.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, t.contract_start);
+      // Mid-year joiner: scale the yearly targets down to their employment window
+      expectedYearly = expectedYearly * progress.windowFraction;
+      progressTarget = progressTarget * progress.windowFraction;
 
       var hoursPerWorkingDay = progress.totalWorkingDays > 0
         ? expectedYearly / progress.totalWorkingDays
@@ -1123,7 +1153,9 @@ async function loadTeachersTable() {
         '</div></td>' +
         '<td style="font-size:12px;white-space:nowrap"><span class="' + prepColor + '" style="font-weight:600">' + prepTimeTotal + 'h</span><span style="color:var(--gray-400)"> / ' + prepTimeYearly + 'h</span>' +
           (prepWeeksLogged.size > 0 ? '<div style="font-size:10px;color:var(--gray-400);margin-top:2px">' + prepWeeksLogged.size + ' sem</div>' : '') + '</td>' +
-        '<td>' + nominalYearly + 'h</td>' +
+        '<td>' + (t.contract_start
+            ? '<span title="' + nominalYearly + 'h/año · alta el ' + t.contract_start + ' (prorrateado)">' + Math.round(expectedYearly) + 'h*</span>'
+            : nominalYearly + 'h') + '</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -1243,7 +1275,10 @@ async function loadAdminWorkersTable() {
       // Build teacher holiday dates (approved, non-Medical)
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, a.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, a.contract_start);
+      // Mid-year joiner: scale the yearly targets down to their employment window
+      expectedYearly = expectedYearly * progress.windowFraction;
+      progressTarget = progressTarget * progress.windowFraction;
 
       var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
       var medicalHours = 0;
@@ -1349,7 +1384,9 @@ async function loadAdminWorkersTable() {
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
           '<div class="progress-text"><span class="progress-percent ' + dispStatus + '">' + dispPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(dispExpected) + 'h esp</span></div>' +
         '</div></td>' +
-        '<td>' + nominalYearly + 'h</td>' +
+        '<td>' + (a.contract_start
+            ? '<span title="' + nominalYearly + 'h/año · alta el ' + a.contract_start + ' (prorrateado)">' + Math.round(expectedYearly) + 'h*</span>'
+            : nominalYearly + 'h') + '</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -3512,7 +3549,10 @@ async function exportCSV() {
 
     var teacherHolidayDates = buildTeacherHolidayDates(approvedHolidays, p.id);
     var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-    var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays);
+    var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, p.contract_start);
+    // Mid-year joiner: scale the yearly targets down to their employment window
+    expectedYearly = expectedYearly * progress.windowFraction;
+    progressTarget = progressTarget * progress.windowFraction;
     var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
 
     var userMedical = approvedHolidays.filter(function(h) { return h.user_id === p.id && h.type === 'Medical'; });
@@ -3591,7 +3631,7 @@ async function exportCSV() {
       '<td class="' + rc + ' num">' + paidTotal.toFixed(2) + '</td>' +
       '<td class="' + rc + ' num">' + (medicalHours > 0 ? medicalHours.toFixed(2) : '') + '</td>' +
       '<td class="' + rc + ' num ' + pctClass + '">' + pct.toFixed(1) + '%</td>' +
-      '<td class="' + rc + ' num">' + nominalYearly + '</td>' +
+      '<td class="' + rc + ' num">' + (p.contract_start ? Math.round(expectedYearly) : nominalYearly) + '</td>' +
       '<td class="' + rc + ' num">' + (prepTotal > 0 ? prepTotal : (isAdmin ? '-' : '0')) + '</td>' +
       '<td class="' + rc + ' num">' + (au || '') + '</td><td class="' + rc + ' num">' + annualDays + '</td>' +
       '<td class="' + rc + ' num">' + (pu2 || '') + '</td><td class="' + rc + ' num">' + personalDays + '</td>' +
