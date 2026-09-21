@@ -507,25 +507,28 @@ function precomputeWorkingDaysForYear(schoolHolidayDates, asOfDate) {
 // Calculate a specific teacher's working day progress
 // Matches Code.js getTeacherWorkingDayProgress(), plus mid-year contract support.
 //
-// contractStart ('YYYY-MM-DD' or null): when set, the person wasn't employed for the whole year,
-// so working days BEFORE that date are excluded from both the total and the passed counts.
+// contractStart / contractEnd ('YYYY-MM-DD' or null): the employment window for this year.
+// Working days OUTSIDE that window are excluded from both the total and the passed counts, so a
+// mid-year joiner isn't measured from January and a leaver isn't measured to December.
 // `windowFraction` is that window's share of the full year — callers must multiply the yearly
 // hour target by it, otherwise a full-year target would be demanded over a partial year.
 // The holiday allocation is prorated by the same fraction (Conveni Art. 23, "en proporció al
-// temps treballat"). contractStart = null reproduces the previous behaviour exactly.
-function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, contractStart) {
+// temps treballat"). Both null reproduces the previous behaviour exactly.
+function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, contractStart, contractEnd) {
   allocatedDays = allocatedDays || 0;
   var cs = contractStart || null;
+  var ce = contractEnd || null;
+  var outside = function(d) { return (cs && d < cs) || (ce && d > ce); };
 
   var allCount = precomputed.allCount;
   var passedCount = precomputed.passedCount;
   var windowFraction = 1;
-  if (cs) {
-    var beforeAll = 0, beforePassed = 0;
-    precomputed.allWorkingDays.forEach(function(d) { if (d < cs) beforeAll++; });
-    precomputed.passedWorkingDays.forEach(function(d) { if (d < cs) beforePassed++; });
-    allCount = Math.max(0, allCount - beforeAll);
-    passedCount = Math.max(0, passedCount - beforePassed);
+  if (cs || ce) {
+    var outAll = 0, outPassed = 0;
+    precomputed.allWorkingDays.forEach(function(d) { if (outside(d)) outAll++; });
+    precomputed.passedWorkingDays.forEach(function(d) { if (outside(d)) outPassed++; });
+    allCount = Math.max(0, allCount - outAll);
+    passedCount = Math.max(0, passedCount - outPassed);
     windowFraction = precomputed.allCount > 0 ? allCount / precomputed.allCount : 1;
     allocatedDays = allocatedDays * windowFraction;
   }
@@ -534,7 +537,7 @@ function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, con
   var holidaysTakenOnPassedDays = 0;
   if (teacherHolidayDates && teacherHolidayDates.size > 0) {
     teacherHolidayDates.forEach(function(dateStr) {
-      if (cs && dateStr < cs) return; // not employed yet — ignore
+      if (outside(dateStr)) return; // outside the employment window — ignore
       if (precomputed.allWorkingDays.has(dateStr)) {
         holidaysTakenOnWorkingDays++;
         if (precomputed.passedWorkingDays.has(dateStr)) {
@@ -651,7 +654,7 @@ async function loadStatsGrid(teacherData, adminData) {
       // Build teacher holiday dates (approved, non-Medical)
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, profile.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, profile.contract_start);
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, profile.contract_start, profile.contract_end);
       // Mid-year joiner: scale the yearly targets down to their employment window
       expectedYearly = expectedYearly * progress.windowFraction;
       progressTarget = progressTarget * progress.windowFraction;
@@ -1019,7 +1022,7 @@ async function loadTeachersTable() {
       // Build teacher holiday dates (approved, non-Medical)
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, t.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, t.contract_start);
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, t.contract_start, t.contract_end);
       // Mid-year joiner: scale the yearly targets down to their employment window
       expectedYearly = expectedYearly * progress.windowFraction;
       progressTarget = progressTarget * progress.windowFraction;
@@ -1275,7 +1278,7 @@ async function loadAdminWorkersTable() {
       // Build teacher holiday dates (approved, non-Medical)
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, a.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, a.contract_start);
+      var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, a.contract_start, a.contract_end);
       // Mid-year joiner: scale the yearly targets down to their employment window
       expectedYearly = expectedYearly * progress.windowFraction;
       progressTarget = progressTarget * progress.windowFraction;
@@ -1893,6 +1896,22 @@ async function openEditTeacherModal(userId) {
     '</div>' +
   '</div>';
 
+  // Contract period (optional) — prorates expected hours for partial-year staff
+  html += '<div class="settings-section">' +
+    '<div class="settings-section-title">📅 Periodo de Contrato (opcional)</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Alta (primer día)</div>' +
+        '<input type="date" class="setting-input" id="editContractStart" value="' + (profile.contract_start || '') + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Baja (último día)</div>' +
+        '<input type="date" class="setting-input" id="editContractEnd" value="' + (profile.contract_end || '') + '">' +
+      '</div>' +
+    '</div>' +
+    '<div class="form-hint" style="margin-top:8px">Déjalo vacío si trabaja todo el año. Si se rellena, las horas esperadas y los días de permiso se prorratean al periodo trabajado.</div>' +
+  '</div>';
+
   // Prep time section
   html += '<div class="settings-section">' +
     '<div class="settings-section-title">📚 Tiempo de Preparación (No Lectivo)</div>' +
@@ -1953,8 +1972,15 @@ async function saveTeacherSettings(userId) {
     personal_days: parseInt(document.getElementById('editPersonalDays').value) || DEFAULTS.PERSONAL_DAYS,
     school_days: parseInt(document.getElementById('editSchoolDays').value) || DEFAULTS.SCHOOL_DAYS,
     med_appt_hours: parseFloat(document.getElementById('editMedApptHours').value) || DEFAULTS.MEDICAL_APPT_HOURS,
-    unpaid_days: parseInt(document.getElementById('editUnpaidDays').value) || 10
+    unpaid_days: parseInt(document.getElementById('editUnpaidDays').value) || 10,
+    contract_start: document.getElementById('editContractStart').value || null,
+    contract_end: document.getElementById('editContractEnd').value || null
   };
+
+  if (updates.contract_start && updates.contract_end && updates.contract_end < updates.contract_start) {
+    showToast('La baja no puede ser anterior al alta', 'error');
+    return;
+  }
 
   var { error } = await db.from('profiles').update(updates).eq('id', userId);
   if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
@@ -2018,6 +2044,22 @@ async function openEditAdminModal(userId) {
     '</div>' +
   '</div>';
 
+  // Contract period (optional) — prorates expected hours for partial-year staff
+  html += '<div class="settings-section">' +
+    '<div class="settings-section-title">📅 Periodo de Contrato (opcional)</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Alta (primer día)</div>' +
+        '<input type="date" class="setting-input" id="editAdminContractStart" value="' + (profile.contract_start || '') + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Baja (último día)</div>' +
+        '<input type="date" class="setting-input" id="editAdminContractEnd" value="' + (profile.contract_end || '') + '">' +
+      '</div>' +
+    '</div>' +
+    '<div class="form-hint" style="margin-top:8px">Déjalo vacío si trabaja todo el año. Si se rellena, las horas esperadas y los días de permiso se prorratean al periodo trabajado.</div>' +
+  '</div>';
+
   // Holiday allocations (no prep time)
   html += '<div class="settings-section">' +
     '<div class="settings-section-title">🏖️ Asignación de Permisos</div>' +
@@ -2065,8 +2107,15 @@ async function saveAdminSettings(userId) {
     personal_days: parseInt(document.getElementById('editAdminPersonalDays').value) || ADMIN_DEFAULTS.PERSONAL_DAYS,
     school_days: parseInt(document.getElementById('editAdminSchoolDays').value) || ADMIN_DEFAULTS.SCHOOL_DAYS,
     med_appt_hours: parseFloat(document.getElementById('editAdminMedApptHours').value) || ADMIN_DEFAULTS.MEDICAL_APPT_HOURS,
-    unpaid_days: parseInt(document.getElementById('editAdminUnpaidDays').value) || 10
+    unpaid_days: parseInt(document.getElementById('editAdminUnpaidDays').value) || 10,
+    contract_start: document.getElementById('editAdminContractStart').value || null,
+    contract_end: document.getElementById('editAdminContractEnd').value || null
   };
+
+  if (updates.contract_start && updates.contract_end && updates.contract_end < updates.contract_start) {
+    showToast('La baja no puede ser anterior al alta', 'error');
+    return;
+  }
 
   var { error } = await db.from('profiles').update(updates).eq('id', userId);
   if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
@@ -2121,6 +2170,20 @@ function openAddTeacherModal() {
       '</div>' +
     '</div>' +
   '</div>' +
+  '<div class="settings-section">' +
+    '<div class="settings-section-title">📅 Periodo de Contrato (opcional)</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Alta (primer día)</div>' +
+        '<input type="date" class="setting-input" id="addTeacherContractStart">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Baja (último día)</div>' +
+        '<input type="date" class="setting-input" id="addTeacherContractEnd">' +
+      '</div>' +
+    '</div>' +
+    '<div class="form-hint" style="margin-top:8px">Rellena el alta si empieza a mitad de año: las horas esperadas se prorratean. Vacío = todo el año.</div>' +
+  '</div>' +
   '<div class="btn-row">' +
     '<button class="submit-btn" onclick="saveNewTeacher()">➕ Añadir Profesor</button>' +
     '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
@@ -2150,7 +2213,9 @@ async function saveNewTeacher() {
     prep_time_yearly: parseFloat(document.getElementById('addTeacherPrep').value) || 70,
     annual_days: parseInt(document.getElementById('addTeacherAnnual').value) || 31,
     personal_days: parseInt(document.getElementById('addTeacherPersonal').value) || 3,
-    school_days: parseInt(document.getElementById('addTeacherSchool').value) || 4
+    school_days: parseInt(document.getElementById('addTeacherSchool').value) || 4,
+    contract_start: document.getElementById('addTeacherContractStart').value || null,
+    contract_end: document.getElementById('addTeacherContractEnd').value || null
   });
 
   if (error) { showToast('Error al añadir: ' + error.message, 'error'); return; }
@@ -2201,6 +2266,20 @@ function openAddAdminModal() {
       '</div>' +
     '</div>' +
   '</div>' +
+  '<div class="settings-section">' +
+    '<div class="settings-section-title">📅 Periodo de Contrato (opcional)</div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Alta (primer día)</div>' +
+        '<input type="date" class="setting-input" id="addAdminContractStart">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Baja (último día)</div>' +
+        '<input type="date" class="setting-input" id="addAdminContractEnd">' +
+      '</div>' +
+    '</div>' +
+    '<div class="form-hint" style="margin-top:8px">Rellena el alta si empieza a mitad de año: las horas esperadas se prorratean. Vacío = todo el año.</div>' +
+  '</div>' +
   '<div class="btn-row">' +
     '<button class="submit-btn" onclick="saveNewAdmin()">➕ Añadir Admin</button>' +
     '<button class="cancel-btn" onclick="closeModal()">Cancelar</button>' +
@@ -2229,7 +2308,9 @@ async function saveNewAdmin() {
     prep_time_yearly: 0,
     annual_days: parseInt(document.getElementById('addAdminAnnual').value) || 31,
     personal_days: parseInt(document.getElementById('addAdminPersonal').value) || 3,
-    school_days: parseInt(document.getElementById('addAdminSchool').value) || 4
+    school_days: parseInt(document.getElementById('addAdminSchool').value) || 4,
+    contract_start: document.getElementById('addAdminContractStart').value || null,
+    contract_end: document.getElementById('addAdminContractEnd').value || null
   });
 
   if (error) { showToast('Error al añadir: ' + error.message, 'error'); return; }
@@ -3549,7 +3630,7 @@ async function exportCSV() {
 
     var teacherHolidayDates = buildTeacherHolidayDates(approvedHolidays, p.id);
     var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
-    var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, p.contract_start);
+    var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, p.contract_start, p.contract_end);
     // Mid-year joiner: scale the yearly targets down to their employment window
     expectedYearly = expectedYearly * progress.windowFraction;
     progressTarget = progressTarget * progress.windowFraction;

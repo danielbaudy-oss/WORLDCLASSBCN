@@ -1040,17 +1040,21 @@ async function loadProgress() {
   var schoolDays = currentProfile.school_days || DEFAULTS.SCHOOL_DAYS;
   var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
 
-  // Mid-year contract: exclude working days before the start date, and prorate the yearly
-  // target + holiday allocation to the employment window (mirrors admin getTeacherProgress).
+  // Partial-year contract: exclude working days outside [contract_start, contract_end] and
+  // prorate the yearly target + holiday allocation to that window (mirrors getTeacherProgress).
   var contractStart = currentProfile.contract_start || null;
+  var contractEnd = currentProfile.contract_end || null;
+  var outsideContract = function(d) {
+    return (contractStart && d < contractStart) || (contractEnd && d > contractEnd);
+  };
   var windowFraction = 1;
-  if (contractStart) {
-    var beforeAll = 0, beforePassed = 0;
-    allWD.forEach(function(d) { if (d < contractStart) beforeAll++; });
-    passedWD.forEach(function(d) { if (d < contractStart) beforePassed++; });
+  if (contractStart || contractEnd) {
+    var outAll = 0, outPassed = 0;
+    allWD.forEach(function(d) { if (outsideContract(d)) outAll++; });
+    passedWD.forEach(function(d) { if (outsideContract(d)) outPassed++; });
     var fullAllCount = allCount;
-    allCount = Math.max(0, allCount - beforeAll);
-    passedCount = Math.max(0, passedCount - beforePassed);
+    allCount = Math.max(0, allCount - outAll);
+    passedCount = Math.max(0, passedCount - outPassed);
     windowFraction = fullAllCount > 0 ? allCount / fullAllCount : 1;
     allocatedDays = allocatedDays * windowFraction;
     expectedYearly = expectedYearly * windowFraction;
@@ -1059,7 +1063,7 @@ async function loadProgress() {
 
   var holidaysTakenOnPassed = 0;
   teacherHolidayDates.forEach(function(ds) {
-    if (contractStart && ds < contractStart) return;
+    if (outsideContract(ds)) return;
     if (allWD.has(ds) && passedWD.has(ds)) holidaysTakenOnPassed++;
   });
 
