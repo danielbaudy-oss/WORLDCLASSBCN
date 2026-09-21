@@ -12,6 +12,7 @@ ALTER TABLE admin_authorizations ENABLE ROW LEVEL SECURITY;
 
 INSERT INTO admin_authorizations (profile_id, access_level) VALUES
   ('09fb4625-04be-456a-a5f6-88cc0ba62f59', 'super_admin'), -- Rocío
+  ('a050a494-a18d-4161-a1ec-c0ebe0aeadcb', 'super_admin'), -- 🧪 Test Account (Daniel, dev)
   ('3473266e-6dd2-4142-bee1-cb0a99225032', 'admin'),       -- Silvia / info@
   ('f8846e68-1cf7-45c7-b182-984c84652646', 'admin')        -- Milena / contact@
 ON CONFLICT (profile_id) DO UPDATE SET access_level = EXCLUDED.access_level;
