@@ -423,6 +423,26 @@ function formatDateDisplay(d) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// Sub-line for partial-year staff, shown under the annual figure in "Esperado/Año".
+// The column keeps showing the CONTRACT's annual hours (e.g. 1000h) — that's what the header
+// means — and this explains what that actually amounts to for their employment window
+// (e.g. "261h · desde 21 sep"), so the progress bar's % and "h esp" make sense.
+function contractPeriodNote(contractStart, contractEnd, proratedHours) {
+  if (!contractStart && !contractEnd) return '';
+  var mon = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var fmt = function(d) {
+    var p = String(d).split('-');
+    return parseInt(p[2], 10) + ' ' + mon[parseInt(p[1], 10) - 1];
+  };
+  var range;
+  if (contractStart && contractEnd) range = fmt(contractStart) + ' – ' + fmt(contractEnd);
+  else if (contractStart) range = 'desde ' + fmt(contractStart);
+  else range = 'hasta ' + fmt(contractEnd);
+  return '<div style="font-size:10px;color:#64748b;margin-top:2px;white-space:nowrap" ' +
+    'title="Contrato parcial: las horas anuales se prorratean al periodo trabajado">' +
+    '→ ' + Math.round(proratedHours) + 'h · ' + range + '</div>';
+}
+
 function getProgressStatus(percent) {
   if (percent >= 98) return 'on-track';
   if (percent >= 80) return 'warning';
@@ -1156,9 +1176,8 @@ async function loadTeachersTable() {
         '</div></td>' +
         '<td style="font-size:12px;white-space:nowrap"><span class="' + prepColor + '" style="font-weight:600">' + prepTimeTotal + 'h</span><span style="color:var(--gray-400)"> / ' + prepTimeYearly + 'h</span>' +
           (prepWeeksLogged.size > 0 ? '<div style="font-size:10px;color:var(--gray-400);margin-top:2px">' + prepWeeksLogged.size + ' sem</div>' : '') + '</td>' +
-        '<td>' + (t.contract_start
-            ? '<span title="' + nominalYearly + 'h/año · alta el ' + t.contract_start + ' (prorrateado)">' + Math.round(expectedYearly) + 'h*</span>'
-            : nominalYearly + 'h') + '</td>' +
+        '<td>' + nominalYearly + 'h' +
+          contractPeriodNote(t.contract_start, t.contract_end, expectedYearly) + '</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -1387,9 +1406,8 @@ async function loadAdminWorkersTable() {
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
           '<div class="progress-text"><span class="progress-percent ' + dispStatus + '">' + dispPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(dispExpected) + 'h esp</span></div>' +
         '</div></td>' +
-        '<td>' + (a.contract_start
-            ? '<span title="' + nominalYearly + 'h/año · alta el ' + a.contract_start + ' (prorrateado)">' + Math.round(expectedYearly) + 'h*</span>'
-            : nominalYearly + 'h') + '</td>' +
+        '<td>' + nominalYearly + 'h' +
+          contractPeriodNote(a.contract_start, a.contract_end, expectedYearly) + '</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -3712,7 +3730,7 @@ async function exportCSV() {
       '<td class="' + rc + ' num">' + paidTotal.toFixed(2) + '</td>' +
       '<td class="' + rc + ' num">' + (medicalHours > 0 ? medicalHours.toFixed(2) : '') + '</td>' +
       '<td class="' + rc + ' num ' + pctClass + '">' + pct.toFixed(1) + '%</td>' +
-      '<td class="' + rc + ' num">' + (p.contract_start ? Math.round(expectedYearly) : nominalYearly) + '</td>' +
+      '<td class="' + rc + ' num">' + nominalYearly + '</td>' +
       '<td class="' + rc + ' num">' + (prepTotal > 0 ? prepTotal : (isAdmin ? '-' : '0')) + '</td>' +
       '<td class="' + rc + ' num">' + (au || '') + '</td><td class="' + rc + ' num">' + annualDays + '</td>' +
       '<td class="' + rc + ' num">' + (pu2 || '') + '</td><td class="' + rc + ' num">' + personalDays + '</td>' +
