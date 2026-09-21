@@ -618,7 +618,8 @@ async function loadStatsGrid(teacherData, adminData) {
 
       var isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
       var defaults = isAdmin ? ADMIN_DEFAULTS : DEFAULTS;
-      var expectedYearly = effectiveExpectedHours(profile, defaults.EXPECTED_YEARLY_HOURS);
+      var expectedYearly = profile.expected_yearly_hours || defaults.EXPECTED_YEARLY_HOURS;
+      var progressTarget = progressTargetHours(profile, defaults.EXPECTED_YEARLY_HOURS);
       var annualDays = profile.annual_days || defaults.ANNUAL_DAYS;
       var personalDays = profile.personal_days || defaults.PERSONAL_DAYS;
       var schoolDays = profile.school_days || defaults.SCHOOL_DAYS;
@@ -701,7 +702,9 @@ async function loadStatsGrid(teacherData, adminData) {
       var totalHours = yearlyHours - yearlyPaidHours + yearlyMedicalHours + yearlyMedApptHours;
 
       var expectedToDate = expectedYearly * progress.progressRatio;
-      var percent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+      // Percentage is measured against the (possibly softened) progress target
+      var progressDenom = progressTarget * progress.progressRatio;
+      var percent = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
 
       totalProgress += percent;
       if (percent >= 98) onTrackCount++;
@@ -979,8 +982,9 @@ async function loadTeachersTable() {
       });
 
       // Progress calculation using Code.js approach
-      var expectedYearly = effectiveExpectedHours(t, DEFAULTS.EXPECTED_YEARLY_HOURS);
       var nominalYearly = t.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
+      var expectedYearly = nominalYearly;
+      var progressTarget = progressTargetHours(t, DEFAULTS.EXPECTED_YEARLY_HOURS);
       var annualDays = t.annual_days || DEFAULTS.ANNUAL_DAYS;
       var personalDays = t.personal_days || DEFAULTS.PERSONAL_DAYS;
       var schoolDays = t.school_days || DEFAULTS.SCHOOL_DAYS;
@@ -1029,9 +1033,11 @@ async function loadTeachersTable() {
       // Total hours = worked - paid + medical + medAppt + permiso retribuido
       var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
 
-      // Progress percent using Code.js formula
+      // Progress percent using Code.js formula.
+      // expectedToDate (displayed) uses the nominal target; the % uses progressTarget.
       var expectedToDate = expectedYearly * progress.progressRatio;
-      var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+      var progressDenom = progressTarget * progress.progressRatio;
+      var progressPercent = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
       progressPercent = Math.round(progressPercent);
 
       // Prep time: from PREP punches
@@ -1099,7 +1105,10 @@ async function loadTeachersTable() {
         teacherHolidayDates.forEach(function(dt) { periodHolidaySet.add(dt); });
         var periodWorkingDays = countWorkingDays(periodRange.start, cutoffDate, periodHolidaySet);
         var weekExpected = Math.round(periodWorkingDays * hoursPerWorkingDay * 10) / 10;
-        var weekPercent = weekExpected > 0 ? Math.round((adjustedPeriodHours / weekExpected) * 100) : 100;
+        // Displayed "h esp" stays at the nominal rate; the % uses the progress-target rate.
+        var weekDenomRate = progress.totalWorkingDays > 0 ? progressTarget / progress.totalWorkingDays : 0;
+        var weekDenom = periodWorkingDays * weekDenomRate;
+        var weekPercent = weekDenom > 0 ? Math.round((adjustedPeriodHours / weekDenom) * 100) : 100;
         dispPercent = weekPercent; dispExpected = weekExpected; dispStatus = getProgressStatus(weekPercent);
       }
 
@@ -1224,8 +1233,9 @@ async function loadAdminWorkersTable() {
       });
 
       // Progress calculation using Code.js approach
-      var expectedYearly = effectiveExpectedHours(a, ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS);
       var nominalYearly = a.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS;
+      var expectedYearly = nominalYearly;
+      var progressTarget = progressTargetHours(a, ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS);
       var annualDays = a.annual_days || ADMIN_DEFAULTS.ANNUAL_DAYS;
       var personalDays = a.personal_days || ADMIN_DEFAULTS.PERSONAL_DAYS;
       var schoolDays = a.school_days || ADMIN_DEFAULTS.SCHOOL_DAYS;
@@ -1270,9 +1280,11 @@ async function loadAdminWorkersTable() {
       // Total hours = worked - paid + medical + medAppt + permiso retribuido
       var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
 
-      // Progress using Code.js formula
+      // Progress using Code.js formula.
+      // expectedToDate (displayed) uses the nominal target; the % uses progressTarget.
       var expectedToDate = expectedYearly * progress.progressRatio;
-      var progressPercent = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+      var progressDenom = progressTarget * progress.progressRatio;
+      var progressPercent = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
       progressPercent = Math.round(progressPercent);
 
       var status = getProgressStatus(progressPercent);
@@ -1321,7 +1333,10 @@ async function loadAdminWorkersTable() {
         teacherHolidayDates.forEach(function(dt) { periodHolidaySet.add(dt); });
         var periodWorkingDays = countWorkingDays(periodRange.start, cutoffDate, periodHolidaySet);
         var weekExpected = Math.round(periodWorkingDays * hoursPerWorkingDay * 10) / 10;
-        var weekPercent = weekExpected > 0 ? Math.round((adjustedPeriodHours / weekExpected) * 100) : 100;
+        // Displayed "h esp" stays at the nominal rate; the % uses the progress-target rate.
+        var weekDenomRate = progress.totalWorkingDays > 0 ? progressTarget / progress.totalWorkingDays : 0;
+        var weekDenom = periodWorkingDays * weekDenomRate;
+        var weekPercent = weekDenom > 0 ? Math.round((adjustedPeriodHours / weekDenom) * 100) : 100;
         dispPercent = weekPercent; dispExpected = weekExpected; dispStatus = getProgressStatus(weekPercent);
       }
 
@@ -3482,8 +3497,9 @@ async function exportCSV() {
   allProfiles.forEach(function(p) {
     var isAdmin = p.role === 'admin' || p.role === 'super_admin';
     var defaults = isAdmin ? ADMIN_DEFAULTS : DEFAULTS;
-    var expectedYearly = effectiveExpectedHours(p, defaults.EXPECTED_YEARLY_HOURS);
     var nominalYearly = p.expected_yearly_hours || defaults.EXPECTED_YEARLY_HOURS;
+    var expectedYearly = nominalYearly;
+    var progressTarget = progressTargetHours(p, defaults.EXPECTED_YEARLY_HOURS);
     var annualDays = p.annual_days || defaults.ANNUAL_DAYS;
     var personalDays = p.personal_days || defaults.PERSONAL_DAYS;
     var schoolDays = p.school_days || defaults.SCHOOL_DAYS;
@@ -3544,7 +3560,8 @@ async function exportCSV() {
 
     var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
     var expectedToDate = expectedYearly * progress.progressRatio;
-    var pct = expectedToDate > 0 ? (totalHours / expectedToDate) * 100 : 0;
+    var progressDenom = progressTarget * progress.progressRatio;
+    var pct = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
     var pctClass = pct >= 98 ? 'on-track' : pct >= 80 ? 'warning' : 'behind';
 
     var prepTotal = 0;

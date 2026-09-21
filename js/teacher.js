@@ -1032,8 +1032,9 @@ async function loadProgress() {
   }
 
   // Teacher progress (same as admin getTeacherProgress)
-  var expectedYearly = effectiveExpectedHours(currentProfile, DEFAULTS.EXPECTED_YEARLY_HOURS);
   var nominalYearly = currentProfile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
+  var expectedYearly = nominalYearly;
+  var progressTarget = progressTargetHours(currentProfile, DEFAULTS.EXPECTED_YEARLY_HOURS);
   var annualDays = currentProfile.annual_days || DEFAULTS.ANNUAL_DAYS;
   var personalDays = currentProfile.personal_days || DEFAULTS.PERSONAL_DAYS;
   var schoolDays = currentProfile.school_days || DEFAULTS.SCHOOL_DAYS;
@@ -1078,7 +1079,9 @@ async function loadProgress() {
 
   var adjustedTotal = totalHours - paidTotal + medicalHours + medApptHours + permisoHours;
   var expectedToDate = expectedYearly * progressRatio;
-  var percent = expectedToDate > 0 ? (adjustedTotal / expectedToDate) * 100 : 0;
+  // Percentage measured against the (possibly softened) progress target
+  var progressDenom = progressTarget * progressRatio;
+  var percent = progressDenom > 0 ? (adjustedTotal / progressDenom) * 100 : 0;
 
   const progressBar = document.getElementById('progressBar');
   const progressPercent = document.getElementById('progressPercent');

@@ -75,11 +75,14 @@ async function fetchAllRows(buildQuery, pageSize) {
   return { data: all, error: null };
 }
 
-// Effective yearly hours used for ALL progress/medical calculations.
-// expected_yearly_hours is the NOMINAL figure shown in tables + edit modals;
-// profiles.hours_adjustment (default 0) silently shifts the target used in the math
-// (e.g. Rocío: shown 1500, computed as 1400).
-function effectiveExpectedHours(profile, fallback) {
+// Target used ONLY as the denominator of the progress percentage.
+//
+// expected_yearly_hours (the NOMINAL figure) still drives everything else: it's what's shown in
+// the tables/edit modals, it sets hoursPerWorkingDay (so baja/medical credit is valued at the
+// nominal rate), and it produces the displayed "Xh esp" expected-to-date.
+// profiles.hours_adjustment (default 0) only softens the percentage denominator
+// (e.g. Rocío: everything computed at 1500, but the % measured against 1400).
+function progressTargetHours(profile, fallback) {
   var nominal = (profile && profile.expected_yearly_hours) || fallback;
   var adj = (profile && parseFloat(profile.hours_adjustment)) || 0;
   return nominal + adj;
