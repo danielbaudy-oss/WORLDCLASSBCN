@@ -100,6 +100,37 @@ async function requireAuth(allowedRoles) {
   return profile;
 }
 
+// Privileged app access is intentionally separate from profiles.role.
+// role remains the employment category used for hour rules/grouping; this RPC is the
+// server-controlled authorization source (currently Rocío, Silvia, and Milena only).
+async function getAdminAccessLevel() {
+  const { data, error } = await db.rpc('get_admin_access_level');
+  if (error) {
+    console.error('Admin access check failed:', error);
+    return null;
+  }
+  return data || null;
+}
+
+function hasAdminPanelAccess(profile) {
+  return !!(profile && profile.admin_access_level);
+}
+
+function hasSuperAdminAccess(profile) {
+  return !!(profile && profile.admin_access_level === 'super_admin');
+}
+
+async function requireAdminAccess() {
+  const profile = await requireAuth();
+  if (!profile) return null;
+  profile.admin_access_level = await getAdminAccessLevel();
+  if (!hasAdminPanelAccess(profile)) {
+    window.location.href = 'teacher.html';
+    return null;
+  }
+  return profile;
+}
+
 // ========================================
 // DEV ROLE SWITCHER (localhost only)
 // ========================================

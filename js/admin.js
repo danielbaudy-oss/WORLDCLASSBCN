@@ -26,7 +26,7 @@ var cachedSchoolHolidays = null;
 // ========================================
 
 async function initAdmin() {
-  adminProfile = await requireAuth(['admin', 'super_admin']);
+  adminProfile = await requireAdminAccess();
   if (!adminProfile) return;
 
   // Dev role switcher (localhost only, test account only)
@@ -36,8 +36,8 @@ async function initAdmin() {
   document.getElementById('adminName').textContent = (adminProfile.name || 'Admin').split(' ')[0];
   document.getElementById('adminEmail').textContent = adminProfile.email || '--';
 
-  // Show freeze tab if super_admin
-  if (adminProfile.role === 'super_admin') {
+  // Show freeze/Atlas only to the privileged super-admin (Rocío)
+  if (hasSuperAdminAccess(adminProfile)) {
     var freezeBtn = document.getElementById('freezeTabBtn');
     if (freezeBtn) freezeBtn.style.display = '';
     // Show Atlas Analytics nav
@@ -623,7 +623,7 @@ async function loadStatsGrid(teacherData, adminData) {
 
       var isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
       var defaults = isAdmin ? ADMIN_DEFAULTS : DEFAULTS;
-      var expectedYearly = profile.expected_yearly_hours || defaults.EXPECTED_YEARLY_HOURS;
+      var expectedYearly = effectiveExpectedHours(profile, defaults.EXPECTED_YEARLY_HOURS);
       var annualDays = profile.annual_days || defaults.ANNUAL_DAYS;
       var personalDays = profile.personal_days || defaults.PERSONAL_DAYS;
       var schoolDays = profile.school_days || defaults.SCHOOL_DAYS;
@@ -794,7 +794,19 @@ async function loadPendingProfiles() {
   try {
     var res = await db.from('profiles').select('*').order('created_at');
     var all = res.data || [];
-    var pending = all.filter(function(p) { return p.status === 'Pending'; });
+    var dismissed = getDismissedPendingIds();
+    var allPending = all.filter(function(p) { return p.status === 'Pending'; });
+    var pending = allPending.filter(function(p) { return !dismissed[p.id]; });
+    // Small "hidden" note so dismissed accounts can be brought back
+    var hiddenCount = allPending.length - pending.length;
+    var note = document.getElementById('pendingHiddenNote');
+    if (note) {
+      if (hiddenCount > 0) {
+        note.innerHTML = '⏳ ' + hiddenCount + ' cuenta' + (hiddenCount > 1 ? 's' : '') + ' pendiente' + (hiddenCount > 1 ? 's' : '') + ' oculta' + (hiddenCount > 1 ? 's' : '') +
+          ' · <a href="#" onclick="showDismissedPendingProfiles();return false" style="color:#b45309">Mostrar</a>';
+        note.style.display = 'block';
+      } else note.style.display = 'none';
+    }
     if (!pending.length) { card.style.display = 'none'; return; }
 
     var rows = pending.map(function(p) {
@@ -815,8 +827,10 @@ async function loadPendingProfiles() {
       }
       buttons += '<button class="action-btn" style="padding:6px 12px;font-size:12px;cursor:pointer" onclick="activatePendingProfile(\'' + p.id + '\', \'teacher\')">✓ Activar como Profe</button>' +
         '<button class="action-btn" style="padding:6px 12px;font-size:12px;cursor:pointer" onclick="activatePendingProfile(\'' + p.id + '\', \'admin\')">✓ Activar como Admin</button>' +
+        '<button class="action-btn" style="padding:6px 12px;font-size:12px;cursor:pointer;color:#b91c1c;border-color:#fca5a5" onclick="deletePendingProfile(\'' + p.id + '\', \'' + p.name.replace(/'/g, "\\'") + '\')">🗑 Eliminar cuenta</button>' +
         '</div>';
-      return '<div style="padding:10px 0;border-bottom:1px solid #fde68a">' +
+      return '<div data-pending-id="' + p.id + '" style="padding:10px 0;border-bottom:1px solid #fde68a;position:relative">' +
+        '<button title="Ocultar (no elimina la cuenta)" onclick="dismissPendingProfile(\'' + p.id + '\')" style="position:absolute;right:0;top:8px;background:none;border:none;font-size:16px;color:#92400e;cursor:pointer;line-height:1">✕</button>' +
         '<strong>' + p.name + '</strong> — ' + p.email +
         ' <span style="font-size:12px;color:#92400e">(cuenta creada el ' + new Date(p.created_at).toLocaleDateString('es-ES') + ')</span>' +
         twinHtml + buttons +
@@ -827,6 +841,36 @@ async function loadPendingProfiles() {
   } catch (err) {
     console.error('Error loading pending profiles:', err);
   }
+}
+
+// Dismissals are per-browser (localStorage): hides a pending row without touching the DB.
+function getDismissedPendingIds() {
+  try { return JSON.parse(localStorage.getItem('dismissedPendingProfiles') || '{}'); } catch (_e) { return {}; }
+}
+function dismissPendingProfile(id) {
+  var d = getDismissedPendingIds(); d[id] = Date.now();
+  localStorage.setItem('dismissedPendingProfiles', JSON.stringify(d));
+  loadPendingProfiles();
+}
+function dismissAllPendingProfiles() {
+  var list = document.getElementById('pendingProfilesList');
+  if (!list) return;
+  var d = getDismissedPendingIds();
+  list.querySelectorAll('[data-pending-id]').forEach(function(el) { d[el.getAttribute('data-pending-id')] = Date.now(); });
+  localStorage.setItem('dismissedPendingProfiles', JSON.stringify(d));
+  loadPendingProfiles();
+}
+function showDismissedPendingProfiles() {
+  localStorage.removeItem('dismissedPendingProfiles');
+  loadPendingProfiles();
+}
+
+async function deletePendingProfile(id, name) {
+  if (!confirm('¿Eliminar la cuenta pendiente de ' + name + '?\n\nSe borra el perfil (no tiene fichajes ni solicitudes). Si la persona vuelve a iniciar sesión, se creará de nuevo como pendiente.')) return;
+  var { error } = await db.rpc('delete_pending_profile', { target_id: id });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Cuenta eliminada', 'success');
+  await loadPendingProfiles();
 }
 
 async function activatePendingProfile(id, role) {
@@ -919,7 +963,8 @@ async function loadTeachersTable() {
       });
 
       // Progress calculation using Code.js approach
-      var expectedYearly = t.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
+      var expectedYearly = effectiveExpectedHours(t, DEFAULTS.EXPECTED_YEARLY_HOURS);
+      var nominalYearly = t.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
       var annualDays = t.annual_days || DEFAULTS.ANNUAL_DAYS;
       var personalDays = t.personal_days || DEFAULTS.PERSONAL_DAYS;
       var schoolDays = t.school_days || DEFAULTS.SCHOOL_DAYS;
@@ -1053,7 +1098,7 @@ async function loadTeachersTable() {
         '</div></td>' +
         '<td style="font-size:12px;white-space:nowrap"><span class="' + prepColor + '" style="font-weight:600">' + prepTimeTotal + 'h</span><span style="color:var(--gray-400)"> / ' + prepTimeYearly + 'h</span>' +
           (prepWeeksLogged.size > 0 ? '<div style="font-size:10px;color:var(--gray-400);margin-top:2px">' + prepWeeksLogged.size + ' sem</div>' : '') + '</td>' +
-        '<td>' + expectedYearly + 'h</td>' +
+        '<td>' + nominalYearly + 'h</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -1170,7 +1215,8 @@ async function loadAdminWorkersTable() {
       });
 
       // Progress calculation using Code.js approach
-      var expectedYearly = a.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS;
+      var expectedYearly = effectiveExpectedHours(a, ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS);
+      var nominalYearly = a.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS;
       var annualDays = a.annual_days || ADMIN_DEFAULTS.ANNUAL_DAYS;
       var personalDays = a.personal_days || ADMIN_DEFAULTS.PERSONAL_DAYS;
       var schoolDays = a.school_days || ADMIN_DEFAULTS.SCHOOL_DAYS;
@@ -1279,7 +1325,7 @@ async function loadAdminWorkersTable() {
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
           '<div class="progress-text"><span class="progress-percent ' + dispStatus + '">' + dispPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(dispExpected) + 'h esp</span></div>' +
         '</div></td>' +
-        '<td>' + expectedYearly + 'h</td>' +
+        '<td>' + nominalYearly + 'h</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -1551,7 +1597,7 @@ async function showDayDetail(dateStr) {
   var hours = calculateDayHours(inOutPunches);
 
   var dateDisplay = formatDateDisplay(dateStr);
-  var isSuperAdmin = adminProfile && adminProfile.role === 'super_admin';
+  var isSuperAdmin = hasSuperAdminAccess(adminProfile);
 
   var html = '<div class="day-hours-summary">' +
     '<div class="day-hours-value">' + hours.toFixed(2) + 'h</div>' +
@@ -3427,7 +3473,8 @@ async function exportCSV() {
   allProfiles.forEach(function(p) {
     var isAdmin = p.role === 'admin' || p.role === 'super_admin';
     var defaults = isAdmin ? ADMIN_DEFAULTS : DEFAULTS;
-    var expectedYearly = p.expected_yearly_hours || defaults.EXPECTED_YEARLY_HOURS;
+    var expectedYearly = effectiveExpectedHours(p, defaults.EXPECTED_YEARLY_HOURS);
+    var nominalYearly = p.expected_yearly_hours || defaults.EXPECTED_YEARLY_HOURS;
     var annualDays = p.annual_days || defaults.ANNUAL_DAYS;
     var personalDays = p.personal_days || defaults.PERSONAL_DAYS;
     var schoolDays = p.school_days || defaults.SCHOOL_DAYS;
@@ -3518,7 +3565,7 @@ async function exportCSV() {
       '<td class="' + rc + ' num">' + paidTotal.toFixed(2) + '</td>' +
       '<td class="' + rc + ' num">' + (medicalHours > 0 ? medicalHours.toFixed(2) : '') + '</td>' +
       '<td class="' + rc + ' num ' + pctClass + '">' + pct.toFixed(1) + '%</td>' +
-      '<td class="' + rc + ' num">' + expectedYearly + '</td>' +
+      '<td class="' + rc + ' num">' + nominalYearly + '</td>' +
       '<td class="' + rc + ' num">' + (prepTotal > 0 ? prepTotal : (isAdmin ? '-' : '0')) + '</td>' +
       '<td class="' + rc + ' num">' + (au || '') + '</td><td class="' + rc + ' num">' + annualDays + '</td>' +
       '<td class="' + rc + ' num">' + (pu2 || '') + '</td><td class="' + rc + ' num">' + personalDays + '</td>' +

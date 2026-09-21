@@ -20,8 +20,9 @@ async function initTeacher() {
   firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
   document.getElementById('teacherName').textContent = firstName;
 
-  // Show admin button if admin
-  if (currentProfile.role === 'admin' || currentProfile.role === 'super_admin') {
+  // Only explicitly authorized managers get the real admin panel.
+  currentProfile.admin_access_level = await getAdminAccessLevel();
+  if (hasAdminPanelAccess(currentProfile)) {
     const adminBtn = document.getElementById('adminBtn');
     if (adminBtn) adminBtn.style.display = 'flex';
   }
@@ -100,9 +101,9 @@ async function loadDay(date) {
   punchSection.style.display = 'block';
   futureWarning.style.display = 'none';
 
-  // Check freeze — admins/super_admins are never frozen
+  // Check freeze — only explicitly authorized managers bypass it
   const freezeDate = await getConfigValue('FreezeDate');
-  const isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
+  const isAdmin = hasAdminPanelAccess(currentProfile);
   const isFrozen = !isAdmin && freezeDate && dateStr <= freezeDate;
 
   const frozenBanner = document.getElementById('frozenBanner');
@@ -149,7 +150,7 @@ async function loadPunches(dateStr, isFrozen) {
 function renderPunches(punches, isFrozen) {
   const container = document.getElementById('punchesList');
   const countEl = document.getElementById('punchesCount');
-  const isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
+  const isAdmin = hasAdminPanelAccess(currentProfile);
 
   if (!punches.length) {
     container.innerHTML = `
@@ -220,7 +221,7 @@ function updatePunchButton(punches, isFrozen) {
 
 // True when dateStr falls in the frozen window for the current (non-admin) user.
 async function isDayFrozen(dateStr) {
-  const isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
+  const isAdmin = hasAdminPanelAccess(currentProfile);
   if (isAdmin) return false;
   const freezeDate = await getConfigValue('FreezeDate');
   return !!(freezeDate && dateStr <= freezeDate);
@@ -1031,7 +1032,8 @@ async function loadProgress() {
   }
 
   // Teacher progress (same as admin getTeacherProgress)
-  var expectedYearly = currentProfile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
+  var expectedYearly = effectiveExpectedHours(currentProfile, DEFAULTS.EXPECTED_YEARLY_HOURS);
+  var nominalYearly = currentProfile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS;
   var annualDays = currentProfile.annual_days || DEFAULTS.ANNUAL_DAYS;
   var personalDays = currentProfile.personal_days || DEFAULTS.PERSONAL_DAYS;
   var schoolDays = currentProfile.school_days || DEFAULTS.SCHOOL_DAYS;
@@ -1089,7 +1091,7 @@ async function loadProgress() {
   progressBar.className = 'progress-bar ' + status;
   progressPercent.textContent = roundedPercent + '%';
   progressPercent.className = 'progress-percent ' + status;
-  progressHours.textContent = adjustedTotal.toFixed(1) + 'h / ' + expectedYearly + 'h';
+  progressHours.textContent = adjustedTotal.toFixed(1) + 'h / ' + nominalYearly + 'h';
   if (progressExpected) progressExpected.textContent = Math.round(expectedToDate) + 'h esperadas';
   } catch (err) {
     console.error('Error loading progress:', err);
@@ -1383,7 +1385,7 @@ async function checkIncompletePunches() {
 
   // Teachers can't edit frozen days; flag those as read-only in the list
   var freezeDate = await getConfigValue('FreezeDate');
-  var isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'super_admin';
+  var isAdmin = hasAdminPanelAccess(currentProfile);
 
   var n = incompleteDays.length;
   document.getElementById('incompleteText').textContent =

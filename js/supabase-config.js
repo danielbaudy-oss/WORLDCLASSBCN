@@ -74,3 +74,13 @@ async function fetchAllRows(buildQuery, pageSize) {
   }
   return { data: all, error: null };
 }
+
+// Effective yearly hours used for ALL progress/medical calculations.
+// expected_yearly_hours is the NOMINAL figure shown in tables + edit modals;
+// profiles.hours_adjustment (default 0) silently shifts the target used in the math
+// (e.g. Rocío: shown 1500, computed as 1400).
+function effectiveExpectedHours(profile, fallback) {
+  var nominal = (profile && profile.expected_yearly_hours) || fallback;
+  var adj = (profile && parseFloat(profile.hours_adjustment)) || 0;
+  return nominal + adj;
+}

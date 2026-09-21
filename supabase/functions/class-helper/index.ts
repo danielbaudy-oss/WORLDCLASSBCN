@@ -119,7 +119,7 @@ const tools = [{ function_declarations: [
 
 async function executeTool(name: string, args: any, ctx: any, db: any) {
   if (name === "get_holidays") {
-    const uid = ctx.role === "teacher" ? ctx.userId : (args.user_id || ctx.userId);
+    const uid = ctx.adminAccess ? (args.user_id || ctx.userId) : ctx.userId;
     const { data: p } = await db.from("profiles").select("annual_days, personal_days, school_days, med_appt_hours, unpaid_days").eq("id", uid).single();
     const { data: h } = await db.from("holiday_requests").select("type, days, hours").eq("user_id", uid).eq("status", "Approved");
     if (!p) return { error: "Perfil no encontrado" };
@@ -130,7 +130,7 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     return { Vacaciones: `${p.annual_days - u.Annual}/${p.annual_days} días`, "D.R. Empleado": `${p.personal_days - u.Personal}/${p.personal_days}`, "D.R. Empresa": `${p.school_days - u.School}/${p.school_days}`, "Visita Médica": `${p.med_appt_hours - u.MedAppt}/${p.med_appt_hours}h`, "Baja Médica": `${u.Medical} (sin límite)`, "Permiso Retribuido": `${Math.round(u.Permiso*10)/10}h usadas (cuentan como trabajadas; sin límite de horas)`, "Permiso No Retribuido": `${unpaidCap - u.PermisoNoRet}/${unpaidCap} días` };
   }
   if (name === "get_work_hours") {
-    const uid = ctx.role === "teacher" ? ctx.userId : (args.user_id || ctx.userId);
+    const uid = ctx.adminAccess ? (args.user_id || ctx.userId) : ctx.userId;
     const spainNow = getSpainNow();
     const s = args.start_date || `${spainNow.getFullYear()}-${String(spainNow.getMonth()+1).padStart(2,"0")}-01`;
     const e = args.end_date || `${spainNow.getFullYear()}-${String(spainNow.getMonth()+1).padStart(2,"0")}-${String(spainNow.getDate()).padStart(2,"0")}`;
@@ -159,9 +159,9 @@ async function executeTool(name: string, args: any, ctx: any, db: any) {
     return { periodo: `${s} a ${e}`, horas_totales: Math.round(tot*100)/100, dias_trabajados: Object.keys(byD).length, detalle };
   }
   if (name === "get_schedule") {
-    // Teachers see their own schedule; admins may pass a teacher name.
+    // Only explicitly authorized managers may inspect another teacher's schedule.
     let teacherName = args.teacher;
-    if (ctx.role === "teacher" || !teacherName) teacherName = String(ctx.name || "").trim().split(/\s+/)[0];
+    if (!ctx.adminAccess || !teacherName) teacherName = String(ctx.name || "").trim().split(/\s+/)[0];
     if (!teacherName) return { error: "No pude identificar al profe." };
     const spainNow = getSpainNow();
     const dow = ["D", "L", "M", "X", "J", "V", "S"][spainNow.getDay()];
@@ -489,6 +489,7 @@ Deno.serve(async (req: Request) => {
     if (!user) return new Response(JSON.stringify({ error: "Sesión inválida" }), { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const { data: profile } = await db.from("profiles").select("name, role, status").eq("id", user.id).single();
     if (!profile || profile.status !== "Active") return new Response(JSON.stringify({ error: "Inactiva" }), { status: 403, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    const { data: adminAuth } = await db.from("admin_authorizations").select("access_level").eq("profile_id", user.id).maybeSingle();
 
     const limit = await checkDailyLimit(db, user.id);
     if (!limit.allowed) {
@@ -497,7 +498,7 @@ Deno.serve(async (req: Request) => {
 
     const { message, history = [], session_id = null } = await req.json();
     if (!message) return new Response(JSON.stringify({ error: "Vacío" }), { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
-    const ctx = { userId: user.id, role: profile.role, name: profile.name };
+    const ctx = { userId: user.id, role: profile.role, name: profile.name, adminAccess: adminAuth?.access_level || null };
     const week = getWeekDates();
     const startTime = Date.now();
     const sys = `Eres Atlas, el asistente interno de WorldClass BCN (academia de español para adultos en Barcelona, Catalunya).

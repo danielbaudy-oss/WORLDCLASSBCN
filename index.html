@@ -166,7 +166,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    var APP_VERSION = '20260921a';
+    var APP_VERSION = '20260921c';
     var V = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? '?v=' + Date.now() : '?v=' + APP_VERSION;
     document.write('<script src="js/supabase-config.js'+V+'"><\/script><script src="js/auth.js'+V+'"><\/script>');
   </script>
@@ -218,9 +218,10 @@
         return;
       }
 
-      // Active user - route based on role
+      // Active user — privileged panel access is separate from employment role.
       initDevRoleSwitcher(profile);
-      if (profile.role === 'admin' || profile.role === 'super_admin') {
+      profile.admin_access_level = await getAdminAccessLevel();
+      if (hasAdminPanelAccess(profile)) {
         document.getElementById('welcomeName').textContent = '👋 ¡Hola, ' + profile.name + '!';
         roleSelection.style.display = 'block';
       } else {
