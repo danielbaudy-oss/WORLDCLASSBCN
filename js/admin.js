@@ -443,6 +443,107 @@ function contractPeriodNote(contractStart, contractEnd, proratedHours) {
     '→ ' + Math.round(proratedHours) + 'h · ' + range + '</div>';
 }
 
+// ========================================
+// SETTINGS MODAL HELPERS — contract proration + hours/% linkage
+// ========================================
+
+// Field-id maps so one set of helpers can drive all four modals.
+var CONTRACT_FIELDS = {
+  editTeacher: { admin: false, start: 'editContractStart', end: 'editContractEnd',
+    annual: 'editAnnualDays', personal: 'editPersonalDays', school: 'editSchoolDays',
+    medAppt: 'editMedApptHours', unpaid: 'editUnpaidDays', prep: 'editPrepTime',
+    hours: 'editExpectedHours', pct: 'editHoursPct', note: 'editProrateNote' },
+  editAdmin: { admin: true, start: 'editAdminContractStart', end: 'editAdminContractEnd',
+    annual: 'editAdminAnnualDays', personal: 'editAdminPersonalDays', school: 'editAdminSchoolDays',
+    medAppt: 'editAdminMedApptHours', unpaid: 'editAdminUnpaidDays', prep: null,
+    hours: 'editAdminExpectedHours', pct: 'editAdminHoursPct', note: 'editAdminProrateNote' },
+  addTeacher: { admin: false, start: 'addTeacherContractStart', end: 'addTeacherContractEnd',
+    annual: 'addTeacherAnnual', personal: 'addTeacherPersonal', school: 'addTeacherSchool',
+    medAppt: null, unpaid: null, prep: 'addTeacherPrep',
+    hours: 'addTeacherExpected', pct: 'addTeacherHoursPct', note: 'addTeacherProrateNote' },
+  addAdmin: { admin: true, start: 'addAdminContractStart', end: 'addAdminContractEnd',
+    annual: 'addAdminAnnual', personal: 'addAdminPersonal', school: 'addAdminSchool',
+    medAppt: null, unpaid: null, prep: null,
+    hours: 'addAdminExpected', pct: 'addAdminHoursPct', note: 'addAdminProrateNote' }
+};
+
+// Share of the year's working days covered by [contractStart, contractEnd]. 1 = full year.
+function contractWindowFraction(contractStart, contractEnd) {
+  if (!contractStart && !contractEnd) return 1;
+  var holidaySet = buildSchoolHolidayDateSet(cachedSchoolHolidays || []);
+  var year = new Date().getFullYear();
+  var cur = new Date(year, 0, 1), end = new Date(year, 11, 31);
+  var all = 0, inWindow = 0;
+  while (cur <= end) {
+    var dow = cur.getDay();
+    var ds = formatDate(cur);
+    if (dow !== 0 && dow !== 6 && !holidaySet.has(ds)) {
+      all++;
+      if (!((contractStart && ds < contractStart) || (contractEnd && ds > contractEnd))) inWindow++;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return all > 0 ? inWindow / all : 1;
+}
+
+// Re-fills the leave-day / prep-time fields to the share of the year actually worked.
+// Always prorates from the FULL-TIME DEFAULTS (never from the field's current value) so
+// changing the dates twice can't compound. Values stay editable afterwards.
+function prorateAllocationFields(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  if (!m) return;
+  var startEl = document.getElementById(m.start), endEl = document.getElementById(m.end);
+  var wf = contractWindowFraction(startEl ? startEl.value : '', endEl ? endEl.value : '');
+  var base = m.admin ? ADMIN_DEFAULTS : DEFAULTS;
+  var set = function(id, val) { var el = id && document.getElementById(id); if (el) el.value = val; };
+
+  // Leave DAYS scale only with the period worked (Conveni Art. 23 "en proporció al temps
+  // treballat") — a part-timer still gets the full day count for a full year.
+  set(m.annual, Math.round(base.ANNUAL_DAYS * wf));
+  set(m.personal, Math.round(base.PERSONAL_DAYS * wf));
+  set(m.school, Math.round(base.SCHOOL_DAYS * wf));
+  set(m.medAppt, Math.round(base.MEDICAL_APPT_HOURS * wf));
+  set(m.unpaid, Math.round(base.UNPAID_DAYS * wf));
+
+  // Prep time is measured in HOURS, so it scales with the jornada percentage as well as the
+  // period (e.g. 70h full-time × 85% jornada × 28% of the year).
+  var hoursEl = document.getElementById(m.hours);
+  var fullTime = (m.admin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
+  var jornada = 1;
+  if (hoursEl && fullTime) {
+    var h = parseFloat(hoursEl.value);
+    if (!isNaN(h) && h > 0) jornada = Math.min(1, h / fullTime);
+  }
+  set(m.prep, Math.round(base.PREP_TIME_YEARLY * jornada * wf * 10) / 10);
+
+  var noteEl = document.getElementById(m.note);
+  if (noteEl) {
+    noteEl.textContent = wf < 1
+      ? 'Permisos prorrateados al ' + Math.round(wf * 100) + '% del año laborable. Puedes ajustarlos a mano.'
+      : 'Periodo completo: asignación anual entera.';
+  }
+}
+
+// Horas Anuales Esperadas <-> % de jornada completa. Either field drives the other.
+function syncHoursFromPct(ctx) {
+  var m = CONTRACT_FIELDS[ctx]; if (!m) return;
+  var base = (m.admin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
+  var pctEl = document.getElementById(m.pct), hEl = document.getElementById(m.hours);
+  if (!pctEl || !hEl) return;
+  var pct = parseFloat(pctEl.value);
+  if (isNaN(pct) || pct < 0) return;
+  hEl.value = Math.round(base * pct / 100);
+}
+function syncPctFromHours(ctx) {
+  var m = CONTRACT_FIELDS[ctx]; if (!m) return;
+  var base = (m.admin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
+  var pctEl = document.getElementById(m.pct), hEl = document.getElementById(m.hours);
+  if (!pctEl || !hEl || !base) return;
+  var h = parseFloat(hEl.value);
+  if (isNaN(h) || h < 0) return;
+  pctEl.value = Math.round(h / base * 1000) / 10;
+}
+
 function getProgressStatus(percent) {
   if (percent >= 98) return 'on-track';
   if (percent >= 80) return 'warning';
@@ -550,7 +651,9 @@ function getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, con
     allCount = Math.max(0, allCount - outAll);
     passedCount = Math.max(0, passedCount - outPassed);
     windowFraction = precomputed.allCount > 0 ? allCount / precomputed.allCount : 1;
-    allocatedDays = allocatedDays * windowFraction;
+    // NOTE: allocatedDays is NOT prorated here. The leave-day fields in the settings modal are
+    // prorated explicitly when the contract period is set (see prorateAllocationFields), so the
+    // stored values are already this person's real entitlement — prorating again would double it.
   }
 
   var holidaysTakenOnWorkingDays = 0;
@@ -1909,7 +2012,12 @@ async function openEditTeacherModal(userId) {
     '<div class="settings-grid">' +
       '<div class="setting-item highlight">' +
         '<div class="setting-label">Horas Anuales Esperadas</div>' +
-        '<input type="number" class="setting-input" id="editExpectedHours" value="' + (profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) + '">' +
+        '<input type="number" class="setting-input" id="editExpectedHours" value="' + (profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) + '" oninput="syncPctFromHours(\'editTeacher\')">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">% de jornada completa</div>' +
+        '<input type="number" step="0.1" class="setting-input" id="editHoursPct" value="' + (Math.round((profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) / DEFAULTS.FULLTIME_YEARLY_HOURS * 1000) / 10) + '" oninput="syncHoursFromPct(\'editTeacher\')">' +
+        '<div class="form-hint" style="margin-top:6px">100% = ' + DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -1920,14 +2028,15 @@ async function openEditTeacherModal(userId) {
     '<div class="settings-grid">' +
       '<div class="setting-item">' +
         '<div class="setting-label">Alta (primer día)</div>' +
-        '<input type="date" class="setting-input" id="editContractStart" value="' + (profile.contract_start || '') + '">' +
+        '<input type="date" class="setting-input" id="editContractStart" value="' + (profile.contract_start || '') + '" onchange="prorateAllocationFields(\'editTeacher\')">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">Baja (último día)</div>' +
-        '<input type="date" class="setting-input" id="editContractEnd" value="' + (profile.contract_end || '') + '">' +
+        '<input type="date" class="setting-input" id="editContractEnd" value="' + (profile.contract_end || '') + '" onchange="prorateAllocationFields(\'editTeacher\')">' +
       '</div>' +
     '</div>' +
-    '<div class="form-hint" style="margin-top:8px">Déjalo vacío si trabaja todo el año. Si se rellena, las horas esperadas y los días de permiso se prorratean al periodo trabajado.</div>' +
+    '<div class="form-hint" style="margin-top:8px">Vacío = todo el año. Al cambiar las fechas se recalculan los días de permiso y las horas no lectivas según el periodo trabajado (redondeado a días enteros); luego puedes ajustarlos a mano.</div>' +
+    '<div class="form-hint" id="editProrateNote" style="margin-top:4px;font-weight:600;color:#b45309"></div>' +
   '</div>';
 
   // Prep time section
@@ -2057,7 +2166,12 @@ async function openEditAdminModal(userId) {
     '<div class="settings-grid">' +
       '<div class="setting-item highlight">' +
         '<div class="setting-label">Horas Anuales Esperadas</div>' +
-        '<input type="number" class="setting-input" id="editAdminExpectedHours" value="' + (profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) + '">' +
+        '<input type="number" class="setting-input" id="editAdminExpectedHours" value="' + (profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) + '" oninput="syncPctFromHours(\'editAdmin\')">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">% de jornada completa</div>' +
+        '<input type="number" step="0.1" class="setting-input" id="editAdminHoursPct" value="' + (Math.round((profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) / ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS * 1000) / 10) + '" oninput="syncHoursFromPct(\'editAdmin\')">' +
+        '<div class="form-hint" style="margin-top:6px">100% = ' + ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -2068,14 +2182,15 @@ async function openEditAdminModal(userId) {
     '<div class="settings-grid">' +
       '<div class="setting-item">' +
         '<div class="setting-label">Alta (primer día)</div>' +
-        '<input type="date" class="setting-input" id="editAdminContractStart" value="' + (profile.contract_start || '') + '">' +
+        '<input type="date" class="setting-input" id="editAdminContractStart" value="' + (profile.contract_start || '') + '" onchange="prorateAllocationFields(\'editAdmin\')">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">Baja (último día)</div>' +
-        '<input type="date" class="setting-input" id="editAdminContractEnd" value="' + (profile.contract_end || '') + '">' +
+        '<input type="date" class="setting-input" id="editAdminContractEnd" value="' + (profile.contract_end || '') + '" onchange="prorateAllocationFields(\'editAdmin\')">' +
       '</div>' +
     '</div>' +
-    '<div class="form-hint" style="margin-top:8px">Déjalo vacío si trabaja todo el año. Si se rellena, las horas esperadas y los días de permiso se prorratean al periodo trabajado.</div>' +
+    '<div class="form-hint" style="margin-top:8px">Vacío = todo el año. Al cambiar las fechas se recalculan los días de permiso según el periodo trabajado (redondeado a días enteros); luego puedes ajustarlos a mano.</div>' +
+    '<div class="form-hint" id="editAdminProrateNote" style="margin-top:4px;font-weight:600;color:#b45309"></div>' +
   '</div>';
 
   // Holiday allocations (no prep time)
@@ -2163,11 +2278,16 @@ function openAddTeacherModal() {
     '<div class="settings-grid">' +
       '<div class="setting-item highlight">' +
         '<div class="setting-label">Horas Anuales Esperadas</div>' +
-        '<input type="number" class="setting-input" id="addTeacherExpected" value="1230">' +
+        '<input type="number" class="setting-input" id="addTeacherExpected" value="' + DEFAULTS.FULLTIME_YEARLY_HOURS + '" oninput="syncPctFromHours(\'addTeacher\')">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">% de jornada completa</div>' +
+        '<input type="number" step="0.1" class="setting-input" id="addTeacherHoursPct" value="100" oninput="syncHoursFromPct(\'addTeacher\')">' +
+        '<div class="form-hint" style="margin-top:6px">100% = ' + DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">Horas No Lectivas Anual</div>' +
-        '<input type="number" class="setting-input" id="addTeacherPrep" value="70">' +
+        '<input type="number" class="setting-input" id="addTeacherPrep" value="' + DEFAULTS.PREP_TIME_YEARLY + '">' +
       '</div>' +
     '</div>' +
   '</div>' +
@@ -2176,15 +2296,15 @@ function openAddTeacherModal() {
     '<div class="settings-grid">' +
       '<div class="setting-item">' +
         '<div class="setting-label">Vacaciones (días)</div>' +
-        '<input type="number" class="setting-input" id="addTeacherAnnual" value="31">' +
+        '<input type="number" class="setting-input" id="addTeacherAnnual" value="' + DEFAULTS.ANNUAL_DAYS + '">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">D.R. Empleado (días)</div>' +
-        '<input type="number" class="setting-input" id="addTeacherPersonal" value="3">' +
+        '<input type="number" class="setting-input" id="addTeacherPersonal" value="' + DEFAULTS.PERSONAL_DAYS + '">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">D.R. Empresa (días)</div>' +
-        '<input type="number" class="setting-input" id="addTeacherSchool" value="4">' +
+        '<input type="number" class="setting-input" id="addTeacherSchool" value="' + DEFAULTS.SCHOOL_DAYS + '">' +
       '</div>' +
     '</div>' +
   '</div>' +
@@ -2193,14 +2313,15 @@ function openAddTeacherModal() {
     '<div class="settings-grid">' +
       '<div class="setting-item">' +
         '<div class="setting-label">Alta (primer día)</div>' +
-        '<input type="date" class="setting-input" id="addTeacherContractStart">' +
+        '<input type="date" class="setting-input" id="addTeacherContractStart" onchange="prorateAllocationFields(\'addTeacher\')">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">Baja (último día)</div>' +
-        '<input type="date" class="setting-input" id="addTeacherContractEnd">' +
+        '<input type="date" class="setting-input" id="addTeacherContractEnd" onchange="prorateAllocationFields(\'addTeacher\')">' +
       '</div>' +
     '</div>' +
-    '<div class="form-hint" style="margin-top:8px">Rellena el alta si empieza a mitad de año: las horas esperadas se prorratean. Vacío = todo el año.</div>' +
+    '<div class="form-hint" style="margin-top:8px">Vacío = todo el año. Al cambiar las fechas se recalculan los días de permiso y las horas no lectivas según el periodo trabajado (redondeado a días enteros); luego puedes ajustarlos a mano.</div>' +
+    '<div class="form-hint" id="addTeacherProrateNote" style="margin-top:4px;font-weight:600;color:#b45309"></div>' +
   '</div>' +
   '<div class="btn-row">' +
     '<button class="submit-btn" onclick="saveNewTeacher()">➕ Añadir Profesor</button>' +
@@ -2263,7 +2384,12 @@ function openAddAdminModal() {
     '<div class="settings-grid">' +
       '<div class="setting-item highlight">' +
         '<div class="setting-label">Horas Anuales Esperadas</div>' +
-        '<input type="number" class="setting-input" id="addAdminExpected" value="1500">' +
+        '<input type="number" class="setting-input" id="addAdminExpected" value="1500" oninput="syncPctFromHours(\'addAdmin\')">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">% de jornada completa</div>' +
+        '<input type="number" step="0.1" class="setting-input" id="addAdminHoursPct" value="' + (Math.round(1500 / ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS * 1000) / 10) + '" oninput="syncHoursFromPct(\'addAdmin\')">' +
+        '<div class="form-hint" style="margin-top:6px">100% = ' + ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
     '</div>' +
   '</div>' +
@@ -2272,15 +2398,15 @@ function openAddAdminModal() {
     '<div class="settings-grid">' +
       '<div class="setting-item">' +
         '<div class="setting-label">Vacaciones (días)</div>' +
-        '<input type="number" class="setting-input" id="addAdminAnnual" value="31">' +
+        '<input type="number" class="setting-input" id="addAdminAnnual" value="' + ADMIN_DEFAULTS.ANNUAL_DAYS + '">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">D.R. Empleado (días)</div>' +
-        '<input type="number" class="setting-input" id="addAdminPersonal" value="3">' +
+        '<input type="number" class="setting-input" id="addAdminPersonal" value="' + ADMIN_DEFAULTS.PERSONAL_DAYS + '">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">D.R. Empresa (días)</div>' +
-        '<input type="number" class="setting-input" id="addAdminSchool" value="4">' +
+        '<input type="number" class="setting-input" id="addAdminSchool" value="' + ADMIN_DEFAULTS.SCHOOL_DAYS + '">' +
       '</div>' +
     '</div>' +
   '</div>' +
@@ -2289,14 +2415,15 @@ function openAddAdminModal() {
     '<div class="settings-grid">' +
       '<div class="setting-item">' +
         '<div class="setting-label">Alta (primer día)</div>' +
-        '<input type="date" class="setting-input" id="addAdminContractStart">' +
+        '<input type="date" class="setting-input" id="addAdminContractStart" onchange="prorateAllocationFields(\'addAdmin\')">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">Baja (último día)</div>' +
-        '<input type="date" class="setting-input" id="addAdminContractEnd">' +
+        '<input type="date" class="setting-input" id="addAdminContractEnd" onchange="prorateAllocationFields(\'addAdmin\')">' +
       '</div>' +
     '</div>' +
-    '<div class="form-hint" style="margin-top:8px">Rellena el alta si empieza a mitad de año: las horas esperadas se prorratean. Vacío = todo el año.</div>' +
+    '<div class="form-hint" style="margin-top:8px">Vacío = todo el año. Al cambiar las fechas se recalculan los días de permiso según el periodo trabajado (redondeado a días enteros); luego puedes ajustarlos a mano.</div>' +
+    '<div class="form-hint" id="addAdminProrateNote" style="margin-top:4px;font-weight:600;color:#b45309"></div>' +
   '</div>' +
   '<div class="btn-row">' +
     '<button class="submit-btn" onclick="saveNewAdmin()">➕ Añadir Admin</button>' +

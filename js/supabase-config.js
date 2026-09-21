@@ -10,6 +10,10 @@ const DEFAULTS = {
   PERSONAL_DAYS: 3,
   SCHOOL_DAYS: 4,
   EXPECTED_YEARLY_HOURS: 1000,
+  // Full-time reference for the "% de jornada" field. 1230 = convenio lective max for docents;
+  // the existing part-timers are exact fractions of it (984 = 80 %, 615 = 50 %, 492 = 40 %).
+  FULLTIME_YEARLY_HOURS: 1230,
+  UNPAID_DAYS: 10,
   MAX_PAST_DAYS: 30,
   PUENTE_DAYS: 9,
   PREP_TIME_YEARLY: 70,
@@ -22,6 +26,9 @@ const ADMIN_DEFAULTS = {
   PERSONAL_DAYS: 3,
   SCHOOL_DAYS: 4,
   EXPECTED_YEARLY_HOURS: 1300,
+  // Convenio Art. 18: personal d'administració i comercial = 1.530 h full time
+  FULLTIME_YEARLY_HOURS: 1530,
+  UNPAID_DAYS: 10,
   PREP_TIME_YEARLY: 0,
   MEDICAL_APPT_HOURS: 20
 };

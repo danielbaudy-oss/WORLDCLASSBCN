@@ -1056,7 +1056,8 @@ async function loadProgress() {
     allCount = Math.max(0, allCount - outAll);
     passedCount = Math.max(0, passedCount - outPassed);
     windowFraction = fullAllCount > 0 ? allCount / fullAllCount : 1;
-    allocatedDays = allocatedDays * windowFraction;
+    // allocatedDays is NOT prorated here — the stored leave days are already the real
+    // entitlement for this contract period (prorated in the admin settings modal).
     expectedYearly = expectedYearly * windowFraction;
     progressTarget = progressTarget * windowFraction;
   }
