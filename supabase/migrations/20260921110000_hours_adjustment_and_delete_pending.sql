@@ -3,8 +3,8 @@
 --    expected_yearly_hours + hours_adjustment. Default 0 = no change for anyone else.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS hours_adjustment numeric NOT NULL DEFAULT 0;
 
--- Rocío: shown 1500, computed as 1400
-UPDATE profiles SET hours_adjustment = -100 WHERE id = '09fb4625-04be-456a-a5f6-88cc0ba62f59';
+-- Rocío: everything computed/shown at 1500; only the progress % measured against 1450
+UPDATE profiles SET hours_adjustment = -50 WHERE id = '09fb4625-04be-456a-a5f6-88cc0ba62f59';
 
 -- 2) Delete a Pending auto-signup profile without activating it (admin-only, no records).
 CREATE OR REPLACE FUNCTION delete_pending_profile(target_id uuid)
