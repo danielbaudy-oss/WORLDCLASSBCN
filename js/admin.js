@@ -17,6 +17,8 @@ var sectionsLoaded = {};
 var cachedTeachers = null;
 var cachedAdmins = null;
 var cachedPunches = null;
+var cachedAllPunches = null;   // includes PREP; cachedPunches is the IN/OUT subset
+var punchLoadPromise = null;   // de-dupes concurrent loads (see getYearPunches)
 var cachedHolidays = null;
 var cachedPaidHours = null;
 var cachedSchoolHolidays = null;
@@ -579,14 +581,7 @@ async function loadStatsGrid(teacherData, adminData) {
     var yearStart = year + '-01-01';
     var today = formatDate(new Date());
 
-    if (!cachedPunches) {
-      var pRes = await fetchAllRows(function() {
-        return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
-          .in('punch_type', ['IN', 'OUT'])
-          .gte('date', yearStart).lte('date', today);
-      });
-      cachedPunches = pRes.data || [];
-    }
+    await getYearPunches(yearStart, today);
 
     // Period range
     var periodRange = viewMode === 'monthly' ? getMonthRange() : getWeekRange();
@@ -787,6 +782,32 @@ function emailDistance(a, b) { // Levenshtein distance
   return prev[n];
 }
 
+// Loads this year's punches ONCE and shares the result across loadStatsGrid /
+// loadTeachersTable / loadAdminWorkersTable, which run concurrently in loadData().
+// Previously each of the three started its own paginated fetch (~12 requests each, ~36 total)
+// because they all saw cachedPunches===null at the same moment.
+// Returns ALL punch types; cachedPunches is kept as the IN/OUT subset for existing callers.
+// Invalidation: the many existing `cachedPunches = null` sites still work — a null cachedPunches
+// forces a reload here.
+async function getYearPunches(yearStart, today) {
+  if (cachedPunches && cachedAllPunches) return cachedAllPunches;
+  if (!punchLoadPromise) {
+    punchLoadPromise = fetchAllRows(function() {
+      return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
+        .gte('date', yearStart).lte('date', today);
+    }).then(function(res) {
+      cachedAllPunches = res.data || [];
+      cachedPunches = cachedAllPunches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
+      punchLoadPromise = null;
+      return cachedAllPunches;
+    }).catch(function(err) {
+      punchLoadPromise = null;
+      throw err;
+    });
+  }
+  return punchLoadPromise;
+}
+
 async function loadPendingProfiles() {
   var card = document.getElementById('pendingProfilesCard');
   var list = document.getElementById('pendingProfilesList');
@@ -914,13 +935,8 @@ async function loadTeachersTable() {
     // This matches Code.js: progressDate = isCurrentMonth ? now : new Date(year, month, 0)
     var cutoffDate = periodRange.end < today ? periodRange.end : today;
 
-    // Load all punches for the year (IN/OUT + PREP)
-    var pRes = await fetchAllRows(function() {
-      return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
-        .gte('date', yearStart).lte('date', today);
-    });
-    var allPunches = pRes.data || [];
-    cachedPunches = allPunches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
+    // Load all punches for the year (IN/OUT + PREP) — shared with the other loaders
+    var allPunches = await getYearPunches(yearStart, today);
 
     // Load holiday requests (approved Medical for medical hours)
     if (!cachedHolidays) {
@@ -1166,15 +1182,8 @@ async function loadAdminWorkersTable() {
     var periodRange = viewMode === 'monthly' ? getMonthRange() : getWeekRange();
     var cutoffDate = periodRange.end < today ? periodRange.end : today;
 
-    // Load punches
-    if (!cachedPunches) {
-      var pRes = await fetchAllRows(function() {
-        return db.from('time_punches').select('id, user_id, date, time, punch_type, notes')
-          .in('punch_type', ['IN', 'OUT'])
-          .gte('date', yearStart).lte('date', today);
-      });
-      cachedPunches = pRes.data || [];
-    }
+    // Load punches (shared with the other loaders)
+    await getYearPunches(yearStart, today);
 
     // Load holidays
     if (!cachedHolidays) {
