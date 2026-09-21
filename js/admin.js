@@ -64,7 +64,8 @@ async function loadData(forceRefresh) {
   await Promise.all([
     loadStatsGrid(),
     loadTeachersTable(),
-    loadAdminWorkersTable()
+    loadAdminWorkersTable(),
+    loadPendingProfiles()
   ]);
 }
 
@@ -762,6 +763,85 @@ async function loadStatsGrid(teacherData, adminData) {
 // ========================================
 // TASK 4.1: TEACHERS TABLE
 // ========================================
+
+// ========================================
+// PENDING PROFILES (auto-signups awaiting activation)
+// A profile lands here when someone logs in with an email that matches NO existing
+// profile (usually a typo in a pre-created account). Surface them to the admin with
+// a merge shortcut when a near-identical unlinked profile exists.
+// ========================================
+
+function emailDistance(a, b) { // Levenshtein distance
+  a = (a || '').toLowerCase(); b = (b || '').toLowerCase();
+  var m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  var prev = [], cur = [], j, i;
+  for (j = 0; j <= n; j++) prev[j] = j;
+  for (i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (j = 1; j <= n; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    var t = prev; prev = cur; cur = t;
+  }
+  return prev[n];
+}
+
+async function loadPendingProfiles() {
+  var card = document.getElementById('pendingProfilesCard');
+  var list = document.getElementById('pendingProfilesList');
+  if (!card || !list) return;
+  try {
+    var res = await db.from('profiles').select('*').order('created_at');
+    var all = res.data || [];
+    var pending = all.filter(function(p) { return p.status === 'Pending'; });
+    if (!pending.length) { card.style.display = 'none'; return; }
+
+    var rows = pending.map(function(p) {
+      // Possible typo twin: another (non-pending) profile with a very similar email
+      var twin = null;
+      all.forEach(function(o) {
+        if (o.id === p.id || o.status === 'Pending') return;
+        var d = emailDistance(o.email, p.email);
+        if (d > 0 && d <= 3 && (!twin || d < twin.d)) twin = { p: o, d: d };
+      });
+      var twinHtml = '';
+      if (twin) {
+        twinHtml = '<div style="font-size:12px;color:#b45309;margin-top:4px">⚠️ Muy parecido a <strong>' + twin.p.name + '</strong> (' + twin.p.email + ', ' + twin.p.role + ') — ¿error tipográfico al crear la cuenta?</div>';
+      }
+      var buttons = '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">';
+      if (twin) {
+        buttons += '<button class="action-btn" style="padding:6px 12px;font-size:12px;background:#f59e0b;color:#fff;border:none;border-radius:6px;cursor:pointer" onclick="mergePendingProfile(\'' + p.id + '\', \'' + twin.p.id + '\')">🔀 Fusionar con ' + twin.p.name + ' (usa su rol y configuración)</button>';
+      }
+      buttons += '<button class="action-btn" style="padding:6px 12px;font-size:12px;cursor:pointer" onclick="activatePendingProfile(\'' + p.id + '\', \'teacher\')">✓ Activar como Profe</button>' +
+        '<button class="action-btn" style="padding:6px 12px;font-size:12px;cursor:pointer" onclick="activatePendingProfile(\'' + p.id + '\', \'admin\')">✓ Activar como Admin</button>' +
+        '</div>';
+      return '<div style="padding:10px 0;border-bottom:1px solid #fde68a">' +
+        '<strong>' + p.name + '</strong> — ' + p.email +
+        ' <span style="font-size:12px;color:#92400e">(cuenta creada el ' + new Date(p.created_at).toLocaleDateString('es-ES') + ')</span>' +
+        twinHtml + buttons +
+      '</div>';
+    });
+    list.innerHTML = rows.join('');
+    card.style.display = 'block';
+  } catch (err) {
+    console.error('Error loading pending profiles:', err);
+  }
+}
+
+async function activatePendingProfile(id, role) {
+  var { error } = await db.from('profiles').update({ status: 'Active', role: role }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Cuenta activada ✓', 'success');
+  await loadData(true);
+}
+
+async function mergePendingProfile(pendingId, dupId) {
+  var { error } = await db.rpc('merge_pending_profile', { pending_id: pendingId, dup_id: dupId });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Perfiles fusionados ✓', 'success');
+  await loadData(true);
+}
 
 async function loadTeachersTable() {
   var tbody = document.getElementById('teachersTableBody');
