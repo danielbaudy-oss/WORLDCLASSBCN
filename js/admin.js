@@ -2862,18 +2862,28 @@ async function loadPendingRequests() {
   }
 }
 
+// Allocation-limited leave types: which profiles column holds the cap, and the label shown.
+var ALLOCATION_LIMITS = {
+  Annual:   { col: 'annual_days',   def: 31, label: 'Vacaciones' },
+  Personal: { col: 'personal_days', def: 3,  label: 'D.R. Empleado' },
+  School:   { col: 'school_days',   def: 4,  label: 'D.R. Empresa' }
+};
+
 async function approveRequest(id) {
-  // For D.R. Empresa (School) requests, block approval that would exceed the person's allocation.
+  // For allocation-limited types (Annual/Personal/School), block approval that would exceed the
+  // person's allocation. The DB trigger enforce_leave_allocation is the real boundary; this gives
+  // a clear message first.
   var { data: req } = await db.from('holiday_requests').select('user_id, type, days').eq('id', id).single();
-  if (req && req.type === 'School') {
-    var { data: prof } = await db.from('profiles').select('name, school_days').eq('id', req.user_id).single();
-    var allocated = (prof && prof.school_days != null) ? prof.school_days : DEFAULTS.SCHOOL_DAYS;
+  var lim = req && ALLOCATION_LIMITS[req.type];
+  if (lim) {
+    var { data: prof } = await db.from('profiles').select('name, ' + lim.col).eq('id', req.user_id).single();
+    var allocated = (prof && prof[lim.col] != null) ? prof[lim.col] : lim.def;
     var { data: approved } = await db.from('holiday_requests')
-      .select('days').eq('user_id', req.user_id).eq('type', 'School').eq('status', 'Approved').neq('id', id);
+      .select('days').eq('user_id', req.user_id).eq('type', req.type).eq('status', 'Approved').neq('id', id);
     var used = (approved || []).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
     var who = (prof && prof.name) ? prof.name : 'Este empleado';
     if (used + (parseFloat(req.days) || 0) > allocated) {
-      showToast('No se puede aprobar: ' + who + ' llegaría a ' + (used + (parseFloat(req.days) || 0)) + '/' + allocated + ' días de D.R. Empresa (límite ' + allocated + ').', 'error');
+      showToast('No se puede aprobar: ' + who + ' llegaría a ' + (used + (parseFloat(req.days) || 0)) + '/' + allocated + ' días de ' + lim.label + ' (límite ' + allocated + ').', 'error');
       return;
     }
   }
@@ -2885,8 +2895,8 @@ async function approveRequest(id) {
   }).eq('id', id);
 
   if (error) {
-    if ((error.message || '').indexOf('LIMITE_DR_EMPRESA') !== -1) {
-      showToast('No se puede aprobar: superaría el límite de días de D.R. Empresa del empleado.', 'error');
+    if ((error.message || '').indexOf('LIMITE_PERMISO') !== -1 || (error.message || '').indexOf('LIMITE_DR_EMPRESA') !== -1) {
+      showToast('No se puede aprobar: superaría el límite de días de permiso del empleado.', 'error');
     } else {
       showToast('Error: ' + error.message, 'error');
     }
@@ -3454,8 +3464,8 @@ async function assignDREmpresa() {
   });
 
   if (error) {
-    // The DB trigger raises with the LIMITE_DR_EMPRESA marker if the allocation is exceeded.
-    if ((error.message || '').indexOf('LIMITE_DR_EMPRESA') !== -1) {
+    // The DB trigger raises with the LIMITE_PERMISO marker if the allocation is exceeded.
+    if ((error.message || '').indexOf('LIMITE_PERMISO') !== -1 || (error.message || '').indexOf('LIMITE_DR_EMPRESA') !== -1) {
       showToast(who + ' ya ha alcanzado su límite de ' + allocated + ' días de D.R. Empresa. No se pueden asignar más.', 'error');
     } else {
       showToast('Error: ' + error.message, 'error');
