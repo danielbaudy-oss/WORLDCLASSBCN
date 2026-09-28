@@ -2863,13 +2863,35 @@ async function loadPendingRequests() {
 }
 
 async function approveRequest(id) {
+  // For D.R. Empresa (School) requests, block approval that would exceed the person's allocation.
+  var { data: req } = await db.from('holiday_requests').select('user_id, type, days').eq('id', id).single();
+  if (req && req.type === 'School') {
+    var { data: prof } = await db.from('profiles').select('name, school_days').eq('id', req.user_id).single();
+    var allocated = (prof && prof.school_days != null) ? prof.school_days : DEFAULTS.SCHOOL_DAYS;
+    var { data: approved } = await db.from('holiday_requests')
+      .select('days').eq('user_id', req.user_id).eq('type', 'School').eq('status', 'Approved').neq('id', id);
+    var used = (approved || []).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+    var who = (prof && prof.name) ? prof.name : 'Este empleado';
+    if (used + (parseFloat(req.days) || 0) > allocated) {
+      showToast('No se puede aprobar: ' + who + ' llegaría a ' + (used + (parseFloat(req.days) || 0)) + '/' + allocated + ' días de D.R. Empresa (límite ' + allocated + ').', 'error');
+      return;
+    }
+  }
+
   var { error } = await db.from('holiday_requests').update({
     status: 'Approved',
     processed_by: adminProfile.id,
     processed_at: new Date().toISOString()
   }).eq('id', id);
 
-  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  if (error) {
+    if ((error.message || '').indexOf('LIMITE_DR_EMPRESA') !== -1) {
+      showToast('No se puede aprobar: superaría el límite de días de D.R. Empresa del empleado.', 'error');
+    } else {
+      showToast('Error: ' + error.message, 'error');
+    }
+    return;
+  }
   showToast('Solicitud aprobada', 'success');
   await loadPendingRequests();
   await loadHolidayData();
@@ -3403,6 +3425,23 @@ async function assignDREmpresa() {
   if (!userId) { showToast('Selecciona un empleado', 'error'); return; }
   if (!date) { showToast('Selecciona una fecha', 'error'); return; }
 
+  // Allocation check (D.R. Empresa = type 'School'). The DB trigger enforce_school_days is the
+  // real boundary; this pre-check just gives Rocío a clear message before the write is attempted.
+  var { data: prof } = await db.from('profiles').select('name, school_days').eq('id', userId).single();
+  var allocated = (prof && prof.school_days != null) ? prof.school_days : DEFAULTS.SCHOOL_DAYS;
+  var { data: existing } = await db.from('holiday_requests')
+    .select('days').eq('user_id', userId).eq('type', 'School').eq('status', 'Approved');
+  var used = (existing || []).reduce(function(s, r) { return s + (parseFloat(r.days) || 0); }, 0);
+  var who = (prof && prof.name) ? prof.name : 'Este empleado';
+  if (used >= allocated) {
+    showToast(who + ' ya tiene ' + used + '/' + allocated + ' días de D.R. Empresa. No quedan días disponibles.', 'error');
+    return;
+  }
+  if (used + 1 > allocated) {
+    showToast(who + ' solo tiene ' + Math.max(0, allocated - used) + ' día(s) de D.R. Empresa disponibles (usa ' + used + '/' + allocated + ').', 'error');
+    return;
+  }
+
   var { error } = await db.from('holiday_requests').insert({
     user_id: userId,
     start_date: date,
@@ -3414,8 +3453,16 @@ async function assignDREmpresa() {
     processed_at: new Date().toISOString()
   });
 
-  if (error) { showToast('Error: ' + error.message, 'error'); return; }
-  showToast('D.R. Empresa asignado', 'success');
+  if (error) {
+    // The DB trigger raises with the LIMITE_DR_EMPRESA marker if the allocation is exceeded.
+    if ((error.message || '').indexOf('LIMITE_DR_EMPRESA') !== -1) {
+      showToast(who + ' ya ha alcanzado su límite de ' + allocated + ' días de D.R. Empresa. No se pueden asignar más.', 'error');
+    } else {
+      showToast('Error: ' + error.message, 'error');
+    }
+    return;
+  }
+  showToast('D.R. Empresa asignado (' + (used + 1) + '/' + allocated + ')', 'success');
   cachedHolidays = null;
   await loadDREmpresaList();
 }
