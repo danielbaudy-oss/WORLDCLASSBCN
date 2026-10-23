@@ -2672,3 +2672,13 @@ follows automatically. The info@ path would have worked fine.
 Offered and declined for now: add `changed_by_uid uuid` to `audit_log`; extend the profiles trigger to
 INSERT/DELETE; rename the `Milena` profile to "Oficina (contact@)" so the log stops naming a specific
 person for shared-account activity. Pick these up if the punch data ever goes to a real audit.
+
+### 2026-10-23: Rocío D.R. Empresa moved from 4 May to 2 Apr (data only)
+- Requested by Daniel. Rocío's latest approved School row (`611cde39`) moved from Mon 2026-05-04 to Thu 2026-04-02 (Holy Thursday). Reason now ends with ` [Movido desde 2026-05-04]`.
+- `created_at` / `processed_at` backdated to 2026-03-26 10:00 CET so it shows as granted beforehand. `processed_by` was null, so it is now set to Rocío.
+- Approved School days stay at 4 (12 Feb, 23 Feb, 26 Feb, 2 Apr), which equals her allocation of 4.
+- 2026-05-04 is now a worked day: IN 08:30, OUT 13:00, IN 13:30, OUT 16:00 = 7.0 h. Notes: "Añadido por admin (D.R. Empresa movido al 2026-04-02)".
+- The date was frozen (FreezeDate 2026-10-13), so `enforce_punch_freeze_trigger` was disabled for this one transaction only, then re-enabled before COMMIT. Verified `tgenabled='O'` afterwards. A test showed a non-admin insert on a frozen date is blocked again; nothing was left behind.
+- Side note: `enforce_punch_freeze()` lets admins and service-key writes (`auth.uid()` null) through by design, so the freeze only blocks non-admin users.
+- The audit triggers kept firing: 1 UPDATE and 4 INSERT rows were written at the real time (2026-10-23 14:02 UTC, actor null). audit_log was deliberately not altered.
+- Traceability: `supabase/migrations/20261023160250_rocio_move_school_day_to_apr2.sql` (already executed, do not re-apply).
