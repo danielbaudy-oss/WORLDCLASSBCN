@@ -2682,3 +2682,9 @@ person for shared-account activity. Pick these up if the punch data ever goes to
 - Side note: `enforce_punch_freeze()` lets admins and service-key writes (`auth.uid()` null) through by design, so the freeze only blocks non-admin users.
 - The audit triggers kept firing: 1 UPDATE and 4 INSERT rows were written at the real time (2026-10-23 14:02 UTC, actor null). audit_log was deliberately not altered.
 - Traceability: `supabase/migrations/20261023160250_rocio_move_school_day_to_apr2.sql` (already executed, do not re-apply).
+### 2026-10-23: Admin employee calendar modal can navigate to future months
+- Before: in `renderCalendarModal()` (js/admin.js) the next arrow was `disabled` whenever `calendarMonthOffset >= 0`, so the modal stopped at the current month.
+- Now: new `changeCalendarModalMonth(delta)` + `CALENDAR_MODAL_MAX_FUTURE_MONTHS = 12`; next arrow disables only at +12 months (same cap as the Festivos/Calendario tab and teacher calendar). ACTUAL badge still only on offset 0; other months show "↺ Hoy".
+- Data: the modal already queries `time_punches` / `school_holidays` / `holiday_requests` by the displayed month's date range (not the year caches), so next-year festivos/puentes and leave load without touching `buildSchoolHolidayDateSet` / `getYearPunches`. holiday_requests now include `Pending` too (same colours, dashed border, "⏳ … (pendiente)"); Approved wins on overlap. Same in `showDayDetail()`.
+- Future days: "Fichaje incompleto" already required `dateStr < today`. Clicking a future day opens the detail (leave/festivo banner, "Sin fichajes") but hides "➕ Añadir Fichaje", and `saveNewPunch()` rejects future dates (mirrors teacher.js `isFuture` block).
+- Cache version 20260921k -> 20261023a in index/teacher/admin.html. Commit: "Admin employee calendar: allow navigating to future months".

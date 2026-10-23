@@ -1537,6 +1537,15 @@ async function loadAdminWorkersTable() {
 var calendarUserId = null;
 var calendarUserName = '';
 var calendarMonthOffset = 0;
+// Employee calendar modal can look up to this many months ahead (upcoming leave/festivos).
+var CALENDAR_MODAL_MAX_FUTURE_MONTHS = 12;
+
+function changeCalendarModalMonth(delta) {
+  var next = calendarMonthOffset + delta;
+  if (next > CALENDAR_MODAL_MAX_FUTURE_MONTHS) return;
+  calendarMonthOffset = next;
+  renderCalendarModal();
+}
 
 // weekOffset (relative to the current week) for the week that contains the 1st of the
 // month that is `monthOff` months from the current month. Never returns a future offset.
@@ -1614,9 +1623,10 @@ async function renderCalendarModal() {
       .order('date').order('time'),
     db.from('school_holidays').select('*')
       .lte('start_date', endDate).gte('end_date', startDate),
+    // Approved + Pending so planned (not yet approved) leave in upcoming months is visible
     db.from('holiday_requests').select('*')
       .eq('user_id', calendarUserId)
-      .eq('status', 'Approved')
+      .in('status', ['Approved', 'Pending'])
       .lte('start_date', endDate).gte('end_date', startDate)
   ]);
   var punches = results[0].data || [];
@@ -1641,29 +1651,33 @@ async function renderCalendarModal() {
     }
   });
 
-  var teacherHolidayMap = {};  // dateStr -> {type, reason}
+  var teacherHolidayMap = {};  // dateStr -> {type, reason, pending}
   teacherHols.forEach(function(h) {
     var cur = new Date(h.start_date + 'T12:00:00');
     var end = new Date(h.end_date + 'T12:00:00');
+    var isPending = h.status === 'Pending';
     while (cur <= end) {
-      teacherHolidayMap[formatDate(cur)] = { type: h.type, reason: h.reason, days: h.days };
+      var k = formatDate(cur);
+      // An approved request wins over a pending one on the same date
+      if (!(isPending && teacherHolidayMap[k] && !teacherHolidayMap[k].pending)) {
+        teacherHolidayMap[k] = { type: h.type, reason: h.reason, days: h.days, pending: isPending };
+      }
       cur.setDate(cur.getDate() + 1);
     }
   });
 
-  var isCurrentMonth = calendarMonthOffset >= 0;
   var prevDisabled = '';
-  var nextDisabled = calendarMonthOffset >= 0 ? 'disabled' : '';
+  var nextDisabled = calendarMonthOffset >= CALENDAR_MODAL_MAX_FUTURE_MONTHS ? 'disabled' : '';
 
   var html = '<div style="margin-bottom:20px">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
-      '<button class="month-nav-btn" onclick="calendarMonthOffset--;renderCalendarModal()" ' + prevDisabled + '>‹</button>' +
+      '<button class="month-nav-btn" onclick="changeCalendarModalMonth(-1)" ' + prevDisabled + '>‹</button>' +
       '<div style="font-size:18px;font-weight:700;color:var(--primary);cursor:' + (calendarMonthOffset === 0 ? 'default' : 'pointer') + '"' +
         (calendarMonthOffset === 0 ? '' : ' onclick="calendarMonthOffset=0;renderCalendarModal()" title="Volver al mes actual"') + '>' +
         monthNames[month] + ' ' + year +
         (calendarMonthOffset === 0 ? ' <span class="actual-badge">ACTUAL</span>' : ' <span style="font-size:11px;color:#3b82f6;margin-left:6px;text-decoration:underline">↺ Hoy</span>') +
       '</div>' +
-      '<button class="month-nav-btn" onclick="calendarMonthOffset++;renderCalendarModal()" ' + nextDisabled + '>›</button>' +
+      '<button class="month-nav-btn" onclick="changeCalendarModalMonth(1)" ' + nextDisabled + '>›</button>' +
     '</div>' +
     // Legend
     '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:#64748b">' +
@@ -1727,8 +1741,9 @@ async function renderCalendarModal() {
     var overlayLabel = '';
     if (teacherHol && holidayColors[teacherHol.type]) {
       var c = holidayColors[teacherHol.type];
-      inlineStyle = 'background:' + c.bg + ';border:2px solid ' + c.border + ';';
-      overlayLabel = c.emoji + ' ' + c.label;
+      // Pending requests: same colours, dashed border + ⏳ so they read as "not yet approved"
+      inlineStyle = 'background:' + c.bg + ';border:2px ' + (teacherHol.pending ? 'dashed' : 'solid') + ' ' + c.border + ';';
+      overlayLabel = (teacherHol.pending ? '⏳ ' : '') + c.emoji + ' ' + c.label + (teacherHol.pending ? ' (pendiente)' : '');
     } else if (schoolHol) {
       inlineStyle = 'background:#fef3c7;border:2px solid #f59e0b;';
       overlayLabel = '🏫 ' + schoolHol;
@@ -1771,12 +1786,15 @@ async function showDayDetail(dateStr) {
     db.from('school_holidays').select('*')
       .lte('start_date', dateStr).gte('end_date', dateStr),
     db.from('holiday_requests').select('*')
-      .eq('user_id', calendarUserId).eq('status', 'Approved')
+      .eq('user_id', calendarUserId).in('status', ['Approved', 'Pending'])
       .lte('start_date', dateStr).gte('end_date', dateStr)
   ]);
   var punches = results[0].data || [];
   var schoolHol = (results[1].data || [])[0];
-  var teacherHol = (results[2].data || [])[0];
+  var dayHols = results[2].data || [];
+  // Approved wins over Pending, mirroring the calendar cells
+  var teacherHol = dayHols.filter(function(h) { return h.status === 'Approved'; })[0] || dayHols[0];
+  var isFutureDay = dateStr > formatDate(new Date());
 
   var inOutPunches = punches.filter(function(p) { return p.punch_type === 'IN' || p.punch_type === 'OUT'; });
   var hours = calculateDayHours(inOutPunches);
@@ -1803,6 +1821,7 @@ async function showDayDetail(dateStr) {
     var c = holidayColors[teacherHol.type];
     html += '<div style="background:' + c.bg + ';color:' + c.color + ';padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:600;font-size:13px">' +
       c.emoji + ' ' + c.label +
+      (teacherHol.status === 'Pending' ? ' (⏳ pendiente de aprobación)' : '') +
       (teacherHol.reason ? ' — ' + teacherHol.reason : '') +
       '</div>';
   }
@@ -1812,8 +1831,8 @@ async function showDayDetail(dateStr) {
       '</div>';
   }
 
-  // Super admin add punch button
-  if (isSuperAdmin) {
+  // Super admin add punch button — not on future days (employees can't punch the future either)
+  if (isSuperAdmin && !isFutureDay) {
     html += '<div style="margin-bottom:15px">' +
       '<button class="action-btn add" onclick="showAddPunchForm(\'' + dateStr + '\')" style="padding:8px 16px;font-size:13px">➕ Añadir Fichaje</button>' +
     '</div>';
@@ -1875,6 +1894,7 @@ async function saveNewPunch(dateStr) {
   var timeVal = document.getElementById('newPunchTime').value;
   var typeVal = document.getElementById('newPunchType').value;
   if (!timeVal) { showToast('Introduce una hora', 'error'); return; }
+  if (dateStr > formatDate(new Date())) { showToast('No se puede fichar en un día futuro', 'error'); return; }
 
   // Auto-detect type based on existing punches
   if (typeVal === 'auto') {
