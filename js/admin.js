@@ -177,7 +177,8 @@ function goToTeacher() {
 }
 
 // --- Modal System ---
-function openModal(title, bodyHtml, wide) {
+// opts.anchorTop: pin the modal to the top (header stays put while content height changes).
+function openModal(title, bodyHtml, wide, opts) {
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalBody').innerHTML = bodyHtml;
   var container = document.getElementById('modalContainer');
@@ -186,11 +187,18 @@ function openModal(title, bodyHtml, wide) {
   } else {
     container.style.maxWidth = '600px';
   }
-  document.getElementById('modalOverlay').classList.add('active');
+  var overlay = document.getElementById('modalOverlay');
+  var anchorTop = !!(opts && opts.anchorTop);
+  // Reset scroll only when switching into top-anchored mode, so month re-renders keep their position
+  if (anchorTop && !overlay.classList.contains('modal-overlay--top')) overlay.scrollTop = 0;
+  overlay.classList.toggle('modal-overlay--top', anchorTop);
+  overlay.classList.add('active');
 }
 
 function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('active');
+  var overlay = document.getElementById('modalOverlay');
+  overlay.classList.remove('active');
+  overlay.classList.remove('modal-overlay--top');
 }
 
 // Close modal on backdrop click
@@ -1772,7 +1780,7 @@ async function renderCalendarModal() {
   html += '</div></div>';
   html += '<div id="calendarDayDetail"></div>';
 
-  openModal('📅 ' + calendarUserName, html, true);
+  openModal('📅 ' + calendarUserName, html, true, { anchorTop: true });
 }
 
 async function showDayDetail(dateStr) {
