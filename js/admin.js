@@ -1266,7 +1266,7 @@ async function loadTeachersTable() {
       var displayTotalHours = yearlyHours + medicalHours + medApptHours + permisoHours;
       // Pagadas column: paid hours dated in the selected period + yearly total.
       var paidCell = paidTotal > 0
-        ? (viewMode === 'weekly' ? 'Semana' : 'Mes') + ': ' + periodPaidHours.toFixed(1) + 'h' +
+        ? periodPaidHours.toFixed(1) + 'h' +
           '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">Total: ' + paidTotal.toFixed(1) + 'h</div>'
         : paidTotal.toFixed(1) + 'h';
 
@@ -1510,7 +1510,7 @@ async function loadAdminWorkersTable() {
       var displayTotalHours = yearlyHours + medicalHours + medApptHours + permisoHours;
       // Pagadas column: paid hours dated in the selected period + yearly total.
       var paidCell = paidTotal > 0
-        ? (viewMode === 'weekly' ? 'Semana' : 'Mes') + ': ' + periodPaidHours.toFixed(1) + 'h' +
+        ? periodPaidHours.toFixed(1) + 'h' +
           '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">Total: ' + paidTotal.toFixed(1) + 'h</div>'
         : paidTotal.toFixed(1) + 'h';
 

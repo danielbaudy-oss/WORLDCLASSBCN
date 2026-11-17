@@ -2706,3 +2706,6 @@ person for shared-account activity. Pick these up if the punch data ever goes to
 - Example: VERÓNICA Aug 2026: Horas Mes 8.0h, Pagadas "Mes: 10.0h" / "Total: 65.0h". JOAN: Pagadas 0.0h.
 - Unchanged: progress %, bar, h esp, status colours, stats card, Excel export, js/teacher.js. No column sorting.
 - Deployed js/admin.js -> js/, index/teacher/admin.html -> repo root. Cache version 20261117a -> 20261117b.
+### 2026-11-17: Pagadas column: label prefix removed
+- Daniel: skip the "Mes:" / "Semana:" label, the selection already says which period. js/admin.js `loadTeachersTable` + `loadAdminWorkersTable` `paidCell`: main line is now just the period figure (e.g. `10.0h`); grey `Total: X.Xh` sub-line and the no-paid-hours `0.0h` case unchanged.
+- Cache version 20261117b -> 20261117c in index/teacher/admin.html.
