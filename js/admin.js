@@ -492,12 +492,12 @@ var CONTRACT_FIELDS = {
     annual: 'editAnnualDays', personal: 'editPersonalDays', school: 'editSchoolDays',
     medAppt: 'editMedApptHours', unpaid: 'editUnpaidDays', prep: 'editPrepTime',
     hours: 'editExpectedHours', pct: 'editHoursPct', note: 'editProrateNote',
-    segList: 'editSegList', segDate: 'editSegDate', segPct: 'editSegPct', segHours: 'editSegHours', segHint: 'editSegTopHint' },
+    segList: 'editSegList', segDate: 'editSegDate', segPct: 'editSegPct', segHours: 'editSegHours', segHint: 'editSegTopHint', segTotal: 'editSegTotal' },
   editAdmin: { admin: true, start: 'editAdminContractStart', end: 'editAdminContractEnd',
     annual: 'editAdminAnnualDays', personal: 'editAdminPersonalDays', school: 'editAdminSchoolDays',
     medAppt: 'editAdminMedApptHours', unpaid: 'editAdminUnpaidDays', prep: null,
     hours: 'editAdminExpectedHours', pct: 'editAdminHoursPct', note: 'editAdminProrateNote',
-    segList: 'editAdminSegList', segDate: 'editAdminSegDate', segPct: 'editAdminSegPct', segHours: 'editAdminSegHours', segHint: 'editAdminSegTopHint' },
+    segList: 'editAdminSegList', segDate: 'editAdminSegDate', segPct: 'editAdminSegPct', segHours: 'editAdminSegHours', segHint: 'editAdminSegTopHint', segTotal: 'editAdminSegTotal' },
   addTeacher: { admin: false, start: 'addTeacherContractStart', end: 'addTeacherContractEnd',
     annual: 'addTeacherAnnual', personal: 'addTeacherPersonal', school: 'addTeacherSchool',
     medAppt: null, unpaid: null, prep: 'addTeacherPrep',
@@ -510,8 +510,11 @@ var CONTRACT_FIELDS = {
     segList: null, segDate: null, segPct: null, segHours: null, segHint: null }
 };
 
-// Jornada changes being edited in the open edit modal (in memory until "Guardar Cambios").
-// { ctx, profileId, original: [{valid_from, yearly_hours}], staged: [...], freezeDate: 'YYYY-MM-DD' | '' }
+// Jornada periods being edited in the open edit modal (in memory until "Guardar Cambios").
+// { ctx, profileId, original: [{valid_from, yearly_hours}] (DB rows), staged: [...] (periods, ALWAYS >= 1:
+//   the first period starts at Alta or 1 Jan), freezeDate: 'YYYY-MM-DD' | '' }
+// Storage: one period = no jornada_segments rows (rate in profiles.expected_yearly_hours, today's
+// code path); two or more periods = one row per period.
 var jornadaEdit = null;
 
 // Share of the year's working days covered by [contractStart, contractEnd]. 1 = full year.
@@ -561,7 +564,7 @@ function prorateAllocationFields(ctx) {
     var h = parseFloat(hoursEl.value);
     if (!isNaN(h) && h > 0) jornada = Math.min(1, h / fullTime);
   }
-  if (jornadaEdit && jornadaEdit.ctx === ctx && jornadaEdit.staged.length) {
+  if (jornadaHasChanges(ctx)) {
     set(m.prep, jornadaPrepHours(ctx)); // jornada changes: prep follows each segment's %
   } else {
     set(m.prep, Math.round(base.PREP_TIME_YEARLY * jornada * wf * 10) / 10);
@@ -572,6 +575,13 @@ function prorateAllocationFields(ctx) {
     noteEl.textContent = wf < 1
       ? 'Permisos prorrateados al ' + Math.round(wf * 100) + '% del año laborable. Puedes ajustarlos a mano.'
       : 'Periodo completo: asignación anual entera.';
+  }
+
+  // Edit modals: the first jornada period follows Alta, and the yearly total follows the window.
+  if (jornadaEdit && jornadaEdit.ctx === ctx) {
+    syncJornadaBaseDate(ctx);
+    renderJornadaSegments(ctx);
+    refreshJornadaTopFields(ctx);
   }
 }
 
@@ -604,8 +614,9 @@ function jornadaSectionHtml(ctx) {
   var m = CONTRACT_FIELDS[ctx];
   return '<div class="settings-section">' +
     '<div class="settings-section-title">🔄 Cambios de jornada</div>' +
-    '<div class="form-hint" style="margin-bottom:8px">Si la jornada cambia durante el año (p. ej. del 20% al 80% desde octubre), añade la fecha y el nuevo %. ' +
-      'Las horas esperadas, las bajas y las horas no lectivas se calculan por tramos. Los días de permiso no cambian.</div>' +
+    '<div class="form-hint" style="margin-bottom:8px">La jornada se indica aquí, por periodos. El primer periodo empieza en el alta (o el 1 de enero): ' +
+      'para fijar su %, pon esa fecha en "Desde". Si la jornada cambia durante el año (p. ej. del 20% al 80% desde octubre), añade la fecha y el nuevo %. ' +
+      'Las horas esperadas, las bajas y las horas no lectivas se calculan por periodos. Los días de permiso no cambian.</div>' +
     '<div id="' + m.segList + '" style="margin-bottom:10px"></div>' +
     '<div class="settings-grid">' +
       '<div class="setting-item">' +
@@ -626,16 +637,76 @@ function jornadaSectionHtml(ctx) {
 }
 
 // Loads the person's jornada rows + FreezeDate into jornadaEdit. false = could not load (modal must not open).
-async function loadJornadaEdit(ctx, userId) {
+// Without rows the periods list starts with ONE period: Alta (or 1 Jan) at the profile's current rate.
+async function loadJornadaEdit(ctx, userId, profile) {
   var segRes = await db.from('jornada_segments').select('valid_from, yearly_hours').eq('profile_id', userId).order('valid_from');
   if (segRes.error) { showToast('Error al cargar los cambios de jornada', 'error'); return false; }
   var freezeDate = '';
   var frRes = await db.from('app_config').select('value').eq('key', 'FreezeDate').maybeSingle();
   if (frRes.error) console.warn('No se pudo leer FreezeDate', frRes.error);
   else freezeDate = (frRes.data && frRes.data.value) || '';
+  if (!cachedSchoolHolidays) {
+    var shRes = await db.from('school_holidays').select('*');
+    cachedSchoolHolidays = shRes.data || [];
+  }
   var rows = (segRes.data || []).map(function(r) { return { valid_from: r.valid_from, yearly_hours: r.yearly_hours }; });
-  jornadaEdit = { ctx: ctx, profileId: userId, original: rows, staged: rows.slice(), freezeDate: String(freezeDate) };
+  var fallback = (CONTRACT_FIELDS[ctx].admin ? ADMIN_DEFAULTS : DEFAULTS).EXPECTED_YEARLY_HOURS;
+  var periods = rows.length ? rows.map(function(r) { return { valid_from: r.valid_from, yearly_hours: r.yearly_hours }; }) : [{
+    valid_from: (profile && profile.contract_start) || (new Date().getFullYear() + '-01-01'),
+    yearly_hours: (profile && profile.expected_yearly_hours) || fallback
+  }];
+  jornadaEdit = { ctx: ctx, profileId: userId, original: rows, staged: periods, freezeDate: String(freezeDate) };
   return true;
+}
+
+// true when the open modal has two or more jornada periods (rate changes during the year).
+function jornadaHasChanges(ctx) {
+  return !!(jornadaEdit && jornadaEdit.ctx === ctx && jornadaEdit.staged.length > 1);
+}
+
+// Start date of the first period: the modal's Alta, or 1 January of the current year.
+function jornadaBaseDate(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  var startEl = m && document.getElementById(m.start);
+  return (startEl && startEl.value) || (new Date().getFullYear() + '-01-01');
+}
+
+// Keeps the first period's date on Alta / 1 Jan when Alta changes (only if it stays before the next period).
+function syncJornadaBaseDate(ctx) {
+  if (!jornadaEdit || jornadaEdit.ctx !== ctx) return;
+  var staged = jornadaEdit.staged;
+  var base = jornadaBaseDate(ctx);
+  if (staged.length === 1 || base < staged[1].valid_from) staged[0].valid_from = base;
+}
+
+// This year's expected total for the staged periods, computed like the overview's Esperado/Año
+// sub-line (same calendar, contract window and computeJornadaTargets).
+function jornadaYearTotal(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  var staged = jornadaEdit.staged;
+  var startEl = document.getElementById(m.start), endEl = document.getElementById(m.end);
+  var cs = (startEl && startEl.value) || null, ce = (endEl && endEl.value) || null;
+  var precomputed = precomputeWorkingDaysForYear(buildSchoolHolidayDateSet(cachedSchoolHolidays || []));
+  var progress = getTeacherProgress(precomputed, null, 0, cs, ce);
+  var t = computeJornadaTargets({
+    profile: { expected_yearly_hours: staged[0].yearly_hours, hours_adjustment: 0 },
+    segments: staged.length > 1 ? staged : [],
+    fallback: (m.admin ? ADMIN_DEFAULTS : DEFAULTS).EXPECTED_YEARLY_HOURS,
+    allWorkingDays: precomputed.allWorkingDays, passedWorkingDays: precomputed.passedWorkingDays, holidayDates: null,
+    contractStart: cs, contractEnd: ce, windowFraction: progress.windowFraction,
+    totalWorkingDays: progress.totalWorkingDays, progressRatio: progress.progressRatio, todayStr: formatDate(new Date())
+  });
+  return t.expectedYearly;
+}
+
+// Fills the add form with the first period, so its % can be changed and re-entered.
+function editFirstJornadaPeriod(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  if (!m || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
+  var first = jornadaEdit.staged[0];
+  document.getElementById(m.segDate).value = first.valid_from;
+  document.getElementById(m.segHours).value = first.yearly_hours;
+  syncSegPctFromHours(ctx);
 }
 
 function syncSegHoursFromPct(ctx) {
@@ -668,10 +739,6 @@ function renderJornadaSegments(ctx) {
   var el = m && document.getElementById(m.segList);
   if (!el || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
   var staged = jornadaEdit.staged;
-  if (!staged.length) {
-    el.innerHTML = '<div class="form-hint">Sin cambios: se aplica la misma jornada todo el año.</div>';
-    return;
-  }
   var html = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     '<tr style="color:#64748b;text-align:left"><th style="padding:4px">Desde</th><th style="padding:4px">% jornada</th><th style="padding:4px">Horas/año</th><th></th></tr>';
   staged.forEach(function(s, i) {
@@ -679,31 +746,34 @@ function renderJornadaSegments(ctx) {
       '<td style="padding:4px">' + jornadaDateLabel(s.valid_from) + (i === 0 ? ' <span style="color:#94a3b8">(inicio)</span>' : '') + '</td>' +
       '<td style="padding:4px">' + jornadaPctLabel(s.yearly_hours, m.admin) + '</td>' +
       '<td style="padding:4px">' + s.yearly_hours + 'h</td>' +
-      '<td style="padding:4px;text-align:right">' + (i === 0 ? '' :
-        '<button type="button" title="Eliminar este cambio" onclick="deleteJornadaSegment(\'' + ctx + '\',\'' + s.valid_from + '\')" style="background:none;border:none;cursor:pointer;font-size:14px">🗑️</button>') + '</td>' +
+      '<td style="padding:4px;text-align:right">' + (i === 0
+        ? '<button type="button" title="Cambiar el % del primer periodo" onclick="editFirstJornadaPeriod(\'' + ctx + '\')" style="background:none;border:none;cursor:pointer;font-size:14px">✏️</button>'
+        : '<button type="button" title="Eliminar este cambio" onclick="deleteJornadaSegment(\'' + ctx + '\',\'' + s.valid_from + '\')" style="background:none;border:none;cursor:pointer;font-size:14px">🗑️</button>') + '</td>' +
     '</tr>';
   });
+  if (staged.length === 1) {
+    html += '<tr><td colspan="4" class="form-hint" style="padding:4px">Misma jornada todo el año.</td></tr>';
+  }
   el.innerHTML = html + '</table>';
 }
 
-// With jornada changes the top "Horas Anuales" / "%" fields show the rate in force today and are
-// read-only (the save RPC keeps expected_yearly_hours in sync). Without changes: editable as before.
+// The top "Horas Anuales Esperadas" / "% de jornada completa" fields are read-only results: the rate
+// in force today according to the periods (saved to expected_yearly_hours), plus this year's total.
 function refreshJornadaTopFields(ctx) {
   var m = CONTRACT_FIELDS[ctx];
   if (!m || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
   var hEl = document.getElementById(m.hours), pEl = document.getElementById(m.pct), hint = document.getElementById(m.segHint);
   if (!hEl || !pEl) return;
-  var locked = jornadaEdit.staged.length > 0;
-  if (locked) {
-    hEl.value = jornadaRateOn(jornadaEdit.staged, formatDate(new Date()));
-    syncPctFromHours(ctx);
-  }
+  hEl.value = jornadaRateOn(jornadaEdit.staged, formatDate(new Date()));
+  syncPctFromHours(ctx);
   [hEl, pEl].forEach(function(el) {
-    el.readOnly = locked;
-    el.style.background = locked ? '#f1f5f9' : '';
-    el.style.color = locked ? '#64748b' : '';
+    el.readOnly = true;
+    el.style.background = '#f1f5f9';
+    el.style.color = '#64748b';
   });
-  if (hint) hint.textContent = locked ? 'Jornada actual según los cambios de jornada' : '';
+  if (hint) hint.textContent = 'Jornada en vigor hoy, calculada a partir de los periodos de "Cambios de jornada".';
+  var totalEl = document.getElementById(m.segTotal);
+  if (totalEl) totalEl.textContent = 'Total esperado este año: ' + Math.round(jornadaYearTotal(ctx)) + 'h';
 }
 
 // Yearly prep hours with jornada changes: 70h × Σ (segment % capped at 100) × share of the year's
@@ -735,7 +805,7 @@ function refreshPrepFromJornada(ctx) {
   var m = CONTRACT_FIELDS[ctx];
   var prepEl = m && m.prep && document.getElementById(m.prep);
   if (!prepEl || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
-  if (jornadaEdit.staged.length) {
+  if (jornadaEdit.staged.length > 1) {
     prepEl.value = jornadaPrepHours(ctx);
   } else {
     var startEl = document.getElementById(m.start), endEl = document.getElementById(m.end);
@@ -770,33 +840,30 @@ function addJornadaSegment(ctx) {
   if (dy < y - 1 || dy > y + 1) { showToast('La fecha debe estar entre ' + (y - 1) + ' y ' + (y + 1), 'error'); return; }
   var cs = document.getElementById(m.start).value || '', ce = document.getElementById(m.end).value || '';
   if ((cs && ds < cs) || (ce && ds > ce)) { showToast('La fecha del cambio debe estar dentro del periodo de contrato', 'error'); return; }
-  if (staged.some(function(s) { return s.valid_from === ds; })) { showToast('Ya hay un cambio de jornada en esa fecha', 'error'); return; }
-  var baseDate = cs || (dy + '-01-01');
-  if (!staged.length && ds <= baseDate) {
-    showToast('Para cambiar la jornada desde el inicio, modifica directamente las Horas Anuales Esperadas', 'error');
+  syncJornadaBaseDate(ctx);
+  // A date on the first period's start (Alta or 1 Jan) sets the first period's rate.
+  var isFirst = ds === staged[0].valid_from;
+  if (!isFirst && ds < staged[0].valid_from) {
+    showToast('La fecha debe ser igual o posterior al inicio del primer periodo (' + jornadaDateLabel(staged[0].valid_from) + ')', 'error');
     return;
   }
+  if (!isFirst && staged.some(function(s) { return s.valid_from === ds; })) { showToast('Ya hay un cambio de jornada en esa fecha', 'error'); return; }
   var hoursStr = String(document.getElementById(m.segHours).value || '').trim();
   var hours = Number(hoursStr);
   if (!hoursStr || !Number.isInteger(hours) || hours < 1 || hours > 3000) {
     showToast('Indica un % o unas horas válidas (1–3000 h/año)', 'error');
     return;
   }
-  var baseHours = null;
-  if (!staged.length) {
-    baseHours = Number(document.getElementById(m.hours).value);
-    if (!Number.isInteger(baseHours) || baseHours < 1 || baseHours > 3000) {
-      showToast('Indica primero unas Horas Anuales Esperadas válidas (1–3000 h/año)', 'error');
-      return;
-    }
-  }
-  var rateThen = staged.length ? jornadaRateOn(staged, ds) : baseHours;
+  var rateThen = isFirst ? staged[0].yearly_hours : jornadaRateOn(staged, ds);
   if (hours === rateThen) { showToast('La jornada ya es de ' + rateThen + 'h en esa fecha', 'error'); return; }
   if (!jornadaFreezeConfirm(ds)) return;
 
-  if (!staged.length) staged.push({ valid_from: baseDate, yearly_hours: baseHours });
-  staged.push({ valid_from: ds, yearly_hours: hours });
-  staged.sort(function(a, b) { return a.valid_from < b.valid_from ? -1 : (a.valid_from > b.valid_from ? 1 : 0); });
+  if (isFirst) {
+    staged[0].yearly_hours = hours;
+  } else {
+    staged.push({ valid_from: ds, yearly_hours: hours });
+    staged.sort(function(a, b) { return a.valid_from < b.valid_from ? -1 : (a.valid_from > b.valid_from ? 1 : 0); });
+  }
   document.getElementById(m.segDate).value = '';
   document.getElementById(m.segPct).value = '';
   document.getElementById(m.segHours).value = '';
@@ -811,36 +878,30 @@ function deleteJornadaSegment(ctx, validFrom) {
   if (idx <= 0) return; // the base row "(inicio)" is not deletable
   if (!jornadaFreezeConfirm(validFrom)) return;
   staged.splice(idx, 1);
-  if (staged.length === 1) {
-    // Only the starting rate is left: back to a single rate, editable in the top fields.
-    var m = CONTRACT_FIELDS[ctx];
-    var hEl = document.getElementById(m.hours);
-    if (hEl) hEl.value = staged[0].yearly_hours;
-    syncPctFromHours(ctx);
-    jornadaEdit.staged = [];
-  }
   afterJornadaEdit(ctx);
 }
 
-// Saves jornada changes when they differ from what was loaded. Returns { ok, hasSegments }.
+// Saves the jornada periods. One period = no rows (its rate goes to expected_yearly_hours, as for
+// everyone without changes); two or more = one row per period, via the RPC, only when they differ
+// from what was loaded. Returns { ok, rate } with rate = the rate in force today, which the caller
+// writes to profiles.expected_yearly_hours on every save.
 async function saveJornadaIfChanged(ctx, userId, contractStart, contractEnd) {
-  if (!jornadaEdit || jornadaEdit.ctx !== ctx || jornadaEdit.profileId !== userId) return { ok: true, hasSegments: false };
+  if (!jornadaEdit || jornadaEdit.ctx !== ctx || jornadaEdit.profileId !== userId) return { ok: true, rate: null };
+  syncJornadaBaseDate(ctx);
   var staged = jornadaEdit.staged;
   var outside = staged.slice(1).some(function(s) {
     return (contractStart && s.valid_from < contractStart) || (contractEnd && s.valid_from > contractEnd);
   });
   if (outside) { showToast('Hay cambios de jornada fuera del periodo de contrato', 'error'); return { ok: false }; }
+  var rows = staged.length > 1 ? staged.map(function(s) { return { valid_from: s.valid_from, yearly_hours: s.yearly_hours }; }) : [];
   var key = function(list) { return list.map(function(s) { return s.valid_from + '=' + s.yearly_hours; }).join('|'); };
-  if (key(staged) !== key(jornadaEdit.original)) {
-    var res = await db.rpc('save_jornada_segments', {
-      p_profile_id: userId,
-      p_segments: staged.map(function(s) { return { valid_from: s.valid_from, yearly_hours: s.yearly_hours }; })
-    });
+  if (key(rows) !== key(jornadaEdit.original)) {
+    var res = await db.rpc('save_jornada_segments', { p_profile_id: userId, p_segments: rows });
     if (res.error) { showToast('Error al guardar los cambios de jornada: ' + res.error.message, 'error'); return { ok: false }; }
-    jornadaEdit.original = staged.slice();
+    jornadaEdit.original = rows;
     cachedJornadaSegments = null;
   }
-  return { ok: true, hasSegments: staged.length > 0 };
+  return { ok: true, rate: jornadaRateOn(staged, formatDate(new Date())) };
 }
 
 function getProgressStatus(percent) {
@@ -2365,7 +2426,7 @@ async function confirmDeletePunchAdmin(punchId, dateStr) {
 async function openEditTeacherModal(userId) {
   var { data: profile, error } = await db.from('profiles').select('*').eq('id', userId).single();
   if (error || !profile) { showToast('Error al cargar perfil', 'error'); return; }
-  if (!(await loadJornadaEdit('editTeacher', userId))) return;
+  if (!(await loadJornadaEdit('editTeacher', userId, profile))) return;
 
   var html = '<div style="margin-bottom:20px">' +
     '<div class="teacher-name" style="font-size:20px">' + profile.name + '</div>' +
@@ -2380,15 +2441,16 @@ async function openEditTeacherModal(userId) {
     '<div class="settings-grid">' +
       '<div class="setting-item highlight">' +
         '<div class="setting-label">Horas Anuales Esperadas</div>' +
-        '<input type="number" class="setting-input" id="editExpectedHours" value="' + (profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) + '" oninput="syncPctFromHours(\'editTeacher\')">' +
+        '<input type="number" class="setting-input" id="editExpectedHours" readonly value="' + (profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) + '">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">% de jornada completa</div>' +
-        '<input type="number" step="0.1" class="setting-input" id="editHoursPct" value="' + (Math.round((profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) / DEFAULTS.FULLTIME_YEARLY_HOURS * 1000) / 10) + '" oninput="syncHoursFromPct(\'editTeacher\')">' +
+        '<input type="number" step="0.1" class="setting-input" id="editHoursPct" readonly value="' + (Math.round((profile.expected_yearly_hours || DEFAULTS.EXPECTED_YEARLY_HOURS) / DEFAULTS.FULLTIME_YEARLY_HOURS * 1000) / 10) + '">' +
         '<div class="form-hint" style="margin-top:6px">100% = ' + DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
     '</div>' +
     '<div class="form-hint" id="editSegTopHint" style="margin-top:6px;font-weight:600;color:#64748b"></div>' +
+    '<div class="form-hint" id="editSegTotal" style="margin-top:2px;color:#64748b"></div>' +
   '</div>';
 
   // Jornada changes during the year
@@ -2483,10 +2545,10 @@ async function saveTeacherSettings(userId) {
     return;
   }
 
-  // Jornada changes first (the RPC owns expected_yearly_hours while there are segments)
+  // Jornada periods first; expected_yearly_hours = the rate in force today, on every save
   var js = await saveJornadaIfChanged('editTeacher', userId, updates.contract_start, updates.contract_end);
   if (!js.ok) return;
-  if (js.hasSegments) delete updates.expected_yearly_hours;
+  if (js.rate != null) updates.expected_yearly_hours = js.rate;
 
   var { error } = await db.from('profiles').update(updates).eq('id', userId);
   if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
@@ -2530,7 +2592,7 @@ async function confirmDeactivate(userId, type) {
 async function openEditAdminModal(userId) {
   var { data: profile, error } = await db.from('profiles').select('*').eq('id', userId).single();
   if (error || !profile) { showToast('Error al cargar perfil', 'error'); return; }
-  if (!(await loadJornadaEdit('editAdmin', userId))) return;
+  if (!(await loadJornadaEdit('editAdmin', userId, profile))) return;
 
   var roleBadge = profile.role === 'super_admin' ? '<span class="type-badge super_admin">Super Admin</span>' : '<span class="type-badge admin">Admin</span>';
 
@@ -2547,15 +2609,16 @@ async function openEditAdminModal(userId) {
     '<div class="settings-grid">' +
       '<div class="setting-item highlight">' +
         '<div class="setting-label">Horas Anuales Esperadas</div>' +
-        '<input type="number" class="setting-input" id="editAdminExpectedHours" value="' + (profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) + '" oninput="syncPctFromHours(\'editAdmin\')">' +
+        '<input type="number" class="setting-input" id="editAdminExpectedHours" readonly value="' + (profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) + '">' +
       '</div>' +
       '<div class="setting-item">' +
         '<div class="setting-label">% de jornada completa</div>' +
-        '<input type="number" step="0.1" class="setting-input" id="editAdminHoursPct" value="' + (Math.round((profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) / ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS * 1000) / 10) + '" oninput="syncHoursFromPct(\'editAdmin\')">' +
+        '<input type="number" step="0.1" class="setting-input" id="editAdminHoursPct" readonly value="' + (Math.round((profile.expected_yearly_hours || ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS) / ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS * 1000) / 10) + '">' +
         '<div class="form-hint" style="margin-top:6px">100% = ' + ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
     '</div>' +
     '<div class="form-hint" id="editAdminSegTopHint" style="margin-top:6px;font-weight:600;color:#64748b"></div>' +
+    '<div class="form-hint" id="editAdminSegTotal" style="margin-top:2px;color:#64748b"></div>' +
   '</div>';
 
   // Jornada changes during the year
@@ -2637,10 +2700,10 @@ async function saveAdminSettings(userId) {
     return;
   }
 
-  // Jornada changes first (the RPC owns expected_yearly_hours while there are segments)
+  // Jornada periods first; expected_yearly_hours = the rate in force today, on every save
   var js = await saveJornadaIfChanged('editAdmin', userId, updates.contract_start, updates.contract_end);
   if (!js.ok) return;
-  if (js.hasSegments) delete updates.expected_yearly_hours;
+  if (js.rate != null) updates.expected_yearly_hours = js.rate;
 
   var { error } = await db.from('profiles').update(updates).eq('id', userId);
   if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
