@@ -186,12 +186,19 @@ function computeJornadaTargets(o) {
       progressTarget = (nominal + adj) * wf;
     }
     var expectedYearly = nominal * wf;
+    // This year's expected hours per segment (all of it in the one segment that covers the window).
+    var perSegmentYearly = [expectedYearly];
+    if (hasSegments) {
+      perSegmentYearly = segments.map(function() { return 0; });
+      perSegmentYearly[usedCount === 1 ? lastIdx : _jornadaSegIndex(segments, o.todayStr)] = expectedYearly;
+    }
     var hpd = T > 0 ? expectedYearly / T : 0;
     var denomRate = T > 0 ? progressTarget / T : 0;
     return {
       hasSegments: hasSegments,
       currentRate: currentRate,
       expectedYearly: expectedYearly,
+      perSegmentYearly: perSegmentYearly,
       progressTarget: progressTarget,
       expectedToDate: expectedYearly * o.progressRatio,
       progressDenom: progressTarget * o.progressRatio,
@@ -213,8 +220,11 @@ function computeJornadaTargets(o) {
 
   // Segment path.
   var F = o.allWorkingDays.size;
-  var segYearly = 0;
-  for (i = 0; i < segments.length; i++) segYearly += segments[i].yearly_hours * cnt[i] / F;
+  var segYearly = 0, perSeg = [];
+  for (i = 0; i < segments.length; i++) {
+    perSeg.push(segments[i].yearly_hours * cnt[i] / F);
+    segYearly += perSeg[i];
+  }
   var segTarget = segYearly + adj * wf;
   var taken = 0;
   if (o.holidayDates) {
@@ -243,6 +253,7 @@ function computeJornadaTargets(o) {
     hasSegments: true,
     currentRate: currentRate,
     expectedYearly: segYearly,
+    perSegmentYearly: perSeg,
     progressTarget: segTarget,
     expectedToDate: expToDate,
     progressDenom: denomToDate,
