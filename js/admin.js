@@ -1260,6 +1260,17 @@ async function loadTeachersTable() {
         ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">incl. ' + periodCreditParts.join(' · ') + '</div>'
         : '';
 
+      // Display-only: hour columns show all punched hours (+ credits) WITHOUT subtracting
+      // paid hours; paid hours go in brackets. Progress keeps using the net figures above.
+      var displayPeriodHours = Math.round((periodHours + periodMedicalHours + periodMedApptHours + periodPermisoHours) * 10) / 10;
+      var displayTotalHours = yearlyHours + medicalHours + medApptHours + permisoHours;
+      var periodPaidInline = periodPaidHours > 0
+        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">(💰 ' + periodPaidHours.toFixed(1) + 'h pagadas)</div>'
+        : '';
+      var totalPaidInline = paidTotal > 0
+        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">(💰 ' + paidTotal.toFixed(1) + 'h pagadas)</div>'
+        : '';
+
       // Weekly view: progress relative to THIS period's expected hours (not year-to-date).
       // Expected = working days in the period (up to cutoff, excl. school + teacher holidays)
       // × hoursPerWorkingDay. Monthly view keeps the annual progress.
@@ -1278,8 +1289,8 @@ async function loadTeachersTable() {
 
       return '<tr onclick="if(typeof openEditTeacherModal===\'function\')openEditTeacherModal(\'' + t.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + t.name + '</div><div class="teacher-email">' + (t.email || '') + '</div></td>' +
-        '<td><span class="hours-badge">' + adjustedPeriodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
-        '<td>' + totalHours.toFixed(1) + 'h</td>' +
+        '<td><span class="hours-badge">' + displayPeriodHours.toFixed(1) + 'h</span>' + periodPaidInline + medicalInline + '</td>' +
+        '<td>' + displayTotalHours.toFixed(1) + 'h' + totalPaidInline + '</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
@@ -1494,6 +1505,17 @@ async function loadAdminWorkersTable() {
         ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">incl. ' + periodCreditParts.join(' · ') + '</div>'
         : '';
 
+      // Display-only: hour columns show all punched hours (+ credits) WITHOUT subtracting
+      // paid hours; paid hours go in brackets. Progress keeps using the net figures above.
+      var displayPeriodHours = Math.round((periodHours + periodMedicalHours + periodMedApptHours + periodPermisoHours) * 10) / 10;
+      var displayTotalHours = yearlyHours + medicalHours + medApptHours + permisoHours;
+      var periodPaidInline = periodPaidHours > 0
+        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">(💰 ' + periodPaidHours.toFixed(1) + 'h pagadas)</div>'
+        : '';
+      var totalPaidInline = paidTotal > 0
+        ? '<div style="font-size:11px;color:var(--gray-500);margin-top:2px">(💰 ' + paidTotal.toFixed(1) + 'h pagadas)</div>'
+        : '';
+
       // Weekly view: progress vs THIS period's expected hours (not year-to-date).
       var dispPercent = progressPercent, dispExpected = expectedToDate, dispStatus = status;
       if (viewMode === 'weekly') {
@@ -1510,8 +1532,8 @@ async function loadAdminWorkersTable() {
 
       return '<tr onclick="if(typeof openEditAdminModal===\'function\')openEditAdminModal(\'' + a.id + '\')" style="cursor:pointer">' +
         '<td><div class="teacher-name">' + a.name + '</div><div class="teacher-email">' + (a.email || '') + '</div></td>' +
-        '<td><span class="hours-badge">' + adjustedPeriodHours.toFixed(1) + 'h</span>' + medicalInline + '</td>' +
-        '<td>' + totalHours.toFixed(1) + 'h</td>' +
+        '<td><span class="hours-badge">' + displayPeriodHours.toFixed(1) + 'h</span>' + periodPaidInline + medicalInline + '</td>' +
+        '<td>' + displayTotalHours.toFixed(1) + 'h' + totalPaidInline + '</td>' +
         '<td>' + paidTotal.toFixed(1) + 'h</td>' +
         '<td class="progress-cell"><div class="progress-container">' +
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
