@@ -493,13 +493,13 @@ var CONTRACT_FIELDS = {
     medAppt: 'editMedApptHours', unpaid: 'editUnpaidDays', prep: 'editPrepTime',
     hours: null, pct: null, note: 'editProrateNote',
     segList: 'editSegList', segDate: 'editSegDate', segPct: 'editSegPct', segHours: 'editSegHours', segTotal: 'editSegTotal',
-    segWarn: 'editSegWarn', segFormTitle: 'editSegFormTitle', segActions: 'editSegActions' },
+    segFormTitle: 'editSegFormTitle', segActions: 'editSegActions' },
   editAdmin: { admin: true, start: 'editAdminContractStart', end: 'editAdminContractEnd',
     annual: 'editAdminAnnualDays', personal: 'editAdminPersonalDays', school: 'editAdminSchoolDays',
     medAppt: 'editAdminMedApptHours', unpaid: 'editAdminUnpaidDays', prep: null,
     hours: null, pct: null, note: 'editAdminProrateNote',
     segList: 'editAdminSegList', segDate: 'editAdminSegDate', segPct: 'editAdminSegPct', segHours: 'editAdminSegHours', segTotal: 'editAdminSegTotal',
-    segWarn: 'editAdminSegWarn', segFormTitle: 'editAdminSegFormTitle', segActions: 'editAdminSegActions' },
+    segFormTitle: 'editAdminSegFormTitle', segActions: 'editAdminSegActions' },
   addTeacher: { admin: false, start: 'addTeacherContractStart', end: 'addTeacherContractEnd',
     annual: 'addTeacherAnnual', personal: 'addTeacherPersonal', school: 'addTeacherSchool',
     medAppt: null, unpaid: null, prep: 'addTeacherPrep',
@@ -514,9 +514,8 @@ var CONTRACT_FIELDS = {
 
 // Jornada periods being edited in the open edit modal (in memory until "Guardar Cambios").
 // { ctx, profileId, original: [{valid_from, yearly_hours}] (DB rows), staged: [...] (periods, ALWAYS >= 1:
-//   the first period starts at Alta or 1 Jan), freezeDate: 'YYYY-MM-DD' | '',
-//   editIdx: index of the period loaded in the form (null = adding a change),
-//   pendingFreeze: change waiting for the inline frozen-period warning (null = none) }
+//   the first period starts at Alta or 1 Jan),
+//   editIdx: index of the period loaded in the form (null = adding a change) }
 // Storage: one period = no jornada_segments rows (rate in profiles.expected_yearly_hours, today's
 // code path); two or more periods = one row per period.
 var jornadaEdit = null;
@@ -612,8 +611,7 @@ function syncPctFromHours(ctx) {
 // ========================================
 
 // The "Jornada" section of the edit modals: the periods list (Desde, % jornada, Horas/año, hours
-// this year, ✏️/🗑️), this year's total, the inline frozen-period warning and ONE form row to add a
-// change or edit a period.
+// this year, ✏️/🗑️), this year's total and ONE form row to add a change or edit a period.
 function jornadaSectionHtml(ctx) {
   var m = CONTRACT_FIELDS[ctx];
   var full = (m.admin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
@@ -621,7 +619,6 @@ function jornadaSectionHtml(ctx) {
     '<div class="settings-section-title">📊 Jornada</div>' +
     '<div id="' + m.segList + '"></div>' +
     '<div class="jornada-total" id="' + m.segTotal + '"></div>' +
-    '<div id="' + m.segWarn + '"></div>' +
     '<div class="jornada-form-title" id="' + m.segFormTitle + '"></div>' +
     '<div class="jornada-form">' +
       '<div class="jornada-field jornada-field-date">' +
@@ -642,15 +639,11 @@ function jornadaSectionHtml(ctx) {
   '</div>';
 }
 
-// Loads the person's jornada rows + FreezeDate into jornadaEdit. false = could not load (modal must not open).
+// Loads the person's jornada rows into jornadaEdit. false = could not load (modal must not open).
 // Without rows the periods list starts with ONE period: Alta (or 1 Jan) at the profile's current rate.
 async function loadJornadaEdit(ctx, userId, profile) {
   var segRes = await db.from('jornada_segments').select('valid_from, yearly_hours').eq('profile_id', userId).order('valid_from');
   if (segRes.error) { showToast('Error al cargar los cambios de jornada', 'error'); return false; }
-  var freezeDate = '';
-  var frRes = await db.from('app_config').select('value').eq('key', 'FreezeDate').maybeSingle();
-  if (frRes.error) console.warn('No se pudo leer FreezeDate', frRes.error);
-  else freezeDate = (frRes.data && frRes.data.value) || '';
   if (!cachedSchoolHolidays) {
     var shRes = await db.from('school_holidays').select('*');
     cachedSchoolHolidays = shRes.data || [];
@@ -661,8 +654,7 @@ async function loadJornadaEdit(ctx, userId, profile) {
     valid_from: (profile && profile.contract_start) || (new Date().getFullYear() + '-01-01'),
     yearly_hours: (profile && profile.expected_yearly_hours) || fallback
   }];
-  jornadaEdit = { ctx: ctx, profileId: userId, original: rows, staged: periods, freezeDate: String(freezeDate),
-    editIdx: null, pendingFreeze: null };
+  jornadaEdit = { ctx: ctx, profileId: userId, original: rows, staged: periods, editIdx: null };
   return true;
 }
 
@@ -728,7 +720,6 @@ function clearJornadaForm(ctx) {
 function editJornadaPeriod(ctx, idx) {
   var m = CONTRACT_FIELDS[ctx];
   if (!m || !jornadaEdit || jornadaEdit.ctx !== ctx || !jornadaEdit.staged[idx]) return;
-  clearJornadaPending(ctx);
   jornadaEdit.editIdx = idx;
   var s = jornadaEdit.staged[idx];
   document.getElementById(m.segDate).value = s.valid_from;
@@ -739,7 +730,6 @@ function editJornadaPeriod(ctx, idx) {
 
 function cancelJornadaEdit(ctx) {
   if (!jornadaEdit || jornadaEdit.ctx !== ctx) return;
-  clearJornadaPending(ctx);
   jornadaEdit.editIdx = null;
   clearJornadaForm(ctx);
   renderJornadaSegments(ctx);
@@ -857,49 +847,6 @@ function refreshPrepFromJornada(ctx) {
   }
 }
 
-// Frozen-period warning, shown inline in the Jornada section (amber box with Continuar / Cancelar)
-// instead of a browser dialog. apply() runs right away when no date is on or before FreezeDate;
-// otherwise it waits in jornadaEdit.pendingFreeze until "Continuar".
-function jornadaWithFreezeCheck(ctx, dates, apply) {
-  var fz = jornadaEdit.freezeDate;
-  var hit = fz ? dates.filter(function(d) { return d && d <= fz; }).sort()[0] : null;
-  if (!hit) { apply(); return; }
-  jornadaEdit.pendingFreeze = apply;
-  renderJornadaWarn(ctx, hit);
-}
-
-function renderJornadaWarn(ctx, ds) {
-  var m = CONTRACT_FIELDS[ctx];
-  var el = document.getElementById(m.segWarn);
-  if (!el) return;
-  if (!ds) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="warning-box jornada-warn">' +
-    '<div class="warning-box-text">⚠️ El cambio del ' + jornadaDateLabel(ds) + ' cae en un periodo congelado (hasta el ' +
-      jornadaDateLabel(jornadaEdit.freezeDate) + '). Cambiará las horas esperadas y el progreso de días ya cerrados. ¿Continuar?</div>' +
-    '<div class="jornada-warn-actions">' +
-      '<button type="button" class="action-btn-small approve" onclick="confirmJornadaFreeze(\'' + ctx + '\')">Continuar</button>' +
-      '<button type="button" class="action-btn-small jornada-btn-cancel" onclick="cancelJornadaFreeze(\'' + ctx + '\')">Cancelar</button>' +
-    '</div>' +
-  '</div>';
-}
-
-function clearJornadaPending(ctx) {
-  if (!jornadaEdit || jornadaEdit.ctx !== ctx) return;
-  jornadaEdit.pendingFreeze = null;
-  renderJornadaWarn(ctx, null);
-}
-
-function confirmJornadaFreeze(ctx) {
-  if (!jornadaEdit || jornadaEdit.ctx !== ctx || !jornadaEdit.pendingFreeze) return;
-  var apply = jornadaEdit.pendingFreeze;
-  clearJornadaPending(ctx);
-  apply();
-}
-
-function cancelJornadaFreeze(ctx) {
-  clearJornadaPending(ctx);
-}
-
 function afterJornadaEdit(ctx) {
   renderJornadaSegments(ctx);
   refreshPrepFromJornada(ctx);
@@ -911,7 +858,6 @@ function afterJornadaEdit(ctx) {
 function addJornadaSegment(ctx) {
   var m = CONTRACT_FIELDS[ctx];
   if (!m || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
-  clearJornadaPending(ctx);
   var staged = jornadaEdit.staged;
   var ds = (document.getElementById(m.segDate).value || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) { showToast('Indica la fecha del cambio', 'error'); return; }
@@ -958,46 +904,38 @@ function addJornadaSegment(ctx) {
     if (hours === rateThen) { showToast('La jornada ya es de ' + rateThen + 'h en esa fecha', 'error'); return; }
   }
 
-  jornadaWithFreezeCheck(ctx, [ds, cur && dateChanged ? cur.valid_from : null], function() {
-    var altaChanged = false;
-    if (isFirst) {
-      staged[0].yearly_hours = hours;
-      if (dateChanged) {
-        var startEl = document.getElementById(m.start);
-        if (startEl && ds !== jornadaBaseDate(ctx)) { startEl.value = ds; altaChanged = true; }
-        staged[0].valid_from = ds;
-      }
-    } else if (cur) {
-      cur.valid_from = ds;
-      cur.yearly_hours = hours;
-    } else {
-      staged.push({ valid_from: ds, yearly_hours: hours });
+  var altaChanged = false;
+  if (isFirst) {
+    staged[0].yearly_hours = hours;
+    if (dateChanged) {
+      var startEl = document.getElementById(m.start);
+      if (startEl && ds !== jornadaBaseDate(ctx)) { startEl.value = ds; altaChanged = true; }
+      staged[0].valid_from = ds;
     }
-    staged.sort(function(a, b) { return a.valid_from < b.valid_from ? -1 : (a.valid_from > b.valid_from ? 1 : 0); });
-    jornadaEdit.editIdx = null;
-    clearJornadaForm(ctx);
-    if (altaChanged) prorateAllocationFields(ctx); // new Alta: leave days, prep and the list follow it
-    afterJornadaEdit(ctx);
-  });
+  } else if (cur) {
+    cur.valid_from = ds;
+    cur.yearly_hours = hours;
+  } else {
+    staged.push({ valid_from: ds, yearly_hours: hours });
+  }
+  staged.sort(function(a, b) { return a.valid_from < b.valid_from ? -1 : (a.valid_from > b.valid_from ? 1 : 0); });
+  jornadaEdit.editIdx = null;
+  clearJornadaForm(ctx);
+  if (altaChanged) prorateAllocationFields(ctx); // new Alta: leave days, prep and the list follow it
+  afterJornadaEdit(ctx);
 }
 
 // 🗑️ on a later period. The first period is never deletable (a person always has one jornada).
 function deleteJornadaSegment(ctx, validFrom) {
   if (!jornadaEdit || jornadaEdit.ctx !== ctx) return;
-  clearJornadaPending(ctx);
   var staged = jornadaEdit.staged;
   var idx = -1;
   staged.forEach(function(s, i) { if (s.valid_from === validFrom) idx = i; });
   if (idx <= 0) return;
-  jornadaWithFreezeCheck(ctx, [validFrom], function() {
-    var k = -1;
-    staged.forEach(function(s, i) { if (s.valid_from === validFrom) k = i; });
-    if (k <= 0) return;
-    staged.splice(k, 1);
-    if (jornadaEdit.editIdx === k) { jornadaEdit.editIdx = null; clearJornadaForm(ctx); }
-    else if (jornadaEdit.editIdx != null && jornadaEdit.editIdx > k) jornadaEdit.editIdx--;
-    afterJornadaEdit(ctx);
-  });
+  staged.splice(idx, 1);
+  if (jornadaEdit.editIdx === idx) { jornadaEdit.editIdx = null; clearJornadaForm(ctx); }
+  else if (jornadaEdit.editIdx != null && jornadaEdit.editIdx > idx) jornadaEdit.editIdx--;
+  afterJornadaEdit(ctx);
 }
 
 // Saves the jornada periods. One period = no rows (its rate goes to expected_yearly_hours, as for
@@ -1006,10 +944,6 @@ function deleteJornadaSegment(ctx, validFrom) {
 // writes to profiles.expected_yearly_hours on every save.
 async function saveJornadaIfChanged(ctx, userId, contractStart, contractEnd) {
   if (!jornadaEdit || jornadaEdit.ctx !== ctx || jornadaEdit.profileId !== userId) return { ok: true, rate: null };
-  if (jornadaEdit.pendingFreeze) {
-    showToast('Confirma o cancela el aviso del periodo congelado antes de guardar', 'error');
-    return { ok: false };
-  }
   syncJornadaBaseDate(ctx);
   var staged = jornadaEdit.staged;
   var outside = staged.slice(1).some(function(s) {

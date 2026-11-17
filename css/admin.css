@@ -428,8 +428,6 @@ tbody tr:hover { background:#f0f9ff; }
 .jornada-row-actions { text-align:right; white-space:nowrap; width:1%; }
 .jornada-icon-btn { background:none; border:none; cursor:pointer; font-size:14px; padding:2px 4px; }
 .jornada-total { margin:8px 2px 14px; text-align:right; font-size:14px; font-weight:700; color:var(--primary); }
-.jornada-warn { margin-bottom:12px; padding:12px 14px; }
-.jornada-warn-actions { display:flex; gap:6px; margin-top:8px; }
 .jornada-form-title { font-size:12px; font-weight:600; color:var(--gray-500); margin-bottom:6px; }
 .jornada-form { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
 .jornada-field { flex:1 1 90px; min-width:90px; }
