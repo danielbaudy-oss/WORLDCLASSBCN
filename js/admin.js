@@ -22,6 +22,8 @@ var punchLoadPromise = null;   // de-dupes concurrent loads (see getYearPunches)
 var cachedHolidays = null;
 var cachedPaidHours = null;
 var cachedSchoolHolidays = null;
+var cachedJornadaSegments = null; // { profile_id: [rows sorted by valid_from] } (see getJornadaSegments)
+var jornadaLoadPromise = null;
 
 // ========================================
 // TASK 2.1: INIT, NAVIGATION, TABS
@@ -60,6 +62,7 @@ async function loadData(forceRefresh) {
     cachedHolidays = null;
     cachedPaidHours = null;
     cachedSchoolHolidays = null;
+    cachedJornadaSegments = null;
   }
   updateMonthDisplay();
   updateWeekDisplay();
@@ -451,6 +454,34 @@ function contractPeriodNote(contractStart, contractEnd, proratedHours) {
     '→ ' + Math.round(proratedHours) + 'h · ' + range + '</div>';
 }
 
+// Sub-line for people whose jornada changes during this year: the latest change
+// ("20% → 80% desde 1 oct"); the tooltip lists the whole history. '' when no change this year.
+function jornadaChangeNote(changes, segments, isAdmin) {
+  if (!changes || !changes.length) return '';
+  var mon = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var fmt = function(d) {
+    var p = String(d).split('-');
+    return parseInt(p[2], 10) + ' ' + mon[parseInt(p[1], 10) - 1];
+  };
+  var last = changes[changes.length - 1];
+  var title = 'Cambios de jornada: ' + (segments || []).map(function(s) {
+    return 'desde ' + fmt(s.valid_from) + ' ' + String(s.valid_from).substring(0, 4) + ' ' +
+      jornadaPctLabel(s.yearly_hours, isAdmin) + ' (' + s.yearly_hours + 'h)';
+  }).join(' · ');
+  return '<div style="font-size:10px;color:#64748b;margin-top:2px;white-space:nowrap" title="' + title + '">' +
+    jornadaPctLabel(last.fromHours, isAdmin) + ' → ' + jornadaPctLabel(last.toHours, isAdmin) + ' desde ' + fmt(last.date) + '</div>';
+}
+
+// "Esperado/Año" cell content. Without jornada segments this is exactly the previous output.
+function esperadoCellHtml(p, nominalYearly, jt, segments, isAdmin) {
+  if (!jt.hasSegments) return nominalYearly + 'h' + contractPeriodNote(p.contract_start, p.contract_end, jt.expectedYearly);
+  var sub1 = (p.contract_start || p.contract_end)
+    ? contractPeriodNote(p.contract_start, p.contract_end, jt.expectedYearly)
+    : '<div style="font-size:10px;color:#64748b;margin-top:2px;white-space:nowrap" ' +
+      'title="Jornada variable: horas anuales ponderadas por tramos">→ ' + Math.round(jt.expectedYearly) + 'h este año</div>';
+  return jt.currentRate + 'h' + sub1 + jornadaChangeNote(jt.changes, segments, isAdmin);
+}
+
 // ========================================
 // SETTINGS MODAL HELPERS — contract proration + hours/% linkage
 // ========================================
@@ -460,20 +491,28 @@ var CONTRACT_FIELDS = {
   editTeacher: { admin: false, start: 'editContractStart', end: 'editContractEnd',
     annual: 'editAnnualDays', personal: 'editPersonalDays', school: 'editSchoolDays',
     medAppt: 'editMedApptHours', unpaid: 'editUnpaidDays', prep: 'editPrepTime',
-    hours: 'editExpectedHours', pct: 'editHoursPct', note: 'editProrateNote' },
+    hours: 'editExpectedHours', pct: 'editHoursPct', note: 'editProrateNote',
+    segList: 'editSegList', segDate: 'editSegDate', segPct: 'editSegPct', segHours: 'editSegHours', segHint: 'editSegTopHint' },
   editAdmin: { admin: true, start: 'editAdminContractStart', end: 'editAdminContractEnd',
     annual: 'editAdminAnnualDays', personal: 'editAdminPersonalDays', school: 'editAdminSchoolDays',
     medAppt: 'editAdminMedApptHours', unpaid: 'editAdminUnpaidDays', prep: null,
-    hours: 'editAdminExpectedHours', pct: 'editAdminHoursPct', note: 'editAdminProrateNote' },
+    hours: 'editAdminExpectedHours', pct: 'editAdminHoursPct', note: 'editAdminProrateNote',
+    segList: 'editAdminSegList', segDate: 'editAdminSegDate', segPct: 'editAdminSegPct', segHours: 'editAdminSegHours', segHint: 'editAdminSegTopHint' },
   addTeacher: { admin: false, start: 'addTeacherContractStart', end: 'addTeacherContractEnd',
     annual: 'addTeacherAnnual', personal: 'addTeacherPersonal', school: 'addTeacherSchool',
     medAppt: null, unpaid: null, prep: 'addTeacherPrep',
-    hours: 'addTeacherExpected', pct: 'addTeacherHoursPct', note: 'addTeacherProrateNote' },
+    hours: 'addTeacherExpected', pct: 'addTeacherHoursPct', note: 'addTeacherProrateNote',
+    segList: null, segDate: null, segPct: null, segHours: null, segHint: null },
   addAdmin: { admin: true, start: 'addAdminContractStart', end: 'addAdminContractEnd',
     annual: 'addAdminAnnual', personal: 'addAdminPersonal', school: 'addAdminSchool',
     medAppt: null, unpaid: null, prep: null,
-    hours: 'addAdminExpected', pct: 'addAdminHoursPct', note: 'addAdminProrateNote' }
+    hours: 'addAdminExpected', pct: 'addAdminHoursPct', note: 'addAdminProrateNote',
+    segList: null, segDate: null, segPct: null, segHours: null, segHint: null }
 };
+
+// Jornada changes being edited in the open edit modal (in memory until "Guardar Cambios").
+// { ctx, profileId, original: [{valid_from, yearly_hours}], staged: [...], freezeDate: 'YYYY-MM-DD' | '' }
+var jornadaEdit = null;
 
 // Share of the year's working days covered by [contractStart, contractEnd]. 1 = full year.
 function contractWindowFraction(contractStart, contractEnd) {
@@ -522,7 +561,11 @@ function prorateAllocationFields(ctx) {
     var h = parseFloat(hoursEl.value);
     if (!isNaN(h) && h > 0) jornada = Math.min(1, h / fullTime);
   }
-  set(m.prep, Math.round(base.PREP_TIME_YEARLY * jornada * wf * 10) / 10);
+  if (jornadaEdit && jornadaEdit.ctx === ctx && jornadaEdit.staged.length) {
+    set(m.prep, jornadaPrepHours(ctx)); // jornada changes: prep follows each segment's %
+  } else {
+    set(m.prep, Math.round(base.PREP_TIME_YEARLY * jornada * wf * 10) / 10);
+  }
 
   var noteEl = document.getElementById(m.note);
   if (noteEl) {
@@ -550,6 +593,254 @@ function syncPctFromHours(ctx) {
   var h = parseFloat(hEl.value);
   if (isNaN(h) || h < 0) return;
   pctEl.value = Math.round(h / base * 1000) / 10;
+}
+
+// ========================================
+// CAMBIOS DE JORNADA (edit-teacher / edit-admin modals)
+// ========================================
+
+// Section HTML, inserted right after "📊 Objetivo de Horas de Trabajo".
+function jornadaSectionHtml(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  return '<div class="settings-section">' +
+    '<div class="settings-section-title">🔄 Cambios de jornada</div>' +
+    '<div class="form-hint" style="margin-bottom:8px">Si la jornada cambia durante el año (p. ej. del 20% al 80% desde octubre), añade la fecha y el nuevo %. ' +
+      'Las horas esperadas, las bajas y las horas no lectivas se calculan por tramos. Los días de permiso no cambian.</div>' +
+    '<div id="' + m.segList + '" style="margin-bottom:10px"></div>' +
+    '<div class="settings-grid">' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Desde</div>' +
+        '<input type="date" class="setting-input" id="' + m.segDate + '">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">% jornada</div>' +
+        '<input type="number" step="0.1" class="setting-input" id="' + m.segPct + '" oninput="syncSegHoursFromPct(\'' + ctx + '\')">' +
+      '</div>' +
+      '<div class="setting-item">' +
+        '<div class="setting-label">Horas/año</div>' +
+        '<input type="number" class="setting-input" id="' + m.segHours + '" oninput="syncSegPctFromHours(\'' + ctx + '\')">' +
+      '</div>' +
+    '</div>' +
+    '<button class="action-btn" type="button" onclick="addJornadaSegment(\'' + ctx + '\')" style="margin-top:8px;padding:8px 14px;border-radius:8px;cursor:pointer">➕ Añadir cambio</button>' +
+  '</div>';
+}
+
+// Loads the person's jornada rows + FreezeDate into jornadaEdit. false = could not load (modal must not open).
+async function loadJornadaEdit(ctx, userId) {
+  var segRes = await db.from('jornada_segments').select('valid_from, yearly_hours').eq('profile_id', userId).order('valid_from');
+  if (segRes.error) { showToast('Error al cargar los cambios de jornada', 'error'); return false; }
+  var freezeDate = '';
+  var frRes = await db.from('app_config').select('value').eq('key', 'FreezeDate').maybeSingle();
+  if (frRes.error) console.warn('No se pudo leer FreezeDate', frRes.error);
+  else freezeDate = (frRes.data && frRes.data.value) || '';
+  var rows = (segRes.data || []).map(function(r) { return { valid_from: r.valid_from, yearly_hours: r.yearly_hours }; });
+  jornadaEdit = { ctx: ctx, profileId: userId, original: rows, staged: rows.slice(), freezeDate: String(freezeDate) };
+  return true;
+}
+
+function syncSegHoursFromPct(ctx) {
+  var m = CONTRACT_FIELDS[ctx]; if (!m) return;
+  var base = (m.admin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
+  var pctEl = document.getElementById(m.segPct), hEl = document.getElementById(m.segHours);
+  if (!pctEl || !hEl) return;
+  var pct = parseFloat(pctEl.value);
+  if (isNaN(pct) || pct < 0) return;
+  hEl.value = Math.round(base * pct / 100);
+}
+function syncSegPctFromHours(ctx) {
+  var m = CONTRACT_FIELDS[ctx]; if (!m) return;
+  var base = (m.admin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
+  var pctEl = document.getElementById(m.segPct), hEl = document.getElementById(m.segHours);
+  if (!pctEl || !hEl || !base) return;
+  var h = parseFloat(hEl.value);
+  if (isNaN(h) || h < 0) return;
+  pctEl.value = Math.round(h / base * 1000) / 10;
+}
+
+function jornadaDateLabel(ds) {
+  var mon = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var p = String(ds).split('-');
+  return parseInt(p[2], 10) + ' ' + mon[parseInt(p[1], 10) - 1] + ' ' + p[0];
+}
+
+function renderJornadaSegments(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  var el = m && document.getElementById(m.segList);
+  if (!el || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
+  var staged = jornadaEdit.staged;
+  if (!staged.length) {
+    el.innerHTML = '<div class="form-hint">Sin cambios: se aplica la misma jornada todo el año.</div>';
+    return;
+  }
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    '<tr style="color:#64748b;text-align:left"><th style="padding:4px">Desde</th><th style="padding:4px">% jornada</th><th style="padding:4px">Horas/año</th><th></th></tr>';
+  staged.forEach(function(s, i) {
+    html += '<tr style="border-top:1px solid #e2e8f0">' +
+      '<td style="padding:4px">' + jornadaDateLabel(s.valid_from) + (i === 0 ? ' <span style="color:#94a3b8">(inicio)</span>' : '') + '</td>' +
+      '<td style="padding:4px">' + jornadaPctLabel(s.yearly_hours, m.admin) + '</td>' +
+      '<td style="padding:4px">' + s.yearly_hours + 'h</td>' +
+      '<td style="padding:4px;text-align:right">' + (i === 0 ? '' :
+        '<button type="button" title="Eliminar este cambio" onclick="deleteJornadaSegment(\'' + ctx + '\',\'' + s.valid_from + '\')" style="background:none;border:none;cursor:pointer;font-size:14px">🗑️</button>') + '</td>' +
+    '</tr>';
+  });
+  el.innerHTML = html + '</table>';
+}
+
+// With jornada changes the top "Horas Anuales" / "%" fields show the rate in force today and are
+// read-only (the save RPC keeps expected_yearly_hours in sync). Without changes: editable as before.
+function refreshJornadaTopFields(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  if (!m || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
+  var hEl = document.getElementById(m.hours), pEl = document.getElementById(m.pct), hint = document.getElementById(m.segHint);
+  if (!hEl || !pEl) return;
+  var locked = jornadaEdit.staged.length > 0;
+  if (locked) {
+    hEl.value = jornadaRateOn(jornadaEdit.staged, formatDate(new Date()));
+    syncPctFromHours(ctx);
+  }
+  [hEl, pEl].forEach(function(el) {
+    el.readOnly = locked;
+    el.style.background = locked ? '#f1f5f9' : '';
+    el.style.color = locked ? '#64748b' : '';
+  });
+  if (hint) hint.textContent = locked ? 'Jornada actual según los cambios de jornada' : '';
+}
+
+// Yearly prep hours with jornada changes: 70h × Σ (segment % capped at 100) × share of the year's
+// working days inside the modal's Alta/Baja window (same loop as contractWindowFraction).
+function jornadaPrepHours(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  var staged = jornadaEdit.staged;
+  var startEl = document.getElementById(m.start), endEl = document.getElementById(m.end);
+  var cs = startEl ? startEl.value : '', ce = endEl ? endEl.value : '';
+  var fullTime = (m.admin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
+  var holidaySet = buildSchoolHolidayDateSet(cachedSchoolHolidays || []);
+  var year = new Date().getFullYear();
+  var cur = new Date(year, 0, 1), end = new Date(year, 11, 31);
+  var all = 0, weighted = 0;
+  while (cur <= end) {
+    var dow = cur.getDay();
+    var ds = formatDate(cur);
+    if (dow !== 0 && dow !== 6 && !holidaySet.has(ds)) {
+      all++;
+      if (!((cs && ds < cs) || (ce && ds > ce))) weighted += Math.min(1, jornadaRateOn(staged, ds) / fullTime);
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return all > 0 ? Math.round(DEFAULTS.PREP_TIME_YEARLY * weighted / all * 10) / 10 : 0;
+}
+
+// Teacher modal only (admins have no prep field). Leave-day fields are never touched here.
+function refreshPrepFromJornada(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  var prepEl = m && m.prep && document.getElementById(m.prep);
+  if (!prepEl || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
+  if (jornadaEdit.staged.length) {
+    prepEl.value = jornadaPrepHours(ctx);
+  } else {
+    var startEl = document.getElementById(m.start), endEl = document.getElementById(m.end);
+    var wf = contractWindowFraction(startEl ? startEl.value : '', endEl ? endEl.value : '');
+    var fullTime = DEFAULTS.FULLTIME_YEARLY_HOURS, jornada = 1;
+    var h = parseFloat(document.getElementById(m.hours).value);
+    if (!isNaN(h) && h > 0) jornada = Math.min(1, h / fullTime);
+    prepEl.value = Math.round(DEFAULTS.PREP_TIME_YEARLY * jornada * wf * 10) / 10;
+  }
+}
+
+function jornadaFreezeConfirm(ds) {
+  var fz = jornadaEdit.freezeDate;
+  if (!fz || ds > fz) return true;
+  return confirm('⚠️ El cambio del ' + jornadaDateLabel(ds) + ' cae en un periodo congelado (hasta el ' + jornadaDateLabel(fz) +
+    '). Cambiará las horas esperadas y el progreso de días ya cerrados. ¿Continuar?');
+}
+
+function afterJornadaEdit(ctx) {
+  renderJornadaSegments(ctx);
+  refreshJornadaTopFields(ctx);
+  refreshPrepFromJornada(ctx);
+}
+
+function addJornadaSegment(ctx) {
+  var m = CONTRACT_FIELDS[ctx];
+  if (!m || !jornadaEdit || jornadaEdit.ctx !== ctx) return;
+  var staged = jornadaEdit.staged;
+  var ds = (document.getElementById(m.segDate).value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) { showToast('Indica la fecha del cambio', 'error'); return; }
+  var y = new Date().getFullYear(), dy = parseInt(ds.substring(0, 4), 10);
+  if (dy < y - 1 || dy > y + 1) { showToast('La fecha debe estar entre ' + (y - 1) + ' y ' + (y + 1), 'error'); return; }
+  var cs = document.getElementById(m.start).value || '', ce = document.getElementById(m.end).value || '';
+  if ((cs && ds < cs) || (ce && ds > ce)) { showToast('La fecha del cambio debe estar dentro del periodo de contrato', 'error'); return; }
+  if (staged.some(function(s) { return s.valid_from === ds; })) { showToast('Ya hay un cambio de jornada en esa fecha', 'error'); return; }
+  var baseDate = cs || (dy + '-01-01');
+  if (!staged.length && ds <= baseDate) {
+    showToast('Para cambiar la jornada desde el inicio, modifica directamente las Horas Anuales Esperadas', 'error');
+    return;
+  }
+  var hoursStr = String(document.getElementById(m.segHours).value || '').trim();
+  var hours = Number(hoursStr);
+  if (!hoursStr || !Number.isInteger(hours) || hours < 1 || hours > 3000) {
+    showToast('Indica un % o unas horas válidas (1–3000 h/año)', 'error');
+    return;
+  }
+  var baseHours = null;
+  if (!staged.length) {
+    baseHours = Number(document.getElementById(m.hours).value);
+    if (!Number.isInteger(baseHours) || baseHours < 1 || baseHours > 3000) {
+      showToast('Indica primero unas Horas Anuales Esperadas válidas (1–3000 h/año)', 'error');
+      return;
+    }
+  }
+  var rateThen = staged.length ? jornadaRateOn(staged, ds) : baseHours;
+  if (hours === rateThen) { showToast('La jornada ya es de ' + rateThen + 'h en esa fecha', 'error'); return; }
+  if (!jornadaFreezeConfirm(ds)) return;
+
+  if (!staged.length) staged.push({ valid_from: baseDate, yearly_hours: baseHours });
+  staged.push({ valid_from: ds, yearly_hours: hours });
+  staged.sort(function(a, b) { return a.valid_from < b.valid_from ? -1 : (a.valid_from > b.valid_from ? 1 : 0); });
+  document.getElementById(m.segDate).value = '';
+  document.getElementById(m.segPct).value = '';
+  document.getElementById(m.segHours).value = '';
+  afterJornadaEdit(ctx);
+}
+
+function deleteJornadaSegment(ctx, validFrom) {
+  if (!jornadaEdit || jornadaEdit.ctx !== ctx) return;
+  var staged = jornadaEdit.staged;
+  var idx = -1;
+  staged.forEach(function(s, i) { if (s.valid_from === validFrom) idx = i; });
+  if (idx <= 0) return; // the base row "(inicio)" is not deletable
+  if (!jornadaFreezeConfirm(validFrom)) return;
+  staged.splice(idx, 1);
+  if (staged.length === 1) {
+    // Only the starting rate is left: back to a single rate, editable in the top fields.
+    var m = CONTRACT_FIELDS[ctx];
+    var hEl = document.getElementById(m.hours);
+    if (hEl) hEl.value = staged[0].yearly_hours;
+    syncPctFromHours(ctx);
+    jornadaEdit.staged = [];
+  }
+  afterJornadaEdit(ctx);
+}
+
+// Saves jornada changes when they differ from what was loaded. Returns { ok, hasSegments }.
+async function saveJornadaIfChanged(ctx, userId, contractStart, contractEnd) {
+  if (!jornadaEdit || jornadaEdit.ctx !== ctx || jornadaEdit.profileId !== userId) return { ok: true, hasSegments: false };
+  var staged = jornadaEdit.staged;
+  var outside = staged.slice(1).some(function(s) {
+    return (contractStart && s.valid_from < contractStart) || (contractEnd && s.valid_from > contractEnd);
+  });
+  if (outside) { showToast('Hay cambios de jornada fuera del periodo de contrato', 'error'); return { ok: false }; }
+  var key = function(list) { return list.map(function(s) { return s.valid_from + '=' + s.yearly_hours; }).join('|'); };
+  if (key(staged) !== key(jornadaEdit.original)) {
+    var res = await db.rpc('save_jornada_segments', {
+      p_profile_id: userId,
+      p_segments: staged.map(function(s) { return { valid_from: s.valid_from, yearly_hours: s.yearly_hours }; })
+    });
+    if (res.error) { showToast('Error al guardar los cambios de jornada: ' + res.error.message, 'error'); return { ok: false }; }
+    jornadaEdit.original = staged.slice();
+    cachedJornadaSegments = null;
+  }
+  return { ok: true, hasSegments: staged.length > 0 };
 }
 
 function getProgressStatus(percent) {
@@ -760,6 +1051,8 @@ async function loadStatsGrid(teacherData, adminData) {
       cachedPaidHours = phRes.data || [];
     }
 
+    var segMap = await getJornadaSegments();
+
     // Compute stats
     var allProfiles = teachers.concat(admins);
     var totalProgress = 0;
@@ -786,12 +1079,15 @@ async function loadStatsGrid(teacherData, adminData) {
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, profile.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
       var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, profile.contract_start, profile.contract_end);
-      // Mid-year joiner: scale the yearly targets down to their employment window
-      expectedYearly = expectedYearly * progress.windowFraction;
-      progressTarget = progressTarget * progress.windowFraction;
+      // Targets per jornada segment (rate × share of working days), within the employment window
+      var jt = computeJornadaTargets({ profile: profile, segments: segMap[profile.id] || [], fallback: defaults.EXPECTED_YEARLY_HOURS,
+        allWorkingDays: precomputed.allWorkingDays, passedWorkingDays: precomputed.passedWorkingDays, holidayDates: teacherHolidayDates,
+        contractStart: profile.contract_start, contractEnd: profile.contract_end, windowFraction: progress.windowFraction,
+        totalWorkingDays: progress.totalWorkingDays, progressRatio: progress.progressRatio, todayStr: today });
+      expectedYearly = jt.expectedYearly;
+      progressTarget = jt.progressTarget;
 
-      // Medical hours for period
-      var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
+      // Medical hours for period (each baja day credited at its segment's rate)
       var userMedical = cachedHolidays.filter(function(h) {
         return h.user_id === profile.id && h.type === 'Medical';
       });
@@ -800,8 +1096,7 @@ async function loadStatsGrid(teacherData, adminData) {
         var overlapStart = h.start_date > periodRange.start ? h.start_date : periodRange.start;
         var overlapEnd = h.end_date < periodRange.end ? h.end_date : periodRange.end;
         if (overlapStart <= overlapEnd) {
-          var days = countWorkingDays(overlapStart, overlapEnd, schoolHolidayDates);
-          periodMedicalHours += days * hoursPerWorkingDay;
+          periodMedicalHours += jt.creditForRange(overlapStart, overlapEnd, schoolHolidayDates);
         }
       });
 
@@ -841,8 +1136,7 @@ async function loadStatsGrid(teacherData, adminData) {
         var medStart = h.start_date > yearStart ? h.start_date : yearStart;
         var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
         if (medStart <= medEnd) {
-          var days = countWorkingDays(medStart, medEnd, schoolHolidayDates);
-          yearlyMedicalHours += days * hoursPerWorkingDay;
+          yearlyMedicalHours += jt.creditForRange(medStart, medEnd, schoolHolidayDates);
         }
       });
       var yearlyMedApptHours = 0;
@@ -862,9 +1156,9 @@ async function loadStatsGrid(teacherData, adminData) {
       }
       var totalHours = yearlyHours - yearlyPaidHours + yearlyMedicalHours + yearlyMedApptHours;
 
-      var expectedToDate = expectedYearly * progress.progressRatio;
+      var expectedToDate = jt.expectedToDate;
       // Percentage is measured against the (possibly softened) progress target
-      var progressDenom = progressTarget * progress.progressRatio;
+      var progressDenom = jt.progressDenom;
       var percent = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
 
       totalProgress += percent;
@@ -970,6 +1264,29 @@ async function getYearPunches(yearStart, today) {
     });
   }
   return punchLoadPromise;
+}
+
+// Jornada history for everyone, loaded once and shared by the three concurrent loaders and the
+// export (same memoised-promise pattern as getYearPunches). Throws on error so each caller's
+// catch shows its error state instead of silently using a single rate.
+async function getJornadaSegments() {
+  if (cachedJornadaSegments) return cachedJornadaSegments;
+  if (!jornadaLoadPromise) {
+    jornadaLoadPromise = db.from('jornada_segments').select('id, profile_id, valid_from, yearly_hours')
+      .order('valid_from').then(function(res) {
+        jornadaLoadPromise = null;
+        if (res.error) {
+          console.error('Error loading jornada segments', res.error);
+          throw res.error;
+        }
+        cachedJornadaSegments = jornadaSegmentsByProfile(res.data || []);
+        return cachedJornadaSegments;
+      }, function(err) {
+        jornadaLoadPromise = null;
+        throw err;
+      });
+  }
+  return jornadaLoadPromise;
 }
 
 async function loadPendingProfiles() {
@@ -1114,6 +1431,8 @@ async function loadTeachersTable() {
       cachedPaidHours = phRes.data || [];
     }
 
+    var segMap = await getJornadaSegments();
+
     // Pre-compute working days for the year using cutoff date
     var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
 
@@ -1154,21 +1473,22 @@ async function loadTeachersTable() {
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, t.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
       var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, t.contract_start, t.contract_end);
-      // Mid-year joiner: scale the yearly targets down to their employment window
-      expectedYearly = expectedYearly * progress.windowFraction;
-      progressTarget = progressTarget * progress.windowFraction;
+      // Targets per jornada segment (rate × share of working days), within the employment window
+      var segs = segMap[t.id] || [];
+      var jt = computeJornadaTargets({ profile: t, segments: segs, fallback: DEFAULTS.EXPECTED_YEARLY_HOURS,
+        allWorkingDays: precomputed.allWorkingDays, passedWorkingDays: precomputed.passedWorkingDays, holidayDates: teacherHolidayDates,
+        contractStart: t.contract_start, contractEnd: t.contract_end, windowFraction: progress.windowFraction,
+        totalWorkingDays: progress.totalWorkingDays, progressRatio: progress.progressRatio, todayStr: today });
+      expectedYearly = jt.expectedYearly;
+      progressTarget = jt.progressTarget;
 
-      var hoursPerWorkingDay = progress.totalWorkingDays > 0
-        ? expectedYearly / progress.totalWorkingDays
-        : 0;
       var medicalHours = 0;
       userMedical.forEach(function(h) {
         // Cap medical range at cutoff date
         var medStart = h.start_date > yearStart ? h.start_date : yearStart;
         var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
         if (medStart <= medEnd) {
-          var days = countWorkingDays(medStart, medEnd, schoolHolidayDates);
-          medicalHours += days * hoursPerWorkingDay;
+          medicalHours += jt.creditForRange(medStart, medEnd, schoolHolidayDates);
         }
       });
       medicalHours = Math.round(medicalHours * 100) / 100;
@@ -1199,8 +1519,8 @@ async function loadTeachersTable() {
 
       // Progress percent using Code.js formula.
       // expectedToDate (displayed) uses the nominal target; the % uses progressTarget.
-      var expectedToDate = expectedYearly * progress.progressRatio;
-      var progressDenom = progressTarget * progress.progressRatio;
+      var expectedToDate = jt.expectedToDate;
+      var progressDenom = jt.progressDenom;
       var progressPercent = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
       progressPercent = Math.round(progressPercent);
 
@@ -1229,8 +1549,7 @@ async function loadTeachersTable() {
         var overlapStart = h.start_date > periodRange.start ? h.start_date : periodRange.start;
         var overlapEnd = h.end_date < periodRange.end ? h.end_date : periodRange.end;
         if (overlapStart <= overlapEnd) {
-          var days = countWorkingDays(overlapStart, overlapEnd, schoolHolidayDates);
-          periodMedicalHours += days * hoursPerWorkingDay;
+          periodMedicalHours += jt.creditForRange(overlapStart, overlapEnd, schoolHolidayDates);
         }
       });
       periodMedicalHours = Math.round(periodMedicalHours * 10) / 10;
@@ -1272,16 +1591,15 @@ async function loadTeachersTable() {
 
       // Weekly view: progress relative to THIS period's expected hours (not year-to-date).
       // Expected = working days in the period (up to cutoff, excl. school + teacher holidays)
-      // × hoursPerWorkingDay. Monthly view keeps the annual progress.
+      // × that day's hours per working day (jornada segment). Monthly view keeps the annual progress.
       var dispPercent = progressPercent, dispExpected = expectedToDate, dispStatus = status;
       if (viewMode === 'weekly') {
         var periodHolidaySet = new Set(schoolHolidayDates);
         teacherHolidayDates.forEach(function(dt) { periodHolidaySet.add(dt); });
-        var periodWorkingDays = countWorkingDays(periodRange.start, cutoffDate, periodHolidaySet);
-        var weekExpected = Math.round(periodWorkingDays * hoursPerWorkingDay * 10) / 10;
         // Displayed "h esp" stays at the nominal rate; the % uses the progress-target rate.
-        var weekDenomRate = progress.totalWorkingDays > 0 ? progressTarget / progress.totalWorkingDays : 0;
-        var weekDenom = periodWorkingDays * weekDenomRate;
+        var pe = jt.periodExpected(periodRange.start, cutoffDate, periodHolidaySet);
+        var weekExpected = Math.round(pe.expected * 10) / 10;
+        var weekDenom = pe.denom;
         var weekPercent = weekDenom > 0 ? Math.round((adjustedPeriodHours / weekDenom) * 100) : 100;
         dispPercent = weekPercent; dispExpected = weekExpected; dispStatus = getProgressStatus(weekPercent);
       }
@@ -1297,8 +1615,7 @@ async function loadTeachersTable() {
         '</div></td>' +
         '<td style="font-size:12px;white-space:nowrap"><span class="' + prepColor + '" style="font-weight:600">' + prepTimeTotal + 'h</span><span style="color:var(--gray-400)"> / ' + prepTimeYearly + 'h</span>' +
           (prepWeeksLogged.size > 0 ? '<div style="font-size:10px;color:var(--gray-400);margin-top:2px">' + prepWeeksLogged.size + ' sem</div>' : '') + '</td>' +
-        '<td>' + nominalYearly + 'h' +
-          contractPeriodNote(t.contract_start, t.contract_end, expectedYearly) + '</td>' +
+        '<td>' + esperadoCellHtml(t, nominalYearly, jt, segs, false) + '</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + t.id + '\',\'' + t.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -1381,6 +1698,8 @@ async function loadAdminWorkersTable() {
       cachedPaidHours = phRes.data || [];
     }
 
+    var segMap = await getJornadaSegments();
+
     // Pre-compute working days for the year using cutoff date
     var precomputed = precomputeWorkingDaysForYear(schoolHolidayDates, cutoffDate);
 
@@ -1419,18 +1738,21 @@ async function loadAdminWorkersTable() {
       var teacherHolidayDates = buildTeacherHolidayDates(cachedHolidays, a.id);
       var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
       var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, a.contract_start, a.contract_end);
-      // Mid-year joiner: scale the yearly targets down to their employment window
-      expectedYearly = expectedYearly * progress.windowFraction;
-      progressTarget = progressTarget * progress.windowFraction;
+      // Targets per jornada segment (rate × share of working days), within the employment window
+      var segs = segMap[a.id] || [];
+      var jt = computeJornadaTargets({ profile: a, segments: segs, fallback: ADMIN_DEFAULTS.EXPECTED_YEARLY_HOURS,
+        allWorkingDays: precomputed.allWorkingDays, passedWorkingDays: precomputed.passedWorkingDays, holidayDates: teacherHolidayDates,
+        contractStart: a.contract_start, contractEnd: a.contract_end, windowFraction: progress.windowFraction,
+        totalWorkingDays: progress.totalWorkingDays, progressRatio: progress.progressRatio, todayStr: today });
+      expectedYearly = jt.expectedYearly;
+      progressTarget = jt.progressTarget;
 
-      var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
       var medicalHours = 0;
       userMedical.forEach(function(h) {
         var medStart = h.start_date > yearStart ? h.start_date : yearStart;
         var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
         if (medStart <= medEnd) {
-          var days = countWorkingDays(medStart, medEnd, schoolHolidayDates);
-          medicalHours += days * hoursPerWorkingDay;
+          medicalHours += jt.creditForRange(medStart, medEnd, schoolHolidayDates);
         }
       });
       medicalHours = Math.round(medicalHours * 100) / 100;
@@ -1460,8 +1782,8 @@ async function loadAdminWorkersTable() {
 
       // Progress using Code.js formula.
       // expectedToDate (displayed) uses the nominal target; the % uses progressTarget.
-      var expectedToDate = expectedYearly * progress.progressRatio;
-      var progressDenom = progressTarget * progress.progressRatio;
+      var expectedToDate = jt.expectedToDate;
+      var progressDenom = jt.progressDenom;
       var progressPercent = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
       progressPercent = Math.round(progressPercent);
 
@@ -1474,8 +1796,7 @@ async function loadAdminWorkersTable() {
         var overlapStart = h.start_date > periodRange.start ? h.start_date : periodRange.start;
         var overlapEnd = h.end_date < periodRange.end ? h.end_date : periodRange.end;
         if (overlapStart <= overlapEnd) {
-          var days = countWorkingDays(overlapStart, overlapEnd, schoolHolidayDates);
-          periodMedicalHours += days * hoursPerWorkingDay;
+          periodMedicalHours += jt.creditForRange(overlapStart, overlapEnd, schoolHolidayDates);
         }
       });
       periodMedicalHours = Math.round(periodMedicalHours * 10) / 10;
@@ -1519,11 +1840,10 @@ async function loadAdminWorkersTable() {
       if (viewMode === 'weekly') {
         var periodHolidaySet = new Set(schoolHolidayDates);
         teacherHolidayDates.forEach(function(dt) { periodHolidaySet.add(dt); });
-        var periodWorkingDays = countWorkingDays(periodRange.start, cutoffDate, periodHolidaySet);
-        var weekExpected = Math.round(periodWorkingDays * hoursPerWorkingDay * 10) / 10;
         // Displayed "h esp" stays at the nominal rate; the % uses the progress-target rate.
-        var weekDenomRate = progress.totalWorkingDays > 0 ? progressTarget / progress.totalWorkingDays : 0;
-        var weekDenom = periodWorkingDays * weekDenomRate;
+        var pe = jt.periodExpected(periodRange.start, cutoffDate, periodHolidaySet);
+        var weekExpected = Math.round(pe.expected * 10) / 10;
+        var weekDenom = pe.denom;
         var weekPercent = weekDenom > 0 ? Math.round((adjustedPeriodHours / weekDenom) * 100) : 100;
         dispPercent = weekPercent; dispExpected = weekExpected; dispStatus = getProgressStatus(weekPercent);
       }
@@ -1537,8 +1857,7 @@ async function loadAdminWorkersTable() {
           '<div class="progress-bar-wrapper"><div class="progress-bar ' + dispStatus + '" style="width:' + Math.min(dispPercent, 100) + '%"></div></div>' +
           '<div class="progress-text"><span class="progress-percent ' + dispStatus + '">' + dispPercent.toFixed(0) + '%</span><span style="color:#94a3b8;font-size:11px">' + Math.round(dispExpected) + 'h esp</span></div>' +
         '</div></td>' +
-        '<td>' + nominalYearly + 'h' +
-          contractPeriodNote(a.contract_start, a.contract_end, expectedYearly) + '</td>' +
+        '<td>' + esperadoCellHtml(a, nominalYearly, jt, segs, true) + '</td>' +
         '<td onclick="event.stopPropagation()"><button class="view-btn" onclick="openCalendarModal(\'' + a.id + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">📅 Calendario</button></td>' +
       '</tr>';
     });
@@ -2046,6 +2365,7 @@ async function confirmDeletePunchAdmin(punchId, dateStr) {
 async function openEditTeacherModal(userId) {
   var { data: profile, error } = await db.from('profiles').select('*').eq('id', userId).single();
   if (error || !profile) { showToast('Error al cargar perfil', 'error'); return; }
+  if (!(await loadJornadaEdit('editTeacher', userId))) return;
 
   var html = '<div style="margin-bottom:20px">' +
     '<div class="teacher-name" style="font-size:20px">' + profile.name + '</div>' +
@@ -2068,7 +2388,11 @@ async function openEditTeacherModal(userId) {
         '<div class="form-hint" style="margin-top:6px">100% = ' + DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
     '</div>' +
+    '<div class="form-hint" id="editSegTopHint" style="margin-top:6px;font-weight:600;color:#64748b"></div>' +
   '</div>';
+
+  // Jornada changes during the year
+  html += jornadaSectionHtml('editTeacher');
 
   // Contract period (optional) — prorates expected hours for partial-year staff
   html += '<div class="settings-section">' +
@@ -2137,6 +2461,8 @@ async function openEditTeacherModal(userId) {
   '</div>';
 
   openModal('⚙️ Configuración de Profesor', html);
+  renderJornadaSegments('editTeacher');
+  refreshJornadaTopFields('editTeacher');
 }
 
 async function saveTeacherSettings(userId) {
@@ -2157,12 +2483,18 @@ async function saveTeacherSettings(userId) {
     return;
   }
 
+  // Jornada changes first (the RPC owns expected_yearly_hours while there are segments)
+  var js = await saveJornadaIfChanged('editTeacher', userId, updates.contract_start, updates.contract_end);
+  if (!js.ok) return;
+  if (js.hasSegments) delete updates.expected_yearly_hours;
+
   var { error } = await db.from('profiles').update(updates).eq('id', userId);
   if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
   showToast('Configuración guardada', 'success');
   closeModal();
   cachedTeachers = null;
   cachedPunches = null;
+  cachedJornadaSegments = null;
   await loadTeachersTable();
 }
 
@@ -2198,6 +2530,7 @@ async function confirmDeactivate(userId, type) {
 async function openEditAdminModal(userId) {
   var { data: profile, error } = await db.from('profiles').select('*').eq('id', userId).single();
   if (error || !profile) { showToast('Error al cargar perfil', 'error'); return; }
+  if (!(await loadJornadaEdit('editAdmin', userId))) return;
 
   var roleBadge = profile.role === 'super_admin' ? '<span class="type-badge super_admin">Super Admin</span>' : '<span class="type-badge admin">Admin</span>';
 
@@ -2222,7 +2555,11 @@ async function openEditAdminModal(userId) {
         '<div class="form-hint" style="margin-top:6px">100% = ' + ADMIN_DEFAULTS.FULLTIME_YEARLY_HOURS + 'h/año</div>' +
       '</div>' +
     '</div>' +
+    '<div class="form-hint" id="editAdminSegTopHint" style="margin-top:6px;font-weight:600;color:#64748b"></div>' +
   '</div>';
+
+  // Jornada changes during the year
+  html += jornadaSectionHtml('editAdmin');
 
   // Contract period (optional) — prorates expected hours for partial-year staff
   html += '<div class="settings-section">' +
@@ -2279,6 +2616,8 @@ async function openEditAdminModal(userId) {
   '</div>';
 
   openModal('⚙️ Configuración de Admin', html);
+  renderJornadaSegments('editAdmin');
+  refreshJornadaTopFields('editAdmin');
 }
 
 async function saveAdminSettings(userId) {
@@ -2298,12 +2637,18 @@ async function saveAdminSettings(userId) {
     return;
   }
 
+  // Jornada changes first (the RPC owns expected_yearly_hours while there are segments)
+  var js = await saveJornadaIfChanged('editAdmin', userId, updates.contract_start, updates.contract_end);
+  if (!js.ok) return;
+  if (js.hasSegments) delete updates.expected_yearly_hours;
+
   var { error } = await db.from('profiles').update(updates).eq('id', userId);
   if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
   showToast('Configuración guardada', 'success');
   closeModal();
   cachedAdmins = null;
   cachedPunches = null;
+  cachedJornadaSegments = null;
   await loadAdminWorkersTable();
 }
 
@@ -3825,6 +4170,13 @@ async function exportCSV() {
   var allHolidays = allHolidayRes.data || [];
   var approvedHolidays = allHolidays.filter(function(h) { return h.status === 'Approved'; });
   var paidHours = cachedPaidHours || [];
+  var segMap;
+  try {
+    segMap = await getJornadaSegments();
+  } catch (err) {
+    showToast('Error al cargar los cambios de jornada', 'error');
+    return;
+  }
 
   // Build HTML table
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">' +
@@ -3881,17 +4233,20 @@ async function exportCSV() {
     var teacherHolidayDates = buildTeacherHolidayDates(approvedHolidays, p.id);
     var allocatedDays = Math.max(0, annualDays - 3) + personalDays + schoolDays;
     var progress = getTeacherProgress(precomputed, teacherHolidayDates, allocatedDays, p.contract_start, p.contract_end);
-    // Mid-year joiner: scale the yearly targets down to their employment window
-    expectedYearly = expectedYearly * progress.windowFraction;
-    progressTarget = progressTarget * progress.windowFraction;
-    var hoursPerWorkingDay = progress.totalWorkingDays > 0 ? expectedYearly / progress.totalWorkingDays : 0;
+    // Targets per jornada segment (rate × share of working days), within the employment window
+    var jt = computeJornadaTargets({ profile: p, segments: segMap[p.id] || [], fallback: defaults.EXPECTED_YEARLY_HOURS,
+      allWorkingDays: precomputed.allWorkingDays, passedWorkingDays: precomputed.passedWorkingDays, holidayDates: teacherHolidayDates,
+      contractStart: p.contract_start, contractEnd: p.contract_end, windowFraction: progress.windowFraction,
+      totalWorkingDays: progress.totalWorkingDays, progressRatio: progress.progressRatio, todayStr: today });
+    expectedYearly = jt.expectedYearly;
+    progressTarget = jt.progressTarget;
 
     var userMedical = approvedHolidays.filter(function(h) { return h.user_id === p.id && h.type === 'Medical'; });
     var medicalHours = 0;
     userMedical.forEach(function(h) {
       var medStart = h.start_date > yearStart ? h.start_date : yearStart;
       var medEnd = h.end_date < cutoffDate ? h.end_date : cutoffDate;
-      if (medStart <= medEnd) medicalHours += countWorkingDays(medStart, medEnd, schoolHolidayDates) * hoursPerWorkingDay;
+      if (medStart <= medEnd) medicalHours += jt.creditForRange(medStart, medEnd, schoolHolidayDates);
     });
 
     // Hours-based paid absences credited as worked (same as the dashboard total):
@@ -3912,7 +4267,7 @@ async function exportCSV() {
     userMedical.forEach(function(h) {
       var oS = h.start_date > periodRange.start ? h.start_date : periodRange.start;
       var oE = h.end_date < periodRange.end ? h.end_date : periodRange.end;
-      if (oS <= oE) periodMedicalHours += countWorkingDays(oS, oE, schoolHolidayDates) * hoursPerWorkingDay;
+      if (oS <= oE) periodMedicalHours += jt.creditForRange(oS, oE, schoolHolidayDates);
     });
     var periodMedApptHours = 0, periodPermisoHours = 0;
     approvedHolidays.filter(function(h) { return h.user_id === p.id && (h.type === 'MedAppt' || h.type === 'Permiso'); }).forEach(function(h) {
@@ -3930,8 +4285,8 @@ async function exportCSV() {
     var adjustedPeriod = periodHours - periodPaidHours + periodMedicalHours + periodMedApptHours + periodPermisoHours;
 
     var totalHours = yearlyHours - paidTotal + medicalHours + medApptHours + permisoHours;
-    var expectedToDate = expectedYearly * progress.progressRatio;
-    var progressDenom = progressTarget * progress.progressRatio;
+    var expectedToDate = jt.expectedToDate;
+    var progressDenom = jt.progressDenom;
     var pct = progressDenom > 0 ? (totalHours / progressDenom) * 100 : 0;
     var pctClass = pct >= 98 ? 'on-track' : pct >= 80 ? 'warning' : 'behind';
 
@@ -3962,7 +4317,7 @@ async function exportCSV() {
       '<td class="' + rc + ' num">' + paidTotal.toFixed(2) + '</td>' +
       '<td class="' + rc + ' num">' + (medicalHours > 0 ? medicalHours.toFixed(2) : '') + '</td>' +
       '<td class="' + rc + ' num ' + pctClass + '">' + pct.toFixed(1) + '%</td>' +
-      '<td class="' + rc + ' num">' + nominalYearly + '</td>' +
+      '<td class="' + rc + ' num">' + (jt.hasSegments ? jt.currentRate : nominalYearly) + '</td>' +
       '<td class="' + rc + ' num">' + (prepTotal > 0 ? prepTotal : (isAdmin ? '-' : '0')) + '</td>' +
       '<td class="' + rc + ' num">' + (au || '') + '</td><td class="' + rc + ' num">' + annualDays + '</td>' +
       '<td class="' + rc + ' num">' + (pu2 || '') + '</td><td class="' + rc + ' num">' + personalDays + '</td>' +

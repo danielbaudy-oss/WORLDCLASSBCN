@@ -94,3 +94,189 @@ function progressTargetHours(profile, fallback) {
   var adj = (profile && parseFloat(profile.hours_adjustment)) || 0;
   return nominal + adj;
 }
+
+// ========================================
+// JORNADA SEGMENTS ("cambios de jornada")
+// ========================================
+// jornada_segments rows: from valid_from on, the person's FULL-YEAR rate is yearly_hours.
+// Days before the earliest row use the earliest row's rate. No rows = the single
+// profiles.expected_yearly_hours rate, computed with exactly the previous expressions.
+
+function _jornadaFmt(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// segments: ONE person's rows sorted by valid_from asc (non-empty).
+function jornadaRateOn(segments, dateStr) {
+  var r = segments[0].yearly_hours;
+  for (var i = 0; i < segments.length; i++) {
+    if (segments[i].valid_from <= dateStr) r = segments[i].yearly_hours;
+  }
+  return r;
+}
+
+function _jornadaSegIndex(segments, dateStr) {
+  var k = 0;
+  for (var i = 0; i < segments.length; i++) {
+    if (segments[i].valid_from <= dateStr) k = i;
+  }
+  return k;
+}
+
+// Calls fn(dateStr) for every weekday in [start, end] not in excludeSet.
+function _jornadaEachWeekday(start, end, excludeSet, fn) {
+  var cur = new Date(start + 'T12:00:00');
+  var last = new Date(end + 'T12:00:00');
+  while (cur <= last) {
+    var dow = cur.getDay();
+    var ds = _jornadaFmt(cur);
+    if (dow !== 0 && dow !== 6 && !(excludeSet && excludeSet.has(ds))) fn(ds);
+    cur.setDate(cur.getDate() + 1);
+  }
+}
+
+// Expected-hours targets for one person, using the rate in force on each working day.
+// o = { profile, segments, fallback, allWorkingDays, passedWorkingDays, holidayDates,
+//       contractStart, contractEnd, windowFraction, totalWorkingDays, progressRatio, todayStr }
+// (windowFraction / totalWorkingDays / progressRatio come from getTeacherProgress or its mirror.)
+function computeJornadaTargets(o) {
+  var profile = o.profile;
+  var segments = o.segments || [];
+  var wf = o.windowFraction;
+  var T = o.totalWorkingDays;
+  var adj = (profile && parseFloat(profile.hours_adjustment)) || 0;
+  var cs = o.contractStart || null, ce = o.contractEnd || null;
+  var outside = function(d) { return (cs && d < cs) || (ce && d > ce); };
+  var hasSegments = segments.length > 0;
+
+  // Per-segment in-window working days (cnt) and of those, passed (raw).
+  var cnt = [], raw = [], i;
+  for (i = 0; i < segments.length; i++) { cnt.push(0); raw.push(0); }
+  var usedIdx = {}, usedCount = 0, lastIdx = -1;
+  if (hasSegments) {
+    o.allWorkingDays.forEach(function(ds) {
+      if (outside(ds)) return;
+      var k = _jornadaSegIndex(segments, ds);
+      cnt[k]++;
+      if (o.passedWorkingDays.has(ds)) raw[k]++;
+      if (!usedIdx[k]) { usedIdx[k] = true; usedCount++; }
+      lastIdx = k;
+    });
+  }
+
+  var changes = [];
+  var year = String(o.todayStr).substring(0, 4);
+  for (i = 1; i < segments.length; i++) {
+    if (String(segments[i].valid_from).substring(0, 4) === year &&
+        segments[i].yearly_hours !== segments[i - 1].yearly_hours) {
+      changes.push({ date: segments[i].valid_from, fromHours: segments[i - 1].yearly_hours, toHours: segments[i].yearly_hours });
+    }
+  }
+  var currentRate = hasSegments ? jornadaRateOn(segments, o.todayStr) : ((profile && profile.expected_yearly_hours) || o.fallback);
+
+  // Flat path: no segments, or every in-window working day in one segment. Same expressions,
+  // same order as before this feature, so unchanged people get bit-identical numbers.
+  if (!hasSegments || usedCount <= 1) {
+    var nominal, progressTarget;
+    if (!hasSegments) {
+      nominal = (profile && profile.expected_yearly_hours) || o.fallback;
+      progressTarget = progressTargetHours(profile, o.fallback) * wf;
+    } else {
+      nominal = usedCount === 1 ? segments[lastIdx].yearly_hours : jornadaRateOn(segments, o.todayStr);
+      progressTarget = (nominal + adj) * wf;
+    }
+    var expectedYearly = nominal * wf;
+    var hpd = T > 0 ? expectedYearly / T : 0;
+    var denomRate = T > 0 ? progressTarget / T : 0;
+    return {
+      hasSegments: hasSegments,
+      currentRate: currentRate,
+      expectedYearly: expectedYearly,
+      progressTarget: progressTarget,
+      expectedToDate: expectedYearly * o.progressRatio,
+      progressDenom: progressTarget * o.progressRatio,
+      hoursPerDayOn: function() { return hpd; },
+      denomPerDayOn: function() { return denomRate; },
+      creditForRange: function(start, end, schoolHolidayDates) {
+        var n = 0;
+        _jornadaEachWeekday(start, end, schoolHolidayDates, function() { n++; });
+        return n * hpd;
+      },
+      periodExpected: function(start, end, excludeSet) {
+        var n = 0;
+        _jornadaEachWeekday(start, end, excludeSet, function() { n++; });
+        return { expected: n * hpd, denom: n * denomRate };
+      },
+      changes: changes
+    };
+  }
+
+  // Segment path.
+  var F = o.allWorkingDays.size;
+  var segYearly = 0;
+  for (i = 0; i < segments.length; i++) segYearly += segments[i].yearly_hours * cnt[i] / F;
+  var segTarget = segYearly + adj * wf;
+  var taken = 0;
+  if (o.holidayDates) {
+    o.holidayDates.forEach(function(ds) {
+      if (outside(ds)) return;
+      if (o.allWorkingDays.has(ds) && o.passedWorkingDays.has(ds)) taken++;
+    });
+  }
+  var hpdK = [], denomK = [];
+  for (i = 0; i < segments.length; i++) {
+    hpdK.push(T > 0 ? segments[i].yearly_hours * wf / T : 0);
+    denomK.push(T > 0 ? (segments[i].yearly_hours + adj) * wf / T : 0);
+  }
+  var expToDate = 0, denomToDate = 0;
+  if (T > 0) {
+    for (i = 0; i < segments.length; i++) {
+      expToDate += hpdK[i] * raw[i];
+      denomToDate += denomK[i] * raw[i];
+    }
+    expToDate = Math.max(0, expToDate - taken * (segYearly / T));
+    denomToDate = Math.max(0, denomToDate - taken * (segTarget / T));
+  }
+  var hpdOn = function(ds) { return hpdK[_jornadaSegIndex(segments, ds)]; };
+  var denomOn = function(ds) { return denomK[_jornadaSegIndex(segments, ds)]; };
+  return {
+    hasSegments: true,
+    currentRate: currentRate,
+    expectedYearly: segYearly,
+    progressTarget: segTarget,
+    expectedToDate: expToDate,
+    progressDenom: denomToDate,
+    hoursPerDayOn: hpdOn,
+    denomPerDayOn: denomOn,
+    creditForRange: function(start, end, schoolHolidayDates) {
+      var s = 0;
+      _jornadaEachWeekday(start, end, schoolHolidayDates, function(ds) { s += hpdOn(ds); });
+      return s;
+    },
+    periodExpected: function(start, end, excludeSet) {
+      var e = 0, dn = 0;
+      _jornadaEachWeekday(start, end, excludeSet, function(ds) { e += hpdOn(ds); dn += denomOn(ds); });
+      return { expected: e, denom: dn };
+    },
+    changes: changes
+  };
+}
+
+// "% de jornada" label for a full-year rate (same rounding as the settings modal).
+function jornadaPctLabel(hours, isAdmin) {
+  var base = (isAdmin ? ADMIN_DEFAULTS : DEFAULTS).FULLTIME_YEARLY_HOURS;
+  return (Math.round(hours / base * 1000) / 10) + '%';
+}
+
+// rows (any order, several people) -> { profile_id: [rows sorted by valid_from] }
+function jornadaSegmentsByProfile(rows) {
+  var map = {};
+  (rows || []).forEach(function(r) {
+    if (!map[r.profile_id]) map[r.profile_id] = [];
+    map[r.profile_id].push(r);
+  });
+  Object.keys(map).forEach(function(k) {
+    map[k].sort(function(a, b) { return a.valid_from < b.valid_from ? -1 : (a.valid_from > b.valid_from ? 1 : 0); });
+  });
+  return map;
+}

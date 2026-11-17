@@ -1048,18 +1048,17 @@ async function loadProgress() {
     return (contractStart && d < contractStart) || (contractEnd && d > contractEnd);
   };
   var windowFraction = 1;
+  var fullAllCount = allCount;
   if (contractStart || contractEnd) {
     var outAll = 0, outPassed = 0;
     allWD.forEach(function(d) { if (outsideContract(d)) outAll++; });
     passedWD.forEach(function(d) { if (outsideContract(d)) outPassed++; });
-    var fullAllCount = allCount;
     allCount = Math.max(0, allCount - outAll);
     passedCount = Math.max(0, passedCount - outPassed);
     windowFraction = fullAllCount > 0 ? allCount / fullAllCount : 1;
     // allocatedDays is NOT prorated here — the stored leave days are already the real
     // entitlement for this contract period (prorated in the admin settings modal).
-    expectedYearly = expectedYearly * windowFraction;
-    progressTarget = progressTarget * windowFraction;
+    // The yearly targets are prorated to the window below (computeJornadaTargets).
   }
 
   var holidaysTakenOnPassed = 0;
@@ -1072,21 +1071,24 @@ async function loadProgress() {
   var passedWorkingDays = Math.max(0, passedCount - holidaysTakenOnPassed);
   var progressRatio = totalWorkingDays > 0 ? passedWorkingDays / totalWorkingDays : 0;
 
-  // Medical hours
-  var hoursPerWorkingDay = totalWorkingDays > 0 ? expectedYearly / totalWorkingDays : 0;
+  // Jornada changes during the year (own rows only, via RLS)
+  const segRes = await db.from('jornada_segments').select('valid_from, yearly_hours')
+    .eq('profile_id', currentProfile.id).order('valid_from');
+  if (segRes.error) throw segRes.error;
+  var jt = computeJornadaTargets({ profile: currentProfile, segments: segRes.data || [], fallback: DEFAULTS.EXPECTED_YEARLY_HOURS,
+    allWorkingDays: allWD, passedWorkingDays: passedWD, holidayDates: teacherHolidayDates,
+    contractStart: contractStart, contractEnd: contractEnd, windowFraction: windowFraction,
+    totalWorkingDays: totalWorkingDays, progressRatio: progressRatio, todayStr: today });
+  expectedYearly = jt.expectedYearly;
+  progressTarget = jt.progressTarget;
+
+  // Medical hours (each baja day credited at its segment's rate)
   var medicalHours = 0;
   (holidays || []).filter(function(h) { return h.type === 'Medical'; }).forEach(function(h) {
     var mStart = h.start_date > yearStart ? h.start_date : yearStart;
     var mEnd = h.end_date < today ? h.end_date : today;
     if (mStart <= mEnd) {
-      var c = new Date(mStart + 'T12:00:00'), e = new Date(mEnd + 'T12:00:00'), days = 0;
-      while (c <= e) {
-        var d = c.getDay();
-        var dStr = c.getFullYear() + '-' + String(c.getMonth() + 1).padStart(2, '0') + '-' + String(c.getDate()).padStart(2, '0');
-        if (d !== 0 && d !== 6 && !schoolHolidayDates.has(dStr)) days++;
-        c.setDate(c.getDate() + 1);
-      }
-      medicalHours += days * hoursPerWorkingDay;
+      medicalHours += jt.creditForRange(mStart, mEnd, schoolHolidayDates);
     }
   });
 
@@ -1101,9 +1103,9 @@ async function loadProgress() {
     .reduce(function(s, h){ return s + (parseFloat(h.days) || 0); }, 0);
 
   var adjustedTotal = totalHours - paidTotal + medicalHours + medApptHours + permisoHours;
-  var expectedToDate = expectedYearly * progressRatio;
+  var expectedToDate = jt.expectedToDate;
   // Percentage measured against the (possibly softened) progress target
-  var progressDenom = progressTarget * progressRatio;
+  var progressDenom = jt.progressDenom;
   var percent = progressDenom > 0 ? (adjustedTotal / progressDenom) * 100 : 0;
 
   const progressBar = document.getElementById('progressBar');
