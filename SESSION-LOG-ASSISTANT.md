@@ -2700,3 +2700,9 @@ person for shared-account activity. Pick these up if the punch data ever goes to
 - Example: VERÓNICA Aug 2026 now "8.0h (💰 10.0h pagadas)" (was -2.0h); Horas Totales in the Aug view 249.0h (💰 65.0h pagadas) (was 184.0h). JOAN Aug 36.0h, no bracket.
 - Deliberately unchanged: progress %, progress bar, "h esp", status colours and the weekly % (they still use the net `totalHours` / `adjustedPeriodHours`); stats card "Horas en <mes>" (`loadStatsGrid`) and the Excel export ("H. Periodo", "H. Totales") still show net worked - paid figures; teacher page (js/teacher.js) untouched. No column sorting exists in these tables.
 - Cache version 20261023b -> 20261117a in index/teacher/admin.html.
+### 2026-11-17: Admin overview: paid hours moved into the Pagadas column
+- Daniel didn't like the brackets. Removed the grey `(💰 X.Xh pagadas)` sub-line from "Horas Mes/Semana" and "Horas Totales" in both tables (js/admin.js `loadTeachersTable` + `loadAdminWorkersTable`). Gross figures and the "incl. 🏥/⚕️/📋" sub-line unchanged.
+- "Pagadas" cell now: main line `Mes: X.Xh` (`Semana: X.Xh` in weekly view; same `periodPaidHours` sum, paid_hours dated in the period) + grey sub-line `Total: X.Xh` (same `paidTotal` as before). No paid hours at all -> unchanged `0.0h`. Total > 0 but none in period -> `Mes: 0.0h` + Total.
+- Example: VERÓNICA Aug 2026: Horas Mes 8.0h, Pagadas "Mes: 10.0h" / "Total: 65.0h". JOAN: Pagadas 0.0h.
+- Unchanged: progress %, bar, h esp, status colours, stats card, Excel export, js/teacher.js. No column sorting.
+- Deployed js/admin.js -> js/, index/teacher/admin.html -> repo root. Cache version 20261117a -> 20261117b.
